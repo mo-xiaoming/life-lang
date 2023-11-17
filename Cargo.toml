@@ -1,8 +1,28 @@
 [package]
-name = "CHANGE-THIS"
+name = "life-lang"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+unicode-segmentation = "1.10"
+smol_str = "0.2"
+
+[profile.dev.build-override]
+debug = true
+
+[lints.rust]
+#future-incompatible = "warn"
+#let-underscore = "warn"
+#nonstandard-style = "warn"
+#rust-2018-compatibility = "warn"
+#rust-2018-idioms = "warn"
+#rust-2021-compatibility = "warn"
+#unused = "warn"
+
+[lints.clippy]
+#pedantic = "warn"
+#nursery = "warn"
+#cargo = "warn"
+#restriction = "warn"

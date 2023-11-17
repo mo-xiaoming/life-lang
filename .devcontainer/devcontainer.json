@@ -1,7 +1,5 @@
 {
-	"build": {
-		"dockerfile": "Dockerfile"
-	},
+	"image": "moxiaoming/rust-dev:latest",
 	"customizations": {
 		"vscode": {
 			"extensions": [
