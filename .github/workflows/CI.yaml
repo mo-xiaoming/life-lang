@@ -38,30 +38,30 @@ jobs:
         uses: taiki-e/install-action@nextest
       - name: rust-clippy
         run: |
-          #cargo clippy --all-targets --no-deps -- -D warnings
           cargo clippy --all-targets --all-features -- -D warnings
       - name: cargo-fmt
         run: cargo fmt --all -- --check 
       - name: cargo test
         run: |
-          cargo nextest run --release --all-targets --workspace
+          cargo test           --all-targets --workspace
+          cargo test --release --all-targets --workspace
           cargo test           --doc --workspace
           cargo test --release --doc --workspace
       - name: Generating documents
         env:
           RUSTDOCFLAGS: --cfg docsrs
         run: cargo doc --no-deps
-      #- name: Install cargo-llvm-cov
-      #  if: matrix.toolchain == 'stable'
-      #  uses: taiki-e/install-action@cargo-llvm-cov # needs rust 1.60+
-      #- name: llvm-cov
-      #  if: matrix.toolchain == 'stable'
-      #  run: |
-      #    cargo llvm-cov --tests --benches --examples --lib --fail-under-lines 80 --workspace
-      #- name: llvm-conv for Rust ${{ matrix.toolchain }}
-      #  if: matrix.toolchain == 'stable'
-      #  run: |
-      #    cargo llvm-cov --tests --benches --examples --lib --lcov --output-path lcov.info --workspace
+      - name: Install cargo-llvm-cov
+        if: matrix.toolchain == 'stable'
+        uses: taiki-e/install-action@cargo-llvm-cov # needs rust 1.60+
+      - name: llvm-cov
+        if: matrix.toolchain == 'stable'
+        run: |
+          cargo llvm-cov --tests --benches --examples --lib --fail-under-lines 75 --workspace
+      - name: llvm-conv for Rust ${{ matrix.toolchain }}
+        if: matrix.toolchain == 'stable'
+        run: |
+          cargo llvm-cov --tests --benches --examples --lib --lcov --output-path lcov.info --workspace
       #- name: Upload coverage to Codecov for Rust ${{ matrix.toolchain }}
       #  if: matrix.toolchain == 'stable'
       #  uses: codecov/codecov-action@v3
