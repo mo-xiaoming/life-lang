@@ -1,5 +1,5 @@
 [package]
-name = "life-lang"
+name = "life_lang"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,6 +8,9 @@ edition = "2021"
 [dependencies]
 unicode-segmentation = "1.10"
 smol_str = "0.2"
+uuid = { version = "1.6", features = ["v4"] }
+
+[dev-dependencies]
 
 [profile.dev.build-override]
 debug = true

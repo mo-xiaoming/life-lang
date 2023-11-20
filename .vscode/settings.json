@@ -1,5 +1,10 @@
 {
     "cSpell.words": [
         "Smol"
+    ],
+    "rust-analyzer.linkedProjects": [
+        "./Cargo.toml",
+        "./Cargo.toml",
+        "./Cargo.toml"
     ]
 }
