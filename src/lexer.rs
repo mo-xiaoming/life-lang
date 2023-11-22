@@ -61,17 +61,25 @@ impl CompilationUnit {
             .collect()
     }
 
-    fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
-        self.into_iter()
+    fn uc_iter(&self) -> CompilationUnitUCIter {
+        CompilationUnitUCIter {
+            iter: self.uc_content.iter(),
+        }
+    }
+
+    pub fn token_iter(&self) -> CompilationUnitTokenIter {
+        CompilationUnitTokenIter {
+            iter: self.uc_iter().peekable(),
+        }
     }
 }
 
 #[derive(Debug)]
-pub struct CompilationUnitIntoIter<'cu> {
+pub struct CompilationUnitUCIter<'cu> {
     iter: std::slice::Iter<'cu, UCChar>,
 }
 
-impl<'cu> Iterator for CompilationUnitIntoIter<'cu> {
+impl<'cu> Iterator for CompilationUnitUCIter<'cu> {
     type Item = &'cu UCChar;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -79,25 +87,62 @@ impl<'cu> Iterator for CompilationUnitIntoIter<'cu> {
     }
 }
 
-impl<'cu> IntoIterator for &'cu CompilationUnit {
-    type Item = <CompilationUnitIntoIter<'cu> as Iterator>::Item;
+#[derive(Debug)]
+pub struct CompilationUnitTokenIter<'cu> {
+    iter: std::iter::Peekable<CompilationUnitUCIter<'cu>>,
+}
 
-    type IntoIter = CompilationUnitIntoIter<'cu>;
+impl<'cu> Iterator for CompilationUnitTokenIter<'cu> {
+    type Item = Result<Token, LexError<'cu>>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        Self::IntoIter {
-            iter: self.uc_content.iter(),
+    fn next(&mut self) -> Option<Self::Item> {
+        fn uc_is_ascii_digit(uc: &UCChar) -> bool {
+            let s = uc.raw_str.as_str();
+            if s.len() != 1 {
+                return false;
+            }
+            let c = s.chars().next().unwrap();
+            c.is_ascii_digit()
+        }
+
+        loop {
+            match self.iter.next() {
+                Some(uc) if uc.raw_str.len() == 1 => {
+                    match uc.raw_str.as_str().chars().next().unwrap() {
+                        '+' => return Some(Ok(Token::from(TokenKind::Plus, uc))),
+                        '-' => return Some(Ok(Token::from(TokenKind::Dash, uc))),
+                        '*' => return Some(Ok(Token::from(TokenKind::Star, uc))),
+                        '/' => return Some(Ok(Token::from(TokenKind::Slash, uc))),
+                        '^' => return Some(Ok(Token::from(TokenKind::Caret, uc))),
+                        '(' => return Some(Ok(Token::from(TokenKind::LParen, uc))),
+                        ')' => return Some(Ok(Token::from(TokenKind::RParen, uc))),
+                        '1'..='9' => {
+                            return Some(Ok(std::iter::from_fn(|| {
+                                self.iter.by_ref().next_if(|&uc| uc_is_ascii_digit(uc))
+                            })
+                            .last()
+                            .map_or(Token::from(TokenKind::Int64, uc), |uc_end| {
+                                Token::from_range(TokenKind::Int64, uc, uc_end)
+                            })))
+                        }
+                        c if c.is_whitespace() => continue,
+                        _ => return Some(Err(LexError(uc))),
+                    }
+                }
+                Some(uc) => return Some(Err(LexError(uc))),
+                None => return None,
+            }
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, std::hash::Hash, Clone, Copy)]
 pub(crate) enum TokenKind {
     Int64,
 
     Plus,
     Dash,
-    Asterisk,
+    Star,
     Slash,
     Caret,
 
@@ -111,7 +156,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Int64 => write!(f, "Int64"),
             TokenKind::Plus => write!(f, "Plus"),
             TokenKind::Dash => write!(f, "Dash"),
-            TokenKind::Asterisk => write!(f, "Asterisk"),
+            TokenKind::Star => write!(f, "Asterisk"),
             TokenKind::Slash => write!(f, "Slash"),
             TokenKind::Caret => write!(f, "Caret"),
             TokenKind::LParen => write!(f, "LParen"),
@@ -130,7 +175,7 @@ struct TokenSpan {
 }
 
 #[derive(Debug)]
-pub(crate) struct Token {
+pub struct Token {
     kind: TokenKind,
     span: TokenSpan,
 }
@@ -172,7 +217,7 @@ impl Token {
 }
 
 #[derive(Debug)]
-pub(crate) struct LexError<'cu>(&'cu UCChar);
+pub struct LexError<'cu>(&'cu UCChar);
 
 impl<'cu> LexError<'cu> {
     pub(crate) fn to_string(&'cu self, uc: &'cu CompilationUnit) -> String {
@@ -182,61 +227,6 @@ impl<'cu> LexError<'cu> {
             self.0.raw_str,
             self.0.start_byte_offset
         )
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct Lexer<'cu> {
-    iter: std::iter::Peekable<<&'cu CompilationUnit as IntoIterator>::IntoIter>,
-}
-
-impl<'cu> Lexer<'cu> {
-    pub(crate) fn new(cu: &'cu CompilationUnit) -> Self {
-        Self {
-            iter: cu.iter().peekable(),
-        }
-    }
-
-    fn uc_is_ascii_digit(uc: &'cu UCChar) -> bool {
-        let s = uc.raw_str.as_str();
-        if s.len() != 1 {
-            return false;
-        }
-        let c = s.chars().next().unwrap();
-        c.is_ascii_digit()
-    }
-
-    pub(crate) fn next_token(&mut self) -> Option<Result<Token, LexError>> {
-        loop {
-            match self.iter.next() {
-                Some(uc) if uc.raw_str.len() == 1 => {
-                    match uc.raw_str.as_str().chars().next().unwrap() {
-                        '+' => return Some(Ok(Token::from(TokenKind::Plus, uc))),
-                        '-' => return Some(Ok(Token::from(TokenKind::Dash, uc))),
-                        '*' => return Some(Ok(Token::from(TokenKind::Asterisk, uc))),
-                        '/' => return Some(Ok(Token::from(TokenKind::Slash, uc))),
-                        '^' => return Some(Ok(Token::from(TokenKind::Caret, uc))),
-                        '(' => return Some(Ok(Token::from(TokenKind::LParen, uc))),
-                        ')' => return Some(Ok(Token::from(TokenKind::RParen, uc))),
-                        '1'..='9' => {
-                            return Some(Ok(std::iter::from_fn(|| {
-                                self.iter
-                                    .by_ref()
-                                    .next_if(|&uc| Self::uc_is_ascii_digit(uc))
-                            })
-                            .last()
-                            .map_or(Token::from(TokenKind::Int64, uc), |uc_end| {
-                                Token::from_range(TokenKind::Int64, uc, uc_end)
-                            })))
-                        }
-                        c if c.is_whitespace() => continue,
-                        _ => return Some(Err(LexError(uc))),
-                    }
-                }
-                Some(uc) => return Some(Err(LexError(uc))),
-                None => return None,
-            }
-        }
     }
 }
 
@@ -293,7 +283,7 @@ mod tests {
         f(&mut temp_file);
     }
 
-    fn test_from_file_worker(tf: &mut TempFile, content: &str, expected_length: usize) {
+    fn test_creating_cu_from_file_worker(tf: &mut TempFile, content: &str, expected_length: usize) {
         tf.write(content);
         let cu = CompilationUnit::from_file(&tf.path).unwrap();
         assert_eq!(cu.raw_content, content,);
@@ -301,27 +291,27 @@ mod tests {
     }
 
     #[test]
-    fn test_from_file_ascii() {
+    fn test_creating_cu_from_file_ascii() {
         with_temp_file(|tf| {
             const S: &str = "a de\n";
-            test_from_file_worker(tf, S, S.len());
+            test_creating_cu_from_file_worker(tf, S, S.len());
         });
     }
 
     #[test]
-    fn test_from_file_unicode() {
+    fn test_creating_cu_from_file_unicode() {
         with_temp_file(|tf| {
             const S: &str = "hi, 你好\n";
-            test_from_file_worker(tf, S, 7);
+            test_creating_cu_from_file_worker(tf, S, 7);
         });
     }
 
     #[test]
-    fn test_from_file_not_exists() {
+    fn test_creating_cu_from_file_not_exists() {
         assert!(CompilationUnit::from_file("non-exist").is_err());
     }
 
-    fn test_from_string_worker(content: &str, expected_length: usize) {
+    fn test_creating_cu_from_string_worker(content: &str, expected_length: usize) {
         const MARK: &str = "mark";
         let cu = CompilationUnit::from_string(MARK, content).unwrap();
         assert_eq!(cu.raw_content, content);
@@ -329,19 +319,19 @@ mod tests {
     }
 
     #[test]
-    fn test_from_string_ascii() {
+    fn test_creating_cu_from_string_ascii() {
         const S: &str = "a bc\n";
-        test_from_string_worker(S, S.len());
+        test_creating_cu_from_string_worker(S, S.len());
     }
 
     #[test]
-    fn test_from_string_unicode() {
+    fn test_creating_cu_from_string_unicode() {
         const S: &str = "hi, 你好\n";
-        test_from_string_worker(S, 7);
+        test_creating_cu_from_string_worker(S, 7);
     }
 
     #[test]
-    fn test_get_origin_from_file() {
+    fn test_get_cu_origin_from_file() {
         with_temp_file(|tf| {
             tf.write("abcefgh");
             let cu = CompilationUnit::from_file(&tf.path).unwrap();
@@ -350,13 +340,13 @@ mod tests {
     }
 
     #[test]
-    fn test_get_origin_from_string() {
+    fn test_get_cu_origin_from_string() {
         const MARK: &str = "mark";
         let cu = CompilationUnit::from_string(MARK, "abc").unwrap();
         assert_eq!(cu.get_origin(), MARK);
     }
 
-    fn test_token_from_worker(s: &str) {
+    fn test_token_span_created_by_uc_worker(s: &str) {
         let uc_char = UCChar {
             raw_str: SmolStr::from(s),
             start_byte_offset: 42,
@@ -371,19 +361,19 @@ mod tests {
     }
 
     #[test]
-    fn test_token_from_ascii() {
-        test_token_from_worker("5")
+    fn test_token_span_created_by_uc_has_ascii() {
+        test_token_span_created_by_uc_worker("5")
     }
 
     #[test]
-    fn test_token_from_unicode() {
-        test_token_from_worker("您")
+    fn test_token_span_created_by_uc_has_unicode() {
+        test_token_span_created_by_uc_worker("您")
     }
 
-    fn test_token_from_range_worker(s: &str) {
+    fn test_token_span_created_by_ucs_worker(s: &str) {
         let cu = CompilationUnit::from_string("mark", s).unwrap();
-        let ucs: Vec<&UCChar> = cu.iter().collect();
-        assert_eq!(ucs.len(), 2);
+        let ucs: Vec<&UCChar> = cu.uc_iter().collect();
+        assert_eq!(ucs.len(), 2, "{:?}", ucs);
         let token = Token::from_range(TokenKind::Int64, ucs[0], ucs[1]);
         assert_eq!(token.kind, TokenKind::Int64);
         assert_eq!(token.span.start.0, ucs[0].start_byte_offset);
@@ -394,13 +384,13 @@ mod tests {
     }
 
     #[test]
-    fn test_token_from_range_ascii() {
-        test_token_from_range_worker("12")
+    fn test_token_span_created_by_ucs_has_ascii() {
+        test_token_span_created_by_ucs_worker("12")
     }
 
     #[test]
-    fn test_token_from_range_unicode() {
-        test_token_from_range_worker("您好")
+    fn test_token_span_created_by_ucs_has_unicode() {
+        test_token_span_created_by_ucs_worker("您好")
     }
 
     fn test_token_from_string_worker(s: &str) {
@@ -441,5 +431,22 @@ mod tests {
     #[test]
     fn test_token_serialize_unicode() {
         test_token_serialize_worker("您")
+    }
+
+    #[test]
+    fn test_lexing_integer() {
+        let cu = CompilationUnit::from_string("mark", "  123 ").unwrap();
+        let tokens = cu.token_iter().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(tokens.len(), 1, "{:?}", tokens);
+        assert_eq!(tokens[0].kind, TokenKind::Int64);
+        assert_eq!(tokens[0].span.start.0, 2);
+        assert_eq!(tokens[0].span.end.0, 5);
+    }
+
+    #[test]
+    fn test_lexing_empty_content() {
+        let cu = CompilationUnit::from_string("mark", "").unwrap();
+        let tokens = cu.token_iter().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(tokens.len(), 0, "{:?}", tokens);
     }
 }

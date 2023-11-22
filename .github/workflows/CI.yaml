@@ -57,7 +57,7 @@ jobs:
       - name: llvm-cov
         if: matrix.toolchain == 'stable'
         run: |
-          cargo llvm-cov --tests --benches --examples --lib --fail-under-lines 75 --workspace
+          cargo llvm-cov --tests --benches --examples --lib --fail-under-lines 85 --workspace
       #- name: llvm-conv for Rust ${{ matrix.toolchain }}
       #  if: matrix.toolchain == 'stable'
       #  run: |
