@@ -165,18 +165,18 @@ impl std::fmt::Display for TokenKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct CompilationUnitRawIndex(usize);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct TokenSpan {
     start: CompilationUnitRawIndex,
     end: CompilationUnitRawIndex,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
-    kind: TokenKind,
+    pub(crate) kind: TokenKind,
     span: TokenSpan,
 }
 
@@ -207,17 +207,17 @@ impl Token {
         }
     }
 
-    fn to_string(&self, uc: &CompilationUnit) -> String {
-        uc.raw_content[self.span.start.0..self.span.end.0].to_string()
+    pub(crate) fn to_str<'cu>(&'cu self, cu: &'cu CompilationUnit) -> &str {
+        &cu.raw_content[self.span.start.0..self.span.end.0]
     }
 
     pub(crate) fn serialize(&self, uc: &CompilationUnit) -> String {
-        format!("{} {}", self.kind, self.to_string(uc))
+        format!("{} {}", self.kind, self.to_str(uc))
     }
 }
 
 #[derive(Debug)]
-pub struct LexError<'cu>(&'cu UCChar);
+pub struct LexError<'cu>(pub(crate) &'cu UCChar);
 
 impl<'cu> LexError<'cu> {
     pub(crate) fn to_string(&'cu self, uc: &'cu CompilationUnit) -> String {
@@ -393,44 +393,37 @@ mod tests {
         test_token_span_created_by_ucs_worker("您好")
     }
 
-    fn test_token_from_string_worker(s: &str) {
-        let cu = CompilationUnit::from_string("mark", s).unwrap();
+    fn test_token_to_string_alike_worker<F>(input: &str, f: F, result: &str)
+    where
+        F: for<'a> Fn(&'a Token, &'a CompilationUnit) -> String,
+    {
+        let cu = CompilationUnit::from_string("mark", input).unwrap();
         let uc_char = UCChar {
-            raw_str: SmolStr::from(s),
+            raw_str: SmolStr::from(input),
             start_byte_offset: 0,
         };
         let token = Token::from(TokenKind::Int64, &uc_char);
-        assert_eq!(token.to_string(&cu), s);
+        assert_eq!(f(&token, &cu), result);
     }
 
     #[test]
-    fn test_token_to_string() {
-        test_token_from_string_worker("5")
+    fn test_token_to_str() {
+        test_token_to_string_alike_worker("5", |token, cu| token.to_str(cu).to_owned(), "5")
     }
 
     #[test]
-    fn test_token_to_string_unicode() {
-        test_token_from_string_worker("您")
-    }
-
-    fn test_token_serialize_worker(s: &str) {
-        let cu = CompilationUnit::from_string("mark", s).unwrap();
-        let uc_char = UCChar {
-            raw_str: SmolStr::from(s),
-            start_byte_offset: 0,
-        };
-        let token = Token::from(TokenKind::Int64, &uc_char);
-        assert_eq!(token.serialize(&cu), format!("Int64 {}", s));
+    fn test_token_to_str_unicode() {
+        test_token_to_string_alike_worker("您", |token, cu| token.to_str(cu).to_owned(), "您")
     }
 
     #[test]
     fn test_token_serialize_ascii() {
-        test_token_serialize_worker("5")
+        test_token_to_string_alike_worker("5", |token, cu| token.serialize(cu), "Int64 5")
     }
 
     #[test]
     fn test_token_serialize_unicode() {
-        test_token_serialize_worker("您")
+        test_token_to_string_alike_worker("您", |token, cu| token.serialize(cu), "Int64 您")
     }
 
     #[test]
