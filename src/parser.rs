@@ -1,13 +1,14 @@
 #![allow(dead_code)]
-
 use crate::lexer;
 
 #[derive(Debug)]
-pub struct Ast {}
+pub struct Ast {
+    root: Option<AstNode>,
+}
 
 #[derive(Debug)]
 enum AstNode {
-    Number(i64),
+    Number(lexer::Token),
     BinaryOp {
         op: lexer::Token,
         lhs: Box<AstNode>,
@@ -36,18 +37,13 @@ mod precedence_climbing {
     use super::*;
     use crate::lexer;
 
-    #[derive(Debug)]
-    pub enum ParseErrorKind<'cu> {
+    #[derive(Debug, Clone)]
+    pub enum ParseError {
         UnexpectedEndOfInput,
-        LexError(lexer::LexError<'cu>),
         IntegerOverflow { token: lexer::Token },
         MismatchedParentheses { another_paren: lexer::Token },
         UnexpectedToken(lexer::Token),
-    }
-
-    #[derive(Debug)]
-    pub struct ParseError<'cu> {
-        kind: ParseErrorKind<'cu>,
+        LexError(Vec<lexer::Token>),
     }
 
     #[derive(Debug)]
@@ -80,29 +76,42 @@ mod precedence_climbing {
         }
 
         fn get_precedence(&self, token: &lexer::Token) -> Option<(u8, Associativity)> {
-            if let Some(token_trait) = self.token_traits.get(&token.kind) {
-                Some((token_trait.precedence, token_trait.associativity))
-            } else {
-                None
-            }
+            self.token_traits
+                .get(&token.kind)
+                .map(|token_trait| (token_trait.precedence, token_trait.associativity))
         }
 
-        fn parse_expression<'cu>(
-            &self,
-            cu: &'cu lexer::CompilationUnit,
-            iter: &'cu mut lexer::CompilationUnitTokenIter,
-            min_precedence: u8,
-        ) -> Result<AstNode, ParseError<'cu>> {
-            let mut lhs = self.parse_primary(cu, iter)?;
+        fn skip_blanks(&self, tokens: &[lexer::Token], mut cur_token_idx: usize) -> usize {
+            while cur_token_idx < tokens.len() {
+                let token = tokens.get(cur_token_idx).unwrap();
+                if token.kind != lexer::TokenKind::Spaces || token.kind != lexer::TokenKind::NewLine
+                {
+                    break;
+                }
+                cur_token_idx += 1;
+            }
+            cur_token_idx
+        }
 
-            while let Some(op) = iter.next() {
-                let token = op.map_err(|e| ParseError {
-                    kind: ParseErrorKind::LexError(e),
-                })?;
-                let (precedence, associativity) =
-                    self.get_precedence(&token).ok_or(ParseError {
-                        kind: ParseErrorKind::UnexpectedToken(token.clone()),
-                    })?;
+        fn parse_expression(
+            &self,
+            tokens: &[lexer::Token],
+            cur_token_idx: usize,
+            min_precedence: u8,
+        ) -> Result<(AstNode, usize), ParseError> {
+            let (mut lhs, mut cur_token_idx) = self.parse_primary(tokens, cur_token_idx)?;
+
+            while cur_token_idx < tokens.len() {
+                cur_token_idx = self.skip_blanks(tokens, cur_token_idx);
+                let op = tokens.get(cur_token_idx);
+                if op.is_none() {
+                    break;
+                }
+                let op = op.unwrap();
+
+                let (precedence, associativity) = self
+                    .get_precedence(op)
+                    .ok_or(ParseError::UnexpectedToken(op.clone()))?;
                 if precedence < min_precedence {
                     break;
                 }
@@ -111,67 +120,81 @@ mod precedence_climbing {
                 } else {
                     precedence
                 };
-                let rhs = self.parse_expression(cu, iter, min_precedence)?;
+
+                cur_token_idx = self.skip_blanks(tokens, cur_token_idx + 1);
+                let (rhs, new_cur_token_idx) =
+                    self.parse_expression(tokens, cur_token_idx + 1, min_precedence)?;
+                cur_token_idx = new_cur_token_idx;
                 lhs = AstNode::BinaryOp {
-                    op: token,
+                    op: op.clone(),
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
             }
 
-            Ok(lhs)
+            Ok((lhs, cur_token_idx))
         }
 
-        fn parse_primary<'cu>(
+        fn parse_primary(
             &self,
-            cu: &'cu lexer::CompilationUnit,
-            iter: &'cu mut lexer::CompilationUnitTokenIter,
-        ) -> Result<AstNode, ParseError<'cu>> {
-            let token = iter
-                .next()
-                .ok_or(ParseError {
-                    kind: ParseErrorKind::UnexpectedEndOfInput,
-                })?
-                .map_err(|e| ParseError {
-                    kind: ParseErrorKind::LexError(e),
-                })?;
+            tokens: &[lexer::Token],
+            mut cur_token_idx: usize,
+        ) -> Result<(AstNode, usize), ParseError> {
+            let token = tokens
+                .get(cur_token_idx)
+                .ok_or(ParseError::UnexpectedEndOfInput)?;
+
+            cur_token_idx = self.skip_blanks(tokens, cur_token_idx + 1);
 
             match token.kind {
-                lexer::TokenKind::Int64 => token
-                    .to_str(cu)
-                    .parse::<i64>()
-                    .map(AstNode::Number)
-                    .map_err(|_| ParseError {
-                        kind: ParseErrorKind::IntegerOverflow { token },
-                    }),
-                lexer::TokenKind::Dash => {
-                    let rhs = self.parse_primary(cu, iter)?;
-                    Ok(AstNode::UnaryOp {
-                        op: token,
-                        rhs: Box::new(rhs),
-                    })
+                lexer::TokenKind::Int64 => Ok((AstNode::Number(token.clone()), cur_token_idx + 1)),
+                lexer::TokenKind::Dash | lexer::TokenKind::Plus => {
+                    let (rhs, new_cur_token_idx) = self.parse_primary(tokens, cur_token_idx)?;
+                    Ok((
+                        AstNode::UnaryOp {
+                            op: token.clone(),
+                            rhs: Box::new(rhs),
+                        },
+                        new_cur_token_idx,
+                    ))
                 }
                 lexer::TokenKind::LParen => {
-                    let expr = self.parse_expression(cu, iter, 0)?;
-                    match iter.next() {
-                        Some(Ok(token)) if token.kind == lexer::TokenKind::RParen => Ok(expr),
-                        _ => Err(ParseError {
-                            kind: ParseErrorKind::MismatchedParentheses {
-                                another_paren: token,
-                            },
+                    let (expr, new_cur_token_idx) =
+                        self.parse_expression(tokens, cur_token_idx, 0)?;
+                    cur_token_idx = new_cur_token_idx;
+                    return match tokens.get(cur_token_idx) {
+                        Some(token) if token.kind == lexer::TokenKind::RParen => {
+                            Ok((expr, cur_token_idx + 1))
+                        }
+                        _ => Err(ParseError::MismatchedParentheses {
+                            another_paren: token.clone(),
                         }),
-                    }
+                    };
                 }
-                _ => Err(ParseError {
-                    kind: ParseErrorKind::UnexpectedToken(token),
-                }),
+                _ => Err(ParseError::UnexpectedToken(token.clone())),
             }
         }
 
-        pub fn parse(&self, cu: &lexer::CompilationUnit) -> Ast {
-            let mut iter = cu.token_iter();
-            self.parse_expression(cu, &mut iter, 0u8);
-            Ast {}
+        pub fn parse(&self, cu: &lexer::CompilationUnit) -> Result<Ast, ParseError> {
+            let (tokens, lex_errors): (Vec<_>, Vec<_>) = cu
+                .get_tokens()
+                .into_iter()
+                .partition(|token| token.kind != lexer::TokenKind::Invalid);
+            if !lex_errors.is_empty() {
+                return Err(ParseError::LexError(lex_errors));
+            }
+
+            let cur_token_idx = self.skip_blanks(&tokens, 0);
+            if cur_token_idx >= tokens.len() {
+                return Ok(Ast { root: None });
+            }
+            let (expr, new_cur_token_idx) =
+                self.parse_expression(&tokens, cur_token_idx, 0).unwrap();
+            let cur_token_idx = self.skip_blanks(&tokens, new_cur_token_idx);
+            if cur_token_idx < tokens.len() {
+                return Err(ParseError::UnexpectedToken(tokens[cur_token_idx].clone()));
+            }
+            Ok(Ast { root: Some(expr) })
         }
     }
 
@@ -184,39 +207,9 @@ mod precedence_climbing {
             let cu = lexer::CompilationUnit::from_string(
                 "stdin",
                 " 7^2 + 3 * (12 / (+15 / -( 3+1) - - 1) ) - 2^3^4",
-            )
-            .unwrap();
+            );
             let parser = Parser::new();
             let _ast = parser.parse(&cu);
         }
-    }
-}
-
-pub struct Parser {}
-
-impl Parser {
-    pub fn parse(cu: &lexer::CompilationUnit) -> Ast {
-        for token in cu.token_iter() {
-            match token {
-                Ok(token) => println!("{}", token.serialize(cu)),
-                Err(err) => println!("{}", err.to_string(cu)),
-            }
-        }
-        Ast {}
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_lexer() {
-        let cu = lexer::CompilationUnit::from_string(
-            "stdin",
-            " 7^2 + 3 * (12 / (+15 / ( 3+1) - - 1) ) - 2^3^4",
-        )
-        .unwrap();
-        let _ast = Parser::parse(&cu);
     }
 }
