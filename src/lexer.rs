@@ -2,57 +2,127 @@
 
 use unicode_segmentation::UnicodeSegmentation;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ByteIndex(usize);
 
 impl ByteIndex {
     fn new(i: usize) -> Self {
         Self(i)
     }
+    fn get(&self) -> usize {
+        self.0
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[cfg(test)]
+mod test_byte_index {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        for v in [0, usize::MAX, 42] {
+            assert_eq!(ByteIndex::new(v).get(), v);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ByteIndexSpan {
     start: ByteIndex,
     inclusive_end: ByteIndex,
 }
 
 impl ByteIndexSpan {
-    fn raw_content_start(&self) -> usize {
-        self.start.0
+    fn new(start: ByteIndex, inclusive_end: ByteIndex) -> Self {
+        Self {
+            start,
+            inclusive_end,
+        }
     }
-    fn raw_content_inclusive_end(&self) -> usize {
-        self.inclusive_end.0
+    fn byte_idx_start(&self) -> ByteIndex {
+        self.start
+    }
+    fn byte_idx_inclusive_end(&self) -> ByteIndex {
+        self.inclusive_end
     }
     fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
         cu.raw_content
-            .get(self.raw_content_start()..=self.raw_content_inclusive_end())
+            .get(self.byte_idx_start().get()..=self.byte_idx_inclusive_end().get())
             .unwrap()
     }
     fn merge(&self, other: &Self) -> Self {
         Self {
-            start: ByteIndex::new(self.raw_content_start().min(other.raw_content_start())),
+            start: ByteIndex::new(
+                self.byte_idx_start()
+                    .get()
+                    .min(other.byte_idx_start().get()),
+            ),
             inclusive_end: ByteIndex::new(
-                self.raw_content_inclusive_end()
-                    .max(other.raw_content_inclusive_end()),
+                self.byte_idx_inclusive_end()
+                    .get()
+                    .max(other.byte_idx_inclusive_end().get()),
             ),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[cfg(test)]
+mod test_byte_index_span {
+    use super::*;
+
+    #[test]
+    fn test_raw_content_start_and_end() {
+        let start = ByteIndex::new(5);
+        let end = ByteIndex::new(10);
+        let span = ByteIndexSpan::new(start, end);
+        assert_eq!(span.byte_idx_start(), start);
+        assert_eq!(span.byte_idx_inclusive_end(), end);
+    }
+
+    #[test]
+    fn test_merge() {
+        for ((s1, e1), (s2, e2), (s3, e3)) in
+            [((5, 10), (8, 15), (5, 15)), ((5, 10), (10, 15), (5, 15))]
+        {
+            let span1 = ByteIndexSpan::new(ByteIndex::new(s1), ByteIndex::new(e1));
+            let span2 = ByteIndexSpan::new(ByteIndex::new(s2), ByteIndex::new(e2));
+            let merged = span1.merge(&span2);
+            assert_eq!(
+                merged,
+                ByteIndexSpan::new(ByteIndex::new(s3), ByteIndex::new(e3))
+            );
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct UcContentIndex(usize);
 
 impl UcContentIndex {
     fn new(i: usize) -> Self {
         Self(i)
     }
+    fn get(&self) -> usize {
+        self.0
+    }
     fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
         cu.ucs.get(self.0).unwrap().get_str(cu)
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[cfg(test)]
+mod test_uc_content_index {
+    use super::*;
+
+    #[test]
+    fn test_new_and_get() {
+        for v in [0, usize::MAX, 42] {
+            assert_eq!(UcContentIndex::new(v).get(), v);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct UcContentIndexSpan {
     start: UcContentIndex,
     inclusive_end: UcContentIndex,
@@ -71,6 +141,28 @@ impl UcContentIndexSpan {
     }
 }
 
+#[cfg(test)]
+fn cu_has_unicode() -> CompilationUnit {
+    CompilationUnit::from_string("mark", "hi, 您好")
+}
+
+#[cfg(test)]
+mod test_uc_content_index_span {
+    use super::*;
+
+    #[test]
+    fn test_span_get_str() {
+        let cu = cu_has_unicode();
+        for (b, e, s) in [(2, 2, ","), (4, 4, "您"), (5, 5, "好")] {
+            let span = UcContentIndexSpan {
+                start: UcContentIndex::new(b),
+                inclusive_end: UcContentIndex::new(e),
+            };
+            assert_eq!(span.get_str(&cu), s);
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Token {
     pub(crate) kind: TokenKind,
@@ -85,9 +177,32 @@ impl Token {
     pub(crate) fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
         self.span.get_str(cu)
     }
+}
 
-    pub(crate) fn serialize(&self, cu: &CompilationUnit) -> String {
-        format!("{} {}", self.kind, self.get_str(cu))
+#[cfg(test)]
+mod test_token {
+    use super::*;
+
+    #[test]
+    fn test_from() {
+        let span = UcContentIndexSpan {
+            start: UcContentIndex::new(4),
+            inclusive_end: UcContentIndex::new(5),
+        };
+        let token = Token::from(TokenKind::Invalid, span);
+        assert_eq!(token.kind, TokenKind::Invalid);
+        assert_eq!(token.span, span);
+    }
+
+    #[test]
+    fn test_get_str_and_serialize() {
+        let cu = cu_has_unicode();
+        let span = UcContentIndexSpan {
+            start: UcContentIndex::new(4),
+            inclusive_end: UcContentIndex::new(5),
+        };
+        let token = Token::from(TokenKind::Invalid, span);
+        assert_eq!(token.get_str(&cu), "您好");
     }
 }
 
@@ -239,45 +354,8 @@ impl CompilationUnit {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, std::hash::Hash, Clone, Copy)]
-pub(crate) enum TokenKind {
-    Spaces,
-    NewLine,
-
-    Int64,
-
-    Plus,
-    Dash,
-    Star,
-    Slash,
-    Caret,
-
-    LParen,
-    RParen,
-
-    Invalid,
-}
-
-impl std::fmt::Display for TokenKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            TokenKind::Spaces => write!(f, "Spaces"),
-            TokenKind::NewLine => write!(f, "NewLine"),
-            TokenKind::Int64 => write!(f, "Int64"),
-            TokenKind::Plus => write!(f, "Plus"),
-            TokenKind::Dash => write!(f, "Dash"),
-            TokenKind::Star => write!(f, "Asterisk"),
-            TokenKind::Slash => write!(f, "Slash"),
-            TokenKind::Caret => write!(f, "Caret"),
-            TokenKind::LParen => write!(f, "LParen"),
-            TokenKind::RParen => write!(f, "RParen"),
-            TokenKind::Invalid => write!(f, "Invalid"),
-        }
-    }
-}
-
 #[cfg(test)]
-mod tests {
+mod test_compile_unit {
     use super::*;
     use std::io::Write;
 
@@ -375,101 +453,100 @@ mod tests {
         let cu = CompilationUnit::from_string(MARK, "abc");
         assert_eq!(cu.get_origin(), MARK);
     }
+    #[test]
+    fn test_get_tokens() {
+        let cu = CompilationUnit::from_string("mark", "1 + 27 *  3 ^ (4 - -3)\n");
+        let tokens = cu.get_tokens();
+        let expected = [
+            (TokenKind::Int64, "1"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Plus, "+"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Int64, "27"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Star, "*"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Int64, "3"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Caret, "^"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::LParen, "("),
+            (TokenKind::Int64, "4"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Dash, "-"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Dash, "-"),
+            (TokenKind::Int64, "3"),
+            (TokenKind::RParen, ")"),
+            (TokenKind::NewLine, "\n"),
+        ];
+        assert_eq!(tokens.len(), expected.len());
+        for (token, (expected_kind, expected_str)) in tokens.iter().zip(expected.into_iter()) {
+            assert_eq!(token.kind, expected_kind);
+            assert_eq!(token.get_str(&cu), expected_str);
+        }
+    }
 
-    //    fn test_token_span_created_by_uc_worker(s: &str) {
-    //        let uc_char = UCChar {
-    //            raw_str: SmolStr::from(s),
-    //            start_byte_offset: 42,
-    //        };
-    //        let token = Token::from(TokenKind::Int64, &uc_char);
-    //        assert_eq!(token.kind, TokenKind::Int64);
-    //        assert_eq!(token.span.start.0, uc_char.start_byte_offset);
-    //        assert_eq!(
-    //            token.span.end.0,
-    //            uc_char.start_byte_offset + uc_char.raw_str.len()
-    //        );
-    //    }
-    //
-    //    #[test]
-    //    fn test_token_span_created_by_uc_has_ascii() {
-    //        test_token_span_created_by_uc_worker("5")
-    //    }
-    //
-    //    #[test]
-    //    fn test_token_span_created_by_uc_has_unicode() {
-    //        test_token_span_created_by_uc_worker("您")
-    //    }
-    //
-    //    fn test_token_span_created_by_ucs_worker(s: &str) {
-    //        let cu = CompilationUnit::from_string("mark", s).unwrap();
-    //        let ucs: Vec<&UCChar> = cu.uc_iter().collect();
-    //        assert_eq!(ucs.len(), 2, "{:?}", ucs);
-    //        let token = Token::from_range(TokenKind::Int64, ucs[0], ucs[1]);
-    //        assert_eq!(token.kind, TokenKind::Int64);
-    //        assert_eq!(token.span.start.0, ucs[0].start_byte_offset);
-    //        assert_eq!(
-    //            token.span.end.0,
-    //            ucs[1].start_byte_offset + ucs[1].raw_str.len()
-    //        );
-    //    }
-    //
-    //    #[test]
-    //    fn test_token_span_created_by_ucs_has_ascii() {
-    //        test_token_span_created_by_ucs_worker("12")
-    //    }
-    //
-    //    #[test]
-    //    fn test_token_span_created_by_ucs_has_unicode() {
-    //        test_token_span_created_by_ucs_worker("您好")
-    //    }
-    //
-    //    fn test_token_to_string_alike_worker<F>(input: &str, f: F, result: &str)
-    //    where
-    //        F: for<'a> Fn(&'a Token, &'a CompilationUnit) -> String,
-    //    {
-    //        let cu = CompilationUnit::from_string("mark", input).unwrap();
-    //        let uc_char = UCChar {
-    //            raw_str: SmolStr::from(input),
-    //            start_byte_offset: 0,
-    //        };
-    //        let token = Token::from(TokenKind::Int64, &uc_char);
-    //        assert_eq!(f(&token, &cu), result);
-    //    }
-    //
-    //    #[test]
-    //    fn test_token_to_str() {
-    //        test_token_to_string_alike_worker("5", |token, cu| token.to_str(cu).to_owned(), "5")
-    //    }
-    //
-    //    #[test]
-    //    fn test_token_to_str_unicode() {
-    //        test_token_to_string_alike_worker("您", |token, cu| token.to_str(cu).to_owned(), "您")
-    //    }
-    //
-    //    #[test]
-    //    fn test_token_serialize_ascii() {
-    //        test_token_to_string_alike_worker("5", |token, cu| token.serialize(cu), "Int64 5")
-    //    }
-    //
-    //    #[test]
-    //    fn test_token_serialize_unicode() {
-    //        test_token_to_string_alike_worker("您", |token, cu| token.serialize(cu), "Int64 您")
-    //    }
-    //
-    //    #[test]
-    //    fn test_lexing_integer() {
-    //        let cu = CompilationUnit::from_string("mark", "  123 ").unwrap();
-    //        let tokens = cu.token_iter().collect::<Result<Vec<_>, _>>().unwrap();
-    //        assert_eq!(tokens.len(), 1, "{:?}", tokens);
-    //        assert_eq!(tokens[0].kind, TokenKind::Int64);
-    //        assert_eq!(tokens[0].span.start.0, 2);
-    //        assert_eq!(tokens[0].span.end.0, 5);
-    //    }
-    //
-    //    #[test]
-    //    fn test_lexing_empty_content() {
-    //        let cu = CompilationUnit::from_string("mark", "").unwrap();
-    //        let tokens = cu.token_iter().collect::<Result<Vec<_>, _>>().unwrap();
-    //        assert_eq!(tokens.len(), 0, "{:?}", tokens);
-    //    }
+    #[test]
+    fn test_lexing_empty_content() {
+        let cu = CompilationUnit::from_string("mark", "");
+        let tokens = cu.get_tokens();
+        assert_eq!(tokens.len(), 0, "{:?}", tokens);
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, std::hash::Hash, Clone, Copy)]
+pub(crate) enum TokenKind {
+    Spaces,
+    NewLine,
+
+    Int64,
+
+    Plus,
+    Dash,
+    Star,
+    Slash,
+    Caret,
+
+    LParen,
+    RParen,
+
+    Invalid,
+}
+
+impl std::fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            TokenKind::Spaces => write!(f, "Spaces"),
+            TokenKind::NewLine => write!(f, "NewLine"),
+            TokenKind::Int64 => write!(f, "Int64"),
+            TokenKind::Plus => write!(f, "Plus"),
+            TokenKind::Dash => write!(f, "Dash"),
+            TokenKind::Star => write!(f, "Star"),
+            TokenKind::Slash => write!(f, "Slash"),
+            TokenKind::Caret => write!(f, "Caret"),
+            TokenKind::LParen => write!(f, "LParen"),
+            TokenKind::RParen => write!(f, "RParen"),
+            TokenKind::Invalid => write!(f, "Invalid"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_token_kind {
+    use super::*;
+
+    macro_rules! test_display {
+        ($($kind:ident),* $(,)?) => {
+            #[test]
+            fn test() {
+                $(
+                assert_eq!(format!("{}", TokenKind::$kind), stringify!($kind));
+                )*
+            }
+        }
+    }
+
+    test_display!(Spaces, NewLine, Int64, Plus, Dash, Star, Slash, Caret, LParen, RParen, Invalid,);
 }

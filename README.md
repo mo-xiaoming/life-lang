@@ -8,9 +8,4 @@ Following Julian Hartl's youtube series [_Building a compiler in rust_](https://
 7^2 + 3 * (12 / (+15 / ( 3+1) - - 1) ) - 2^3^4
 
 1-1+1
-
-
-number: [1-9][0-9]* | 0
-term: number | - number | + number | ( expression )
-expression: atom bin_op atom | atom
 ```
