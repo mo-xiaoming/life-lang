@@ -1,219 +1,12 @@
 #![allow(dead_code)]
 
+mod indices;
+
+use indices::{ByteIndex, ByteIndexSpan, UcContentIndex, UcContentIndexSpan};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct ByteIndex(usize);
-
-impl ByteIndex {
-    fn new(i: usize) -> Self {
-        Self(i)
-    }
-    fn get(&self) -> usize {
-        self.0
-    }
-}
-
-#[cfg(test)]
-mod test_byte_index {
-    use super::*;
-
-    #[test]
-    fn test_new() {
-        for v in [0, usize::MAX, 42] {
-            assert_eq!(ByteIndex::new(v).get(), v);
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct ByteIndexSpan {
-    start: ByteIndex,
-    inclusive_end: ByteIndex,
-}
-
-impl ByteIndexSpan {
-    fn new(start: ByteIndex, inclusive_end: ByteIndex) -> Self {
-        Self {
-            start,
-            inclusive_end,
-        }
-    }
-    fn get_start(&self) -> ByteIndex {
-        self.start
-    }
-    fn get_inclusive_end(&self) -> ByteIndex {
-        self.inclusive_end
-    }
-    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
-        cu.raw_content
-            .get(self.get_start().get()..=self.get_inclusive_end().get())
-            .unwrap()
-    }
-    fn merge(&self, other: &Self) -> Self {
-        Self {
-            start: ByteIndex::new(self.get_start().get().min(other.get_start().get())),
-            inclusive_end: ByteIndex::new(
-                self.get_inclusive_end()
-                    .get()
-                    .max(other.get_inclusive_end().get()),
-            ),
-        }
-    }
-}
-
-#[cfg(test)]
-mod test_byte_index_span {
-    use super::*;
-
-    #[test]
-    fn test_raw_content_start_and_end() {
-        let start = ByteIndex::new(5);
-        let end = ByteIndex::new(10);
-        let span = ByteIndexSpan::new(start, end);
-        assert_eq!(span.get_start(), start);
-        assert_eq!(span.get_inclusive_end(), end);
-    }
-
-    #[test]
-    fn test_merge() {
-        for ((s1, e1), (s2, e2), (s3, e3)) in
-            [((5, 10), (8, 15), (5, 15)), ((5, 10), (10, 15), (5, 15))]
-        {
-            let span1 = ByteIndexSpan::new(ByteIndex::new(s1), ByteIndex::new(e1));
-            let span2 = ByteIndexSpan::new(ByteIndex::new(s2), ByteIndex::new(e2));
-            let merged = span1.merge(&span2);
-            assert_eq!(
-                merged,
-                ByteIndexSpan::new(ByteIndex::new(s3), ByteIndex::new(e3))
-            );
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct UcContentIndex(usize);
-
-impl UcContentIndex {
-    fn new(i: usize) -> Self {
-        Self(i)
-    }
-    fn get(&self) -> usize {
-        self.0
-    }
-    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
-        cu.ucs.get(*self).unwrap().get_str(cu)
-    }
-}
-
-impl std::ops::Add<usize> for UcContentIndex {
-    type Output = Self;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        Self(self.0 + rhs)
-    }
-}
-
-impl std::ops::AddAssign<usize> for UcContentIndex {
-    fn add_assign(&mut self, rhs: usize) {
-        self.0 += rhs;
-    }
-}
-
-impl std::ops::Sub<usize> for UcContentIndex {
-    type Output = Self;
-
-    fn sub(self, rhs: usize) -> Self::Output {
-        Self(self.0 - rhs)
-    }
-}
-
-impl std::ops::SubAssign<usize> for UcContentIndex {
-    fn sub_assign(&mut self, rhs: usize) {
-        self.0 -= rhs;
-    }
-}
-
-#[cfg(test)]
-mod test_uc_content_index {
-    use super::*;
-
-    #[test]
-    fn test_new_and_get() {
-        for v in [0, usize::MAX, 42] {
-            assert_eq!(UcContentIndex::new(v).get(), v);
-        }
-    }
-
-    #[test]
-    fn test_add() {
-        let index = UcContentIndex::new(5);
-        let result = index + 3;
-        assert_eq!(result.get(), 8);
-    }
-
-    #[test]
-    fn test_add_assign() {
-        let mut index = UcContentIndex::new(5);
-        index += 3;
-        assert_eq!(index.get(), 8);
-    }
-
-    #[test]
-    fn test_sub() {
-        let index = UcContentIndex::new(5);
-        let result = index - 3;
-        assert_eq!(result.get(), 2);
-    }
-
-    #[test]
-    fn test_sub_assign() {
-        let mut index = UcContentIndex::new(5);
-        index -= 3;
-        assert_eq!(index.get(), 2);
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct UcContentIndexSpan {
-    start: UcContentIndex,
-    inclusive_end: UcContentIndex,
-}
-
-impl UcContentIndexSpan {
-    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
-        cu.ucs
-            .get(self.start)
-            .unwrap()
-            .merge(cu.ucs.get(self.inclusive_end).unwrap())
-            .get_str(cu)
-    }
-}
-
-#[cfg(test)]
-fn cu_has_unicode() -> CompilationUnit {
-    CompilationUnit::from_string("mark", "hi, 您好")
-}
-
-#[cfg(test)]
-mod test_uc_content_index_span {
-    use super::*;
-
-    #[test]
-    fn test_span_get_str() {
-        let cu = cu_has_unicode();
-        for (b, e, s) in [(2, 2, ","), (4, 4, "您"), (5, 5, "好")] {
-            let span = UcContentIndexSpan {
-                start: UcContentIndex::new(b),
-                inclusive_end: UcContentIndex::new(e),
-            };
-            assert_eq!(span.get_str(&cu), s);
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct TokenIndex(usize);
+pub struct TokenIndex(usize);
 
 impl TokenIndex {
     pub(crate) fn new(i: usize) -> Self {
@@ -228,7 +21,7 @@ impl std::ops::Add<usize> for TokenIndex {
     type Output = Self;
 
     fn add(self, rhs: usize) -> Self::Output {
-        Self(self.0 + rhs)
+        Self(self.get() + rhs)
     }
 }
 
@@ -242,7 +35,7 @@ impl std::ops::Sub<usize> for TokenIndex {
     type Output = Self;
 
     fn sub(self, rhs: usize) -> Self::Output {
-        Self(self.0 - rhs)
+        Self(self.get() - rhs)
     }
 }
 
@@ -292,6 +85,64 @@ mod test_token_index {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, std::hash::Hash, Clone, Copy)]
+pub(crate) enum TokenKind {
+    Spaces,
+    NewLine,
+    SemiColon,
+
+    Int64,
+
+    Plus,
+    Dash,
+    Star,
+    Slash,
+    Caret,
+
+    LParen,
+    RParen,
+
+    Invalid,
+}
+
+impl std::fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            TokenKind::Spaces => write!(f, "Spaces"),
+            TokenKind::NewLine => write!(f, "NewLine"),
+            TokenKind::SemiColon => write!(f, "SemiColon"),
+            TokenKind::Int64 => write!(f, "Int64"),
+            TokenKind::Plus => write!(f, "Plus"),
+            TokenKind::Dash => write!(f, "Dash"),
+            TokenKind::Star => write!(f, "Star"),
+            TokenKind::Slash => write!(f, "Slash"),
+            TokenKind::Caret => write!(f, "Caret"),
+            TokenKind::LParen => write!(f, "LParen"),
+            TokenKind::RParen => write!(f, "RParen"),
+            TokenKind::Invalid => write!(f, "Invalid"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_token_kind {
+    use super::*;
+
+    macro_rules! test_display {
+        ($($kind:ident),* $(,)?) => {
+            #[test]
+            fn test() {
+                $(
+                assert_eq!(format!("{}", TokenKind::$kind), stringify!($kind));
+                )*
+            }
+        }
+    }
+
+    test_display!(
+        Spaces, NewLine, SemiColon, Int64, Plus, Dash, Star, Slash, Caret, LParen, RParen, Invalid,
+    );
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     kind: TokenKind,
@@ -299,8 +150,11 @@ pub struct Token {
 }
 
 impl Token {
-    fn from(kind: TokenKind, span: UcContentIndexSpan) -> Self {
-        Self { kind, span }
+    fn new(kind: TokenKind, start: UcContentIndex, inclusive_end: UcContentIndex) -> Self {
+        Self {
+            kind,
+            span: UcContentIndexSpan::new(start, inclusive_end),
+        }
     }
 
     pub(crate) fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
@@ -312,29 +166,29 @@ impl Token {
     }
 }
 
-#[cfg(test)]
 mod test_token {
-    use super::*;
-
     #[test]
     fn test_from() {
-        let span = UcContentIndexSpan {
-            start: UcContentIndex::new(4),
-            inclusive_end: UcContentIndex::new(5),
-        };
-        let token = Token::from(TokenKind::Invalid, span);
+        use super::*;
+        let span = UcContentIndexSpan::new(UcContentIndex::new(4), UcContentIndex::new(5));
+        let token = Token::new(
+            TokenKind::Invalid,
+            span.get_start(),
+            span.get_inclusive_end(),
+        );
         assert_eq!(token.kind, TokenKind::Invalid);
         assert_eq!(token.span, span);
     }
 
     #[test]
     fn test_get_str_and_serialize() {
-        let cu = cu_has_unicode();
-        let span = UcContentIndexSpan {
-            start: UcContentIndex::new(4),
-            inclusive_end: UcContentIndex::new(5),
-        };
-        let token = Token::from(TokenKind::Invalid, span);
+        use super::*;
+        let cu = CompilationUnit::from_string("mark", "hi, 您好");
+        let token = Token::new(
+            TokenKind::Invalid,
+            UcContentIndex::new(4),
+            UcContentIndex::new(5),
+        );
         assert_eq!(token.get_str(&cu), "您好");
     }
 }
@@ -378,19 +232,15 @@ mod test_tokens {
         let mut tokens = Tokens::new(2);
 
         // Add some tokens
-        let token1 = Token::from(
+        let token1 = Token::new(
             TokenKind::Spaces,
-            UcContentIndexSpan {
-                start: UcContentIndex::new(0),
-                inclusive_end: UcContentIndex::new(0),
-            },
+            UcContentIndex::new(0),
+            UcContentIndex::new(0),
         );
-        let token2 = Token::from(
+        let token2 = Token::new(
             TokenKind::NewLine,
-            UcContentIndexSpan {
-                start: UcContentIndex::new(1),
-                inclusive_end: UcContentIndex::new(1),
-            },
+            UcContentIndex::new(1),
+            UcContentIndex::new(1),
         );
         tokens.push(token1.clone());
         tokens.push(token2.clone());
@@ -439,9 +289,8 @@ pub struct CompilationUnit {
 fn str_to_ucs(s: &str) -> UcContent {
     UcContent(
         s.grapheme_indices(true)
-            .map(|(idx, s)| ByteIndexSpan {
-                start: ByteIndex::new(idx),
-                inclusive_end: ByteIndex::new(idx + s.len() - 1),
+            .map(|(idx, s)| {
+                ByteIndexSpan::new(ByteIndex::new(idx), ByteIndex::new(idx + s.len() - 1))
             })
             .collect(),
     )
@@ -477,12 +326,40 @@ mod test_str_to_ucs {
             // Check the start and inclusive_end of each grapheme cluster
             assert_eq!(
                 ucs.0.get(i),
-                Some(&ByteIndexSpan {
-                    start: ByteIndex::new(*start),
-                    inclusive_end: ByteIndex::new(*inclusive_end)
-                })
+                Some(&ByteIndexSpan::new(
+                    ByteIndex::new(*start),
+                    ByteIndex::new(*inclusive_end)
+                ))
             );
         }
+    }
+}
+
+trait IndexSpan {
+    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str;
+}
+
+impl IndexSpan for ByteIndexSpan {
+    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
+        cu.raw_content
+            .get(self.get_start().get()..=self.get_inclusive_end().get())
+            .unwrap()
+    }
+}
+
+impl IndexSpan for UcContentIndexSpan {
+    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
+        cu.ucs
+            .get(self.get_start())
+            .unwrap()
+            .merge(cu.ucs.get(self.get_inclusive_end()).unwrap())
+            .get_str(cu)
+    }
+}
+
+impl IndexSpan for UcContentIndex {
+    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
+        cu.ucs.get(*self).unwrap().get_str(cu)
     }
 }
 
@@ -519,6 +396,13 @@ impl CompilationUnit {
         }
     }
 
+    fn get_str<I>(&self, index: I) -> &str
+    where
+        I: IndexSpan,
+    {
+        index.get_str(self)
+    }
+
     pub(crate) fn get_tokens(&self) -> Tokens {
         fn uc_is_ascii_digit(s: &str) -> bool {
             s.len() == 1 && s.chars().next().unwrap().is_ascii_digit()
@@ -549,6 +433,7 @@ impl CompilationUnit {
                 '^' => Some(TokenKind::Caret),
                 '(' => Some(TokenKind::LParen),
                 ')' => Some(TokenKind::RParen),
+                ';' => Some(TokenKind::SemiColon),
                 _ => None,
             }
         }
@@ -560,13 +445,7 @@ impl CompilationUnit {
         while let Some(byte_idx_span) = self.ucs.get(uc_idx) {
             let s = byte_idx_span.get_str(self);
             if s == "\r\n" || s == "\n" {
-                tokens.push(Token::from(
-                    TokenKind::NewLine,
-                    UcContentIndexSpan {
-                        start: uc_idx,
-                        inclusive_end: uc_idx,
-                    },
-                ));
+                tokens.push(Token::new(TokenKind::NewLine, uc_idx, uc_idx));
                 uc_idx += 1;
                 continue;
             }
@@ -581,13 +460,7 @@ impl CompilationUnit {
                     }
                     uc_idx += 1;
                 }
-                tokens.push(Token::from(
-                    TokenKind::Invalid,
-                    UcContentIndexSpan {
-                        start: uc_idx,
-                        inclusive_end: uc_idx,
-                    },
-                ));
+                tokens.push(Token::new(TokenKind::Invalid, uc_idx, uc_idx));
                 uc_idx += 1;
                 continue;
             }
@@ -597,13 +470,7 @@ impl CompilationUnit {
 
             // single-char tokens
             if let Some(token_kind) = get_single_char_token_kind(c) {
-                tokens.push(Token::from(
-                    token_kind,
-                    UcContentIndexSpan {
-                        start: uc_idx,
-                        inclusive_end: uc_idx,
-                    },
-                ));
+                tokens.push(Token::new(token_kind, uc_idx, uc_idx));
                 uc_idx += 1;
                 continue;
             }
@@ -611,32 +478,22 @@ impl CompilationUnit {
             // multi-char tokens
             match c {
                 '1'..='9' => {
-                    tokens.push(Token::from(
+                    tokens.push(Token::new(
                         TokenKind::Int64,
-                        UcContentIndexSpan {
-                            start: uc_idx,
-                            inclusive_end: take_while(self, uc_idx, uc_is_ascii_digit),
-                        },
+                        uc_idx,
+                        take_while(self, uc_idx, uc_is_ascii_digit),
                     ));
                 }
                 ' ' => {
-                    tokens.push(Token::from(
+                    tokens.push(Token::new(
                         TokenKind::Spaces,
-                        UcContentIndexSpan {
-                            start: uc_idx,
-                            inclusive_end: take_while(self, uc_idx, |s| s == " "),
-                        },
+                        uc_idx,
+                        take_while(self, uc_idx, |s| s == " "),
                     ));
                 }
-                _ => tokens.push(Token::from(
-                    TokenKind::Invalid,
-                    UcContentIndexSpan {
-                        start: uc_idx,
-                        inclusive_end: uc_idx,
-                    },
-                )),
+                _ => tokens.push(Token::new(TokenKind::Invalid, uc_idx, uc_idx)),
             }
-            uc_idx = tokens.iter().last().unwrap().span.inclusive_end + 1;
+            uc_idx = tokens.iter().last().unwrap().span.get_inclusive_end() + 1;
             continue;
         }
 
@@ -743,9 +600,19 @@ mod test_compile_unit {
         let cu = CompilationUnit::from_string(MARK, "abc");
         assert_eq!(cu.get_origin(), MARK);
     }
+
+    #[test]
+    fn test_uc_context_span_get_str() {
+        let cu = CompilationUnit::from_string("mark", "hi, 您好");
+        for (b, e, s) in [(2, 2, ","), (4, 4, "您"), (5, 5, "好")] {
+            let span = UcContentIndexSpan::new(UcContentIndex::new(b), UcContentIndex::new(e));
+            assert_eq!(cu.get_str(span), s);
+        }
+    }
+
     #[test]
     fn test_get_tokens() {
-        let cu = CompilationUnit::from_string("mark", "1 + 27 *  3 ^ (4 - -3)\n\r\n");
+        let cu = CompilationUnit::from_string("mark", "1 + 27 *  3 ^ (4 - -3);\n\r\n");
         let tokens = cu.get_tokens();
         let expected = [
             (TokenKind::Int64, "1"),
@@ -768,6 +635,7 @@ mod test_compile_unit {
             (TokenKind::Dash, "-"),
             (TokenKind::Int64, "3"),
             (TokenKind::RParen, ")"),
+            (TokenKind::SemiColon, ";"),
             (TokenKind::NewLine, "\n"),
             (TokenKind::NewLine, "\r\n"),
         ];
@@ -784,59 +652,4 @@ mod test_compile_unit {
         let tokens = cu.get_tokens();
         assert_eq!(tokens.len(), 0, "{:?}", tokens);
     }
-}
-
-#[derive(Debug, PartialEq, Eq, std::hash::Hash, Clone, Copy)]
-pub(crate) enum TokenKind {
-    Spaces,
-    NewLine,
-
-    Int64,
-
-    Plus,
-    Dash,
-    Star,
-    Slash,
-    Caret,
-
-    LParen,
-    RParen,
-
-    Invalid,
-}
-
-impl std::fmt::Display for TokenKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            TokenKind::Spaces => write!(f, "Spaces"),
-            TokenKind::NewLine => write!(f, "NewLine"),
-            TokenKind::Int64 => write!(f, "Int64"),
-            TokenKind::Plus => write!(f, "Plus"),
-            TokenKind::Dash => write!(f, "Dash"),
-            TokenKind::Star => write!(f, "Star"),
-            TokenKind::Slash => write!(f, "Slash"),
-            TokenKind::Caret => write!(f, "Caret"),
-            TokenKind::LParen => write!(f, "LParen"),
-            TokenKind::RParen => write!(f, "RParen"),
-            TokenKind::Invalid => write!(f, "Invalid"),
-        }
-    }
-}
-
-#[cfg(test)]
-mod test_token_kind {
-    use super::*;
-
-    macro_rules! test_display {
-        ($($kind:ident),* $(,)?) => {
-            #[test]
-            fn test() {
-                $(
-                assert_eq!(format!("{}", TokenKind::$kind), stringify!($kind));
-                )*
-            }
-        }
-    }
-
-    test_display!(Spaces, NewLine, Int64, Plus, Dash, Star, Slash, Caret, LParen, RParen, Invalid,);
 }
