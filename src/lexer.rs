@@ -163,9 +163,101 @@ mod test_uc_content_index_span {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TokenIndex(usize);
+
+impl TokenIndex {
+    pub(crate) fn new(i: usize) -> Self {
+        Self(i)
+    }
+    pub(crate) fn get(&self) -> usize {
+        self.0
+    }
+}
+
+impl std::ops::Add for TokenIndex {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::AddAssign for TokenIndex {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl std::ops::Sub for TokenIndex {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl std::ops::SubAssign for TokenIndex {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+
+#[cfg(test)]
+mod test_token_index {
+    use super::*;
+
+    #[test]
+    fn test_token_index() {
+        let index_value = 5;
+        let token_index = TokenIndex::new(index_value);
+        assert_eq!(token_index.get(), index_value);
+    }
+
+    #[test]
+    fn test_add() {
+        let index_value1 = 5;
+        let index_value2 = 3;
+        let token_index1 = TokenIndex::new(index_value1);
+        let token_index2 = TokenIndex::new(index_value2);
+        let result = token_index1 + token_index2;
+        assert_eq!(result.get(), index_value1 + index_value2);
+    }
+
+    #[test]
+    fn test_sub() {
+        let index_value1 = 5;
+        let index_value2 = 3;
+        let token_index1 = TokenIndex::new(index_value1);
+        let token_index2 = TokenIndex::new(index_value2);
+        let result = token_index1 - token_index2;
+        assert_eq!(result.get(), index_value1 - index_value2);
+    }
+
+    #[test]
+    fn test_add_assign() {
+        let index_value1 = 5;
+        let index_value2 = 3;
+        let mut token_index1 = TokenIndex::new(index_value1);
+        let token_index2 = TokenIndex::new(index_value2);
+        token_index1 += token_index2;
+        assert_eq!(token_index1.get(), index_value1 + index_value2);
+    }
+
+    #[test]
+    fn test_sub_assign() {
+        let index_value1 = 5;
+        let index_value2 = 3;
+        let mut token_index1 = TokenIndex::new(index_value1);
+        let token_index2 = TokenIndex::new(index_value2);
+        token_index1 -= token_index2;
+        assert_eq!(token_index1.get(), index_value1 - index_value2);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Token {
-    pub(crate) kind: TokenKind,
+    kind: TokenKind,
     span: UcContentIndexSpan,
 }
 
@@ -176,6 +268,10 @@ impl Token {
 
     pub(crate) fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
         self.span.get_str(cu)
+    }
+
+    pub(crate) fn get_kind(&self) -> TokenKind {
+        self.kind
     }
 }
 
@@ -207,6 +303,17 @@ mod test_token {
 }
 
 #[derive(Debug)]
+pub(crate) struct Tokens(Vec<Token>);
+
+impl std::ops::Index<TokenIndex> for Tokens {
+    type Output = Token;
+
+    fn index(&self, index: TokenIndex) -> &Self::Output {
+        self.0.index(index.get())
+    }
+}
+
+#[derive(Debug)]
 pub(crate) enum CompilationUnitKind {
     FromFile { path: std::path::PathBuf },
     FromString { mark: String },
@@ -229,7 +336,7 @@ fn str_to_ucs(s: &str) -> Vec<ByteIndexSpan> {
 }
 
 impl CompilationUnit {
-    pub fn from_file<P>(filename: P) -> Result<Self, String>
+    pub(crate) fn from_file<P>(filename: P) -> Result<Self, String>
     where
         P: AsRef<std::path::Path>,
     {
@@ -244,7 +351,7 @@ impl CompilationUnit {
         })
     }
 
-    pub fn from_string(mark: &str, input: &str) -> Self {
+    pub(crate) fn from_string(mark: &str, input: &str) -> Self {
         CompilationUnit {
             kind: CompilationUnitKind::FromString {
                 mark: String::from(mark),
@@ -254,14 +361,14 @@ impl CompilationUnit {
         }
     }
 
-    pub fn get_origin(&self) -> String {
+    pub(crate) fn get_origin(&self) -> String {
         match &self.kind {
             CompilationUnitKind::FromFile { path } => format!("{}", path.display()),
             CompilationUnitKind::FromString { mark } => String::from(mark),
         }
     }
 
-    pub fn get_tokens(&self) -> Vec<Token> {
+    pub(crate) fn get_tokens(&self) -> Vec<Token> {
         fn uc_is_ascii_digit(s: &str) -> bool {
             s.len() == 1 && s.chars().next().unwrap().is_ascii_digit()
         }

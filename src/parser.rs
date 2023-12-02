@@ -77,41 +77,29 @@ mod precedence_climbing {
 
         fn get_precedence(&self, token: &lexer::Token) -> Option<(u8, Associativity)> {
             self.token_traits
-                .get(&token.kind)
+                .get(&token.get_kind())
                 .map(|token_trait| (token_trait.precedence, token_trait.associativity))
-        }
-
-        fn skip_blanks(&self, tokens: &[lexer::Token], mut cur_token_idx: usize) -> usize {
-            while cur_token_idx < tokens.len() {
-                let token = tokens.get(cur_token_idx).unwrap();
-                if token.kind != lexer::TokenKind::Spaces || token.kind != lexer::TokenKind::NewLine
-                {
-                    break;
-                }
-                cur_token_idx += 1;
-            }
-            cur_token_idx
         }
 
         fn parse_expression(
             &self,
-            tokens: &[lexer::Token],
-            cur_token_idx: usize,
+            tokens: &[(usize, lexer::Token)],
+            cur_packed_token_idx: usize,
             min_precedence: u8,
         ) -> Result<(AstNode, usize), ParseError> {
-            let (mut lhs, mut cur_token_idx) = self.parse_primary(tokens, cur_token_idx)?;
+            let (mut lhs, mut cur_packed_token_idx) =
+                self.parse_primary(tokens, cur_packed_token_idx)?;
 
-            while cur_token_idx < tokens.len() {
-                cur_token_idx = self.skip_blanks(tokens, cur_token_idx);
-                let op = tokens.get(cur_token_idx);
+            while cur_packed_token_idx < tokens.len() {
+                let op = tokens.get(cur_packed_token_idx);
                 if op.is_none() {
                     break;
                 }
                 let op = op.unwrap();
 
                 let (precedence, associativity) = self
-                    .get_precedence(op)
-                    .ok_or(ParseError::UnexpectedToken(op.clone()))?;
+                    .get_precedence(&op.1)
+                    .ok_or(ParseError::UnexpectedToken(op.1.clone()))?;
                 if precedence < min_precedence {
                     break;
                 }
@@ -121,57 +109,57 @@ mod precedence_climbing {
                     precedence
                 };
 
-                cur_token_idx = self.skip_blanks(tokens, cur_token_idx + 1);
-                let (rhs, new_cur_token_idx) =
-                    self.parse_expression(tokens, cur_token_idx + 1, min_precedence)?;
-                cur_token_idx = new_cur_token_idx;
+                let (rhs, new_cur_packed_token_idx) =
+                    self.parse_expression(tokens, cur_packed_token_idx + 1, min_precedence)?;
+                cur_packed_token_idx = new_cur_packed_token_idx;
                 lhs = AstNode::BinaryOp {
-                    op: op.clone(),
+                    op: op.1.clone(),
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
             }
 
-            Ok((lhs, cur_token_idx))
+            Ok((lhs, cur_packed_token_idx))
         }
 
         fn parse_primary(
             &self,
-            tokens: &[lexer::Token],
-            mut cur_token_idx: usize,
+            tokens: &[(usize, lexer::Token)],
+            mut cur_packed_token_idx: usize,
         ) -> Result<(AstNode, usize), ParseError> {
             let token = tokens
-                .get(cur_token_idx)
+                .get(cur_packed_token_idx)
                 .ok_or(ParseError::UnexpectedEndOfInput)?;
 
-            cur_token_idx = self.skip_blanks(tokens, cur_token_idx + 1);
-
-            match token.kind {
-                lexer::TokenKind::Int64 => Ok((AstNode::Number(token.clone()), cur_token_idx + 1)),
+            match token.1.get_kind() {
+                lexer::TokenKind::Int64 => {
+                    Ok((AstNode::Number(token.1.clone()), cur_packed_token_idx + 1))
+                }
                 lexer::TokenKind::Dash | lexer::TokenKind::Plus => {
-                    let (rhs, new_cur_token_idx) = self.parse_primary(tokens, cur_token_idx)?;
+                    let (rhs, new_cur_packed_token_idx) =
+                        self.parse_primary(tokens, cur_packed_token_idx)?;
                     Ok((
                         AstNode::UnaryOp {
-                            op: token.clone(),
+                            op: token.1.clone(),
                             rhs: Box::new(rhs),
                         },
-                        new_cur_token_idx,
+                        new_cur_packed_token_idx,
                     ))
                 }
                 lexer::TokenKind::LParen => {
-                    let (expr, new_cur_token_idx) =
-                        self.parse_expression(tokens, cur_token_idx, 0)?;
-                    cur_token_idx = new_cur_token_idx;
-                    return match tokens.get(cur_token_idx) {
-                        Some(token) if token.kind == lexer::TokenKind::RParen => {
-                            Ok((expr, cur_token_idx + 1))
+                    let (expr, new_cur_packed_token_idx) =
+                        self.parse_expression(tokens, cur_packed_token_idx, 0)?;
+                    cur_packed_token_idx = new_cur_packed_token_idx;
+                    return match tokens.get(cur_packed_token_idx) {
+                        Some(token) if token.1.get_kind() == lexer::TokenKind::RParen => {
+                            Ok((expr, cur_packed_token_idx + 1))
                         }
                         _ => Err(ParseError::MismatchedParentheses {
-                            another_paren: token.clone(),
+                            another_paren: token.1.clone(),
                         }),
                     };
                 }
-                _ => Err(ParseError::UnexpectedToken(token.clone())),
+                _ => Err(ParseError::UnexpectedToken(token.1.clone())),
             }
         }
 
@@ -179,20 +167,23 @@ mod precedence_climbing {
             let (tokens, lex_errors): (Vec<_>, Vec<_>) = cu
                 .get_tokens()
                 .into_iter()
-                .partition(|token| token.kind != lexer::TokenKind::Invalid);
+                .enumerate()
+                .filter(|(_, token)| {
+                    token.get_kind() != lexer::TokenKind::Spaces
+                        && token.get_kind() != lexer::TokenKind::NewLine
+                })
+                .partition(|(_, token)| token.get_kind() != lexer::TokenKind::Invalid);
             if !lex_errors.is_empty() {
-                return Err(ParseError::LexError(lex_errors));
+                return Err(ParseError::LexError(
+                    lex_errors.into_iter().map(|(_, token)| token).collect(),
+                ));
             }
 
-            let cur_token_idx = self.skip_blanks(&tokens, 0);
-            if cur_token_idx >= tokens.len() {
-                return Ok(Ast { root: None });
-            }
-            let (expr, new_cur_token_idx) =
-                self.parse_expression(&tokens, cur_token_idx, 0).unwrap();
-            let cur_token_idx = self.skip_blanks(&tokens, new_cur_token_idx);
-            if cur_token_idx < tokens.len() {
-                return Err(ParseError::UnexpectedToken(tokens[cur_token_idx].clone()));
+            let (expr, cur_packed_token_idx) = self.parse_expression(&tokens, 0, 0).unwrap();
+            if cur_packed_token_idx < tokens.len() {
+                return Err(ParseError::UnexpectedToken(
+                    tokens[cur_packed_token_idx].1.clone(),
+                ));
             }
             Ok(Ast { root: Some(expr) })
         }
