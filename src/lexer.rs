@@ -39,28 +39,24 @@ impl ByteIndexSpan {
             inclusive_end,
         }
     }
-    fn byte_idx_start(&self) -> ByteIndex {
+    fn get_start(&self) -> ByteIndex {
         self.start
     }
-    fn byte_idx_inclusive_end(&self) -> ByteIndex {
+    fn get_inclusive_end(&self) -> ByteIndex {
         self.inclusive_end
     }
     fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
         cu.raw_content
-            .get(self.byte_idx_start().get()..=self.byte_idx_inclusive_end().get())
+            .get(self.get_start().get()..=self.get_inclusive_end().get())
             .unwrap()
     }
     fn merge(&self, other: &Self) -> Self {
         Self {
-            start: ByteIndex::new(
-                self.byte_idx_start()
-                    .get()
-                    .min(other.byte_idx_start().get()),
-            ),
+            start: ByteIndex::new(self.get_start().get().min(other.get_start().get())),
             inclusive_end: ByteIndex::new(
-                self.byte_idx_inclusive_end()
+                self.get_inclusive_end()
                     .get()
-                    .max(other.byte_idx_inclusive_end().get()),
+                    .max(other.get_inclusive_end().get()),
             ),
         }
     }
@@ -75,8 +71,8 @@ mod test_byte_index_span {
         let start = ByteIndex::new(5);
         let end = ByteIndex::new(10);
         let span = ByteIndexSpan::new(start, end);
-        assert_eq!(span.byte_idx_start(), start);
-        assert_eq!(span.byte_idx_inclusive_end(), end);
+        assert_eq!(span.get_start(), start);
+        assert_eq!(span.get_inclusive_end(), end);
     }
 
     #[test]
@@ -106,7 +102,35 @@ impl UcContentIndex {
         self.0
     }
     fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
-        cu.ucs.get(self.0).unwrap().get_str(cu)
+        cu.ucs.get(*self).unwrap().get_str(cu)
+    }
+}
+
+impl std::ops::Add<usize> for UcContentIndex {
+    type Output = Self;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs)
+    }
+}
+
+impl std::ops::AddAssign<usize> for UcContentIndex {
+    fn add_assign(&mut self, rhs: usize) {
+        self.0 += rhs;
+    }
+}
+
+impl std::ops::Sub<usize> for UcContentIndex {
+    type Output = Self;
+
+    fn sub(self, rhs: usize) -> Self::Output {
+        Self(self.0 - rhs)
+    }
+}
+
+impl std::ops::SubAssign<usize> for UcContentIndex {
+    fn sub_assign(&mut self, rhs: usize) {
+        self.0 -= rhs;
     }
 }
 
@@ -120,6 +144,34 @@ mod test_uc_content_index {
             assert_eq!(UcContentIndex::new(v).get(), v);
         }
     }
+
+    #[test]
+    fn test_add() {
+        let index = UcContentIndex::new(5);
+        let result = index + 3;
+        assert_eq!(result.get(), 8);
+    }
+
+    #[test]
+    fn test_add_assign() {
+        let mut index = UcContentIndex::new(5);
+        index += 3;
+        assert_eq!(index.get(), 8);
+    }
+
+    #[test]
+    fn test_sub() {
+        let index = UcContentIndex::new(5);
+        let result = index - 3;
+        assert_eq!(result.get(), 2);
+    }
+
+    #[test]
+    fn test_sub_assign() {
+        let mut index = UcContentIndex::new(5);
+        index -= 3;
+        assert_eq!(index.get(), 2);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,14 +182,11 @@ struct UcContentIndexSpan {
 
 impl UcContentIndexSpan {
     fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
-        self.get_raw_content_index_span(cu).get_str(cu)
-    }
-
-    fn get_raw_content_index_span(&self, cu: &CompilationUnit) -> ByteIndexSpan {
         cu.ucs
-            .get(self.start.0)
+            .get(self.start)
             .unwrap()
-            .merge(cu.ucs.get(self.inclusive_end.0).unwrap())
+            .merge(cu.ucs.get(self.inclusive_end).unwrap())
+            .get_str(cu)
     }
 }
 
@@ -170,36 +219,36 @@ impl TokenIndex {
     pub(crate) fn new(i: usize) -> Self {
         Self(i)
     }
-    pub(crate) fn get(&self) -> usize {
+    fn get(&self) -> usize {
         self.0
     }
 }
 
-impl std::ops::Add for TokenIndex {
+impl std::ops::Add<usize> for TokenIndex {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs)
     }
 }
 
-impl std::ops::AddAssign for TokenIndex {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
+impl std::ops::AddAssign<usize> for TokenIndex {
+    fn add_assign(&mut self, rhs: usize) {
+        self.0 += rhs;
     }
 }
 
-impl std::ops::Sub for TokenIndex {
+impl std::ops::Sub<usize> for TokenIndex {
     type Output = Self;
 
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0)
+    fn sub(self, rhs: usize) -> Self::Output {
+        Self(self.0 - rhs)
     }
 }
 
-impl std::ops::SubAssign for TokenIndex {
-    fn sub_assign(&mut self, rhs: Self) {
-        self.0 -= rhs.0;
+impl std::ops::SubAssign<usize> for TokenIndex {
+    fn sub_assign(&mut self, rhs: usize) {
+        self.0 -= rhs;
     }
 }
 
@@ -216,46 +265,34 @@ mod test_token_index {
 
     #[test]
     fn test_add() {
-        let index_value1 = 5;
-        let index_value2 = 3;
-        let token_index1 = TokenIndex::new(index_value1);
-        let token_index2 = TokenIndex::new(index_value2);
-        let result = token_index1 + token_index2;
-        assert_eq!(result.get(), index_value1 + index_value2);
+        let index = TokenIndex::new(5);
+        let result = index + 3;
+        assert_eq!(result.get(), 8);
     }
 
     #[test]
     fn test_sub() {
-        let index_value1 = 5;
-        let index_value2 = 3;
-        let token_index1 = TokenIndex::new(index_value1);
-        let token_index2 = TokenIndex::new(index_value2);
-        let result = token_index1 - token_index2;
-        assert_eq!(result.get(), index_value1 - index_value2);
+        let index = TokenIndex::new(5);
+        let result = index - 3;
+        assert_eq!(result.get(), 2);
     }
 
     #[test]
     fn test_add_assign() {
-        let index_value1 = 5;
-        let index_value2 = 3;
-        let mut token_index1 = TokenIndex::new(index_value1);
-        let token_index2 = TokenIndex::new(index_value2);
-        token_index1 += token_index2;
-        assert_eq!(token_index1.get(), index_value1 + index_value2);
+        let mut index = TokenIndex::new(5);
+        index += 3;
+        assert_eq!(index.get(), 8);
     }
 
     #[test]
     fn test_sub_assign() {
-        let index_value1 = 5;
-        let index_value2 = 3;
-        let mut token_index1 = TokenIndex::new(index_value1);
-        let token_index2 = TokenIndex::new(index_value2);
-        token_index1 -= token_index2;
-        assert_eq!(token_index1.get(), index_value1 - index_value2);
+        let mut index = TokenIndex::new(5);
+        index -= 3;
+        assert_eq!(index.get(), 2);
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     kind: TokenKind,
     span: UcContentIndexSpan,
@@ -305,11 +342,84 @@ mod test_token {
 #[derive(Debug)]
 pub(crate) struct Tokens(Vec<Token>);
 
-impl std::ops::Index<TokenIndex> for Tokens {
-    type Output = Token;
+impl Tokens {
+    pub(crate) fn new(n: usize) -> Self {
+        Self(Vec::with_capacity(n))
+    }
 
-    fn index(&self, index: TokenIndex) -> &Self::Output {
-        self.0.index(index.get())
+    pub(crate) fn push(&mut self, token: Token) {
+        self.0.push(token);
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &Token> {
+        self.0.iter()
+    }
+
+    pub(crate) fn into_iter(self) -> impl Iterator<Item = Token> {
+        self.0.into_iter()
+    }
+
+    pub(crate) fn get(&self, index: TokenIndex) -> &Token {
+        self.0.get(index.get()).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod test_tokens {
+    use super::*;
+
+    #[test]
+    fn test() {
+        // Create a new Tokens instance
+        let mut tokens = Tokens::new(2);
+
+        // Add some tokens
+        let token1 = Token::from(
+            TokenKind::Spaces,
+            UcContentIndexSpan {
+                start: UcContentIndex::new(0),
+                inclusive_end: UcContentIndex::new(0),
+            },
+        );
+        let token2 = Token::from(
+            TokenKind::NewLine,
+            UcContentIndexSpan {
+                start: UcContentIndex::new(1),
+                inclusive_end: UcContentIndex::new(1),
+            },
+        );
+        tokens.push(token1.clone());
+        tokens.push(token2.clone());
+
+        // Check the length
+        assert_eq!(tokens.len(), 2);
+
+        // Check the iterator
+        let mut iter = tokens.iter();
+        assert_eq!(iter.next(), Some(&token1));
+        assert_eq!(iter.next(), Some(&token2));
+        assert_eq!(iter.next(), None);
+
+        // Check indexing
+        assert_eq!(tokens.get(TokenIndex(0)), &token1);
+        assert_eq!(tokens.get(TokenIndex(1)), &token2);
+    }
+}
+
+#[derive(Debug)]
+struct UcContent(Vec<ByteIndexSpan>);
+
+impl UcContent {
+    fn get(&self, index: UcContentIndex) -> Option<&ByteIndexSpan> {
+        self.0.get(index.get())
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -323,16 +433,57 @@ pub(crate) enum CompilationUnitKind {
 pub struct CompilationUnit {
     kind: CompilationUnitKind,
     raw_content: String,
-    ucs: Vec<ByteIndexSpan>,
+    ucs: UcContent,
 }
 
-fn str_to_ucs(s: &str) -> Vec<ByteIndexSpan> {
-    s.grapheme_indices(true)
-        .map(|(idx, s)| ByteIndexSpan {
-            start: ByteIndex::new(idx),
-            inclusive_end: ByteIndex::new(idx + s.len() - 1),
-        })
-        .collect()
+fn str_to_ucs(s: &str) -> UcContent {
+    UcContent(
+        s.grapheme_indices(true)
+            .map(|(idx, s)| ByteIndexSpan {
+                start: ByteIndex::new(idx),
+                inclusive_end: ByteIndex::new(idx + s.len() - 1),
+            })
+            .collect(),
+    )
+}
+
+#[cfg(test)]
+mod test_str_to_ucs {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let s = "a̐éö̲😀\n\r\n\n";
+        assert_eq!(s.len(), 19);
+
+        // Convert the string to a UcContent instance
+        let ucs = str_to_ucs(s);
+
+        // Check the length of the UcContent instance
+        assert_eq!(ucs.len(), 7);
+
+        for (i, (start, inclusive_end)) in [
+            (0, 2),   // a̐
+            (3, 5),   // é
+            (6, 10),  // ö̲
+            (11, 14), // 😀
+            (15, 15), // \n
+            (16, 17), // \r\n
+            (18, 18), // \n
+        ]
+        .iter()
+        .enumerate()
+        {
+            // Check the start and inclusive_end of each grapheme cluster
+            assert_eq!(
+                ucs.0.get(i),
+                Some(&ByteIndexSpan {
+                    start: ByteIndex::new(*start),
+                    inclusive_end: ByteIndex::new(*inclusive_end)
+                })
+            );
+        }
+    }
 }
 
 impl CompilationUnit {
@@ -368,25 +519,25 @@ impl CompilationUnit {
         }
     }
 
-    pub(crate) fn get_tokens(&self) -> Vec<Token> {
+    pub(crate) fn get_tokens(&self) -> Tokens {
         fn uc_is_ascii_digit(s: &str) -> bool {
             s.len() == 1 && s.chars().next().unwrap().is_ascii_digit()
         }
 
         fn take_while(
             cu: &CompilationUnit,
-            start: UcContentIndex,
+            mut start: UcContentIndex,
             f: impl Fn(&str) -> bool,
         ) -> UcContentIndex {
-            let mut i = start.0;
-            while let Some(byte_idx_span) = cu.ucs.get(i) {
+            while let Some(byte_idx_span) = cu.ucs.get(start) {
                 let s = byte_idx_span.get_str(cu);
                 if !f(s) {
+                    start -= 1;
                     break;
                 }
-                i += 1;
+                start += 1;
             }
-            UcContentIndex::new(i)
+            start
         }
 
         fn get_single_char_token_kind(c: char) -> Option<TokenKind> {
@@ -402,53 +553,34 @@ impl CompilationUnit {
             }
         }
 
-        let mut tokens: Vec<Token> = Vec::<Token>::with_capacity(self.ucs.len());
+        let mut tokens = Tokens::new(self.ucs.len());
 
-        let uc_idx = UcContentIndex::new(0);
+        let mut uc_idx = UcContentIndex::new(0);
 
-        loop {
-            let byte_idx_span = self.ucs.get(uc_idx.0).unwrap();
+        while let Some(byte_idx_span) = self.ucs.get(uc_idx) {
             let s = byte_idx_span.get_str(self);
-            if s.len() == 1 {
-                let c = s.chars().next().unwrap();
-                if let Some(token_kind) = get_single_char_token_kind(c) {
-                    tokens.push(Token::from(
-                        token_kind,
-                        UcContentIndexSpan {
-                            start: uc_idx,
-                            inclusive_end: uc_idx,
-                        },
-                    ));
-                } else {
-                    match c {
-                        '1'..='9' => {
-                            tokens.push(Token::from(
-                                TokenKind::Int64,
-                                UcContentIndexSpan {
-                                    start: uc_idx,
-                                    inclusive_end: take_while(self, uc_idx, uc_is_ascii_digit),
-                                },
-                            ));
-                        }
-                        ' ' => {
-                            tokens.push(Token::from(
-                                TokenKind::Spaces,
-                                UcContentIndexSpan {
-                                    start: uc_idx,
-                                    inclusive_end: take_while(self, uc_idx, |s| s == " "),
-                                },
-                            ));
-                        }
-                        _ => tokens.push(Token::from(
-                            TokenKind::Invalid,
-                            UcContentIndexSpan {
-                                start: uc_idx,
-                                inclusive_end: uc_idx,
-                            },
-                        )),
+            if s == "\r\n" || s == "\n" {
+                tokens.push(Token::from(
+                    TokenKind::NewLine,
+                    UcContentIndexSpan {
+                        start: uc_idx,
+                        inclusive_end: uc_idx,
+                    },
+                ));
+                uc_idx += 1;
+                continue;
+            }
+
+            assert!(!s.is_empty());
+            if s.len() != 1 {
+                let mut uc_idx = uc_idx;
+                while let Some(byte_idx_span) = self.ucs.get(uc_idx) {
+                    let s = byte_idx_span.get_str(self);
+                    if s.len() == 1 {
+                        break;
                     }
+                    uc_idx += 1;
                 }
-            } else {
                 tokens.push(Token::from(
                     TokenKind::Invalid,
                     UcContentIndexSpan {
@@ -456,8 +588,59 @@ impl CompilationUnit {
                         inclusive_end: uc_idx,
                     },
                 ));
+                uc_idx += 1;
+                continue;
             }
+
+            assert!(s.len() == 1);
+            let c = s.chars().next().unwrap();
+
+            // single-char tokens
+            if let Some(token_kind) = get_single_char_token_kind(c) {
+                tokens.push(Token::from(
+                    token_kind,
+                    UcContentIndexSpan {
+                        start: uc_idx,
+                        inclusive_end: uc_idx,
+                    },
+                ));
+                uc_idx += 1;
+                continue;
+            }
+
+            // multi-char tokens
+            match c {
+                '1'..='9' => {
+                    tokens.push(Token::from(
+                        TokenKind::Int64,
+                        UcContentIndexSpan {
+                            start: uc_idx,
+                            inclusive_end: take_while(self, uc_idx, uc_is_ascii_digit),
+                        },
+                    ));
+                }
+                ' ' => {
+                    tokens.push(Token::from(
+                        TokenKind::Spaces,
+                        UcContentIndexSpan {
+                            start: uc_idx,
+                            inclusive_end: take_while(self, uc_idx, |s| s == " "),
+                        },
+                    ));
+                }
+                _ => tokens.push(Token::from(
+                    TokenKind::Invalid,
+                    UcContentIndexSpan {
+                        start: uc_idx,
+                        inclusive_end: uc_idx,
+                    },
+                )),
+            }
+            uc_idx = tokens.iter().last().unwrap().span.inclusive_end + 1;
+            continue;
         }
+
+        tokens
     }
 }
 
@@ -562,7 +745,7 @@ mod test_compile_unit {
     }
     #[test]
     fn test_get_tokens() {
-        let cu = CompilationUnit::from_string("mark", "1 + 27 *  3 ^ (4 - -3)\n");
+        let cu = CompilationUnit::from_string("mark", "1 + 27 *  3 ^ (4 - -3)\n\r\n");
         let tokens = cu.get_tokens();
         let expected = [
             (TokenKind::Int64, "1"),
@@ -572,8 +755,7 @@ mod test_compile_unit {
             (TokenKind::Int64, "27"),
             (TokenKind::Spaces, " "),
             (TokenKind::Star, "*"),
-            (TokenKind::Spaces, " "),
-            (TokenKind::Spaces, " "),
+            (TokenKind::Spaces, "  "),
             (TokenKind::Int64, "3"),
             (TokenKind::Spaces, " "),
             (TokenKind::Caret, "^"),
@@ -587,8 +769,9 @@ mod test_compile_unit {
             (TokenKind::Int64, "3"),
             (TokenKind::RParen, ")"),
             (TokenKind::NewLine, "\n"),
+            (TokenKind::NewLine, "\r\n"),
         ];
-        assert_eq!(tokens.len(), expected.len());
+        assert_eq!(tokens.len(), expected.len(), "{:?} {:?}", tokens, expected);
         for (token, (expected_kind, expected_str)) in tokens.iter().zip(expected.into_iter()) {
             assert_eq!(token.kind, expected_kind);
             assert_eq!(token.get_str(&cu), expected_str);
