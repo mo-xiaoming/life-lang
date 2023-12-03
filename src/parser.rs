@@ -120,9 +120,12 @@ mod precedence_climbing {
             tokens: &[(lexer::TokenIndex, lexer::Token)],
             cur_packed_token_idx: usize,
             min_precedence: u8,
-        ) -> Result<(AstNode, usize), ParseError> {
+        ) -> Result<(Option<AstNode>, usize), ParseError> {
             let (mut lhs, mut cur_packed_token_idx) =
                 self.parse_primary(ast, tokens, cur_packed_token_idx)?;
+            if lhs.is_none() {
+                return Ok((None, cur_packed_token_idx));
+            }
 
             while cur_packed_token_idx < tokens.len() {
                 let op = tokens.get(cur_packed_token_idx);
@@ -145,14 +148,18 @@ mod precedence_climbing {
 
                 let (rhs, new_cur_packed_token_idx) =
                     self.parse_expression(ast, tokens, cur_packed_token_idx + 1, min_precedence)?;
+                if rhs.is_none() {
+                    cur_packed_token_idx = new_cur_packed_token_idx;
+                    break;
+                }
                 cur_packed_token_idx = new_cur_packed_token_idx;
-                let lhs_node_idx = ast.nodes.push(lhs);
-                let rhs_node_idx = ast.nodes.push(rhs);
-                lhs = AstNode::BinaryOp {
+                let lhs_node_idx = ast.nodes.push(lhs.unwrap());
+                let rhs_node_idx = ast.nodes.push(rhs.unwrap());
+                lhs = Some(AstNode::BinaryOp {
                     op: op.0,
                     lhs: lhs_node_idx,
                     rhs: rhs_node_idx,
-                };
+                });
             }
 
             Ok((lhs, cur_packed_token_idx))
@@ -163,24 +170,32 @@ mod precedence_climbing {
             ast: &mut Ast,
             tokens: &[(lexer::TokenIndex, lexer::Token)],
             mut cur_packed_token_idx: usize,
-        ) -> Result<(AstNode, usize), ParseError> {
-            let token = tokens
-                .get(cur_packed_token_idx)
-                .ok_or(ParseError::UnexpectedEndOfInput)?;
+        ) -> Result<(Option<AstNode>, usize), ParseError> {
+            let token = tokens.get(cur_packed_token_idx);
+            if token.is_none() {
+                return Ok((None, cur_packed_token_idx));
+            }
+            let token = token.unwrap();
 
             match token.1.get_kind() {
-                lexer::TokenKind::Int64 => Ok((AstNode::Number(token.0), cur_packed_token_idx + 1)),
+                lexer::TokenKind::Int64 => {
+                    Ok((Some(AstNode::Number(token.0)), cur_packed_token_idx + 1))
+                }
                 lexer::TokenKind::Dash | lexer::TokenKind::Plus => {
-                    let (rhs, new_cur_packed_token_idx) =
-                        self.parse_primary(ast, tokens, cur_packed_token_idx)?;
-                    let rhs_node_idx = ast.nodes.push(rhs);
-                    Ok((
-                        AstNode::UnaryOp {
-                            op: token.0,
-                            rhs: rhs_node_idx,
-                        },
-                        new_cur_packed_token_idx,
-                    ))
+                    if let (Some(rhs), new_cur_packed_token_idx) =
+                        self.parse_primary(ast, tokens, cur_packed_token_idx)?
+                    {
+                        let rhs_node_idx = ast.nodes.push(rhs);
+                        Ok((
+                            Some(AstNode::UnaryOp {
+                                op: token.0,
+                                rhs: rhs_node_idx,
+                            }),
+                            new_cur_packed_token_idx,
+                        ))
+                    } else {
+                        Err(ParseError::UnexpectedEndOfInput)
+                    }
                 }
                 lexer::TokenKind::LParen => {
                     let (expr, new_cur_packed_token_idx) =
@@ -195,6 +210,7 @@ mod precedence_climbing {
                         }),
                     };
                 }
+                lexer::TokenKind::SemiColon => Ok((None, cur_packed_token_idx + 1)),
                 _ => Err(ParseError::UnexpectedToken(token.0)),
             }
         }
@@ -224,17 +240,17 @@ mod precedence_climbing {
                 nodes: AstNodes::new(tokens.len()),
             };
 
-            if tokens.is_empty() {
-                return Ok(ast);
-            }
-
-            let (expr, cur_packed_token_idx) =
+            let (expr, _cur_packed_token_idx) =
                 self.parse_expression(&mut ast, &tokens, 0, 0).unwrap();
-            if cur_packed_token_idx < tokens.len() {
-                return Err(ParseError::UnexpectedToken(tokens[cur_packed_token_idx].0));
+            if let Some(expr) = expr {
+                ast.root = Some(ast.nodes.push(expr));
             }
+            // TODO: only read one expression for now
 
-            ast.root = Some(ast.nodes.push(expr));
+            //if cur_packed_token_idx < tokens.len() {
+            //    return Err(ParseError::UnexpectedToken(tokens[cur_packed_token_idx].0));
+            //}
+
             Ok(ast)
         }
     }
@@ -246,6 +262,16 @@ mod precedence_climbing {
         #[test]
         fn test_empty_input() {
             let cu = lexer::CompilationUnit::from_string("stdin", "");
+            let parser = Parser::new();
+            let ast = parser.parse(&cu);
+            assert!(ast.is_ok());
+            let ast = ast.unwrap();
+            assert!(ast.root.is_none());
+        }
+
+        #[test]
+        fn test_single_comma() {
+            let cu = lexer::CompilationUnit::from_string("stdin", ";");
             let parser = Parser::new();
             let ast = parser.parse(&cu);
             assert!(ast.is_ok());
