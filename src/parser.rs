@@ -86,6 +86,19 @@ impl AstNodes {
     }
 }
 
+trait AstNodesVisitor<R> {
+    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> R;
+}
+
+#[derive(Debug)]
+struct PrintAstNodesVisitor;
+
+impl AstNodesVisitor<String> for PrintAstNodesVisitor {
+    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> String {
+        ast.get_str(idx)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum Associativity {
     Left,
@@ -94,7 +107,6 @@ enum Associativity {
 
 #[derive(Debug)]
 struct TokenTrait {
-    kind: lexer::TokenKind,
     precedence: u8,
     associativity: Associativity,
 }
@@ -119,26 +131,47 @@ mod precedence_climbing {
 
     impl Parser {
         pub fn new() -> Self {
-            let mut token_traits = std::collections::HashMap::with_capacity(10);
-            let traits = vec![
-                (lexer::TokenKind::Plus, 1, Associativity::Left),
-                (lexer::TokenKind::Dash, 1, Associativity::Left),
-                (lexer::TokenKind::Star, 2, Associativity::Left),
-                (lexer::TokenKind::Slash, 2, Associativity::Left),
-                (lexer::TokenKind::Caret, 3, Associativity::Right),
-            ];
-            for (kind, precedence, associativity) in traits {
-                token_traits.insert(
-                    kind,
-                    TokenTrait {
-                        kind,
-                        precedence,
-                        associativity,
-                    },
-                );
+            Self {
+                token_traits: [
+                    (
+                        lexer::TokenKind::Plus,
+                        TokenTrait {
+                            precedence: 1,
+                            associativity: Associativity::Left,
+                        },
+                    ),
+                    (
+                        lexer::TokenKind::Dash,
+                        TokenTrait {
+                            precedence: 1,
+                            associativity: Associativity::Left,
+                        },
+                    ),
+                    (
+                        lexer::TokenKind::Star,
+                        TokenTrait {
+                            precedence: 2,
+                            associativity: Associativity::Left,
+                        },
+                    ),
+                    (
+                        lexer::TokenKind::Slash,
+                        TokenTrait {
+                            precedence: 2,
+                            associativity: Associativity::Left,
+                        },
+                    ),
+                    (
+                        lexer::TokenKind::Caret,
+                        TokenTrait {
+                            precedence: 3,
+                            associativity: Associativity::Right,
+                        },
+                    ),
+                ]
+                .into_iter()
+                .collect(),
             }
-
-            Self { token_traits }
         }
 
         fn get_precedence(&self, token: &lexer::Token) -> Option<(u8, Associativity)> {
@@ -312,24 +345,92 @@ mod precedence_climbing {
         }
 
         #[test]
-        fn test_one_number() {
-            for (s, expected) in [("0;", "0"), (" 0;", "0"), ("0 ;", "0"), (" 0 ;", "0")] {
-                let cu = lexer::CompilationUnit::from_string("stdin", s);
-                let parser = Parser::new();
-                let ast = parser.parse(&cu);
-                assert!(
-                    matches!(ast, Ok(Ast { root: Some(_), .. })),
-                    "failed on `{}`",
-                    s
-                );
-                let ast = ast.unwrap();
-                assert!(
-                    matches!(ast, Ast { root: Some(ast_node_idx), .. } if ast.get_str(ast_node_idx) == expected),
-                    "ast: {:?}, expected: `{}`, got: `{}`",
-                    ast,
-                    expected,
-                    ast.get_str(ast.root.unwrap())
-                );
+        fn test_simple_math() {
+            for (expected, test_data) in [
+                ("0", vec!["0;", " 0;", "0 ;", " 0 ;"]),
+                ("1", vec!["1;", " 1;", "1 ;", " 1 ;"]),
+                (
+                    "(0 + 0)",
+                    vec![
+                        "0+0;", " 0+0;", "0 +0;", "0+ 0;", " 0 + 0;", "0 + 0 ;", " 0 + 0 ;",
+                    ],
+                ),
+                (
+                    "(1 + 1)",
+                    vec![
+                        "1+1;", " 1+1;", "1 +1;", "1+ 1;", " 1 + 1;", "1 + 1 ;", " 1 + 1 ;",
+                    ],
+                ),
+                (
+                    "(0 - 0)",
+                    vec![
+                        "0-0;", " 0-0;", "0 -0;", "0- 0;", " 0 - 0;", "0 - 0 ;", " 0 - 0 ;",
+                    ],
+                ),
+                (
+                    "(1 - 1)",
+                    vec![
+                        "1-1;", " 1-1;", "1 -1;", "1- 1;", " 1 - 1;", "1 - 1 ;", " 1 - 1 ;",
+                    ],
+                ),
+                (
+                    "(0 * 0)",
+                    vec![
+                        "0*0;", " 0*0;", "0 *0;", "0* 0;", " 0 * 0;", "0 * 0 ;", " 0 * 0 ;",
+                    ],
+                ),
+                (
+                    "(1 * 1)",
+                    vec![
+                        "1*1;", " 1*1;", "1 *1;", "1* 1;", " 1 * 1;", "1 * 1 ;", " 1 * 1 ;",
+                    ],
+                ),
+                (
+                    "(0 / 0)",
+                    vec![
+                        "0/0;", " 0/0;", "0 /0;", "0/ 0;", " 0 / 0;", "0 / 0 ;", " 0 / 0 ;",
+                    ],
+                ),
+                (
+                    "(1 / 1)",
+                    vec![
+                        "1/1;", " 1/1;", "1 /1;", "1/ 1;", " 1 / 1;", "1 / 1 ;", " 1 / 1 ;",
+                    ],
+                ),
+                (
+                    "(0 ^ 0)",
+                    vec![
+                        "0^0;", " 0^0;", "0 ^0;", "0^ 0;", " 0 ^ 0;", "0 ^ 0 ;", " 0 ^ 0 ;",
+                    ],
+                ),
+                (
+                    "(1 ^ 1)",
+                    vec![
+                        "1^1;", " 1^1;", "1 ^1;", "1^ 1;", " 1 ^ 1;", "1 ^ 1 ;", " 1 ^ 1 ;",
+                    ],
+                ),
+            ] {
+                for s in test_data {
+                    let cu = lexer::CompilationUnit::from_string("stdin", s);
+                    let parser = Parser::new();
+                    let ast = parser.parse(&cu);
+                    assert!(
+                        matches!(ast, Ok(Ast { root: Some(_), .. })),
+                        "failed on `{}`",
+                        s
+                    );
+                    let ast = ast.unwrap();
+                    assert!(
+                        matches!(ast, Ast { root: Some(ast_node_idx), .. } if ast.get_str(ast_node_idx) == expected),
+                        "ast: {:?}, expected: `{}`, got: `{}`",
+                        ast,
+                        expected,
+                        ast.get_str(ast.root.unwrap())
+                    );
+
+                    let printer = PrintAstNodesVisitor;
+                    assert_eq!(printer.visit(&ast, ast.root.unwrap()), expected);
+                }
             }
         }
 
