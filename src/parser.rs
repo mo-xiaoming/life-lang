@@ -13,6 +13,9 @@ impl<'cu> Ast<'cu> {
     fn get_str(&self, idx: AstNodeIndex) -> String {
         self.nodes.get_str(self, idx)
     }
+    fn nodes_len(&self) -> usize {
+        self.nodes.len()
+    }
 }
 
 #[derive(Debug)]
@@ -83,6 +86,10 @@ impl AstNodes {
 
     fn get_str(&self, ast: &Ast, idx: AstNodeIndex) -> String {
         self.get(idx).get_str(ast)
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -246,9 +253,9 @@ mod precedence_climbing {
                 lexer::TokenKind::Int64 => {
                     Ok((Some(AstNode::Number(token.0)), cur_packed_token_idx + 1))
                 }
-                lexer::TokenKind::Dash | lexer::TokenKind::Plus => {
+                lexer::TokenKind::Dash => {
                     if let (Some(rhs), new_cur_packed_token_idx) =
-                        self.parse_primary(ast, tokens, cur_packed_token_idx)?
+                        self.parse_primary(ast, tokens, cur_packed_token_idx + 1)?
                     {
                         let rhs_node_idx = ast.nodes.push(rhs);
                         Ok((
@@ -262,6 +269,15 @@ mod precedence_climbing {
                         Err(ParseError::UnexpectedEndOfInput)
                     }
                 }
+                lexer::TokenKind::Plus => tokens.get(cur_packed_token_idx + 1).map_or(
+                    Err(ParseError::UnexpectedEndOfInput),
+                    |(token_idx, token)| match token.get_kind() {
+                        lexer::TokenKind::Int64 => {
+                            Ok((Some(AstNode::Number(*token_idx)), cur_packed_token_idx + 2))
+                        }
+                        _ => Err(ParseError::UnexpectedToken(*token_idx)),
+                    },
+                ),
                 lexer::TokenKind::LParen => {
                     let (expr, new_cur_packed_token_idx) =
                         self.parse_expression(ast, tokens, cur_packed_token_idx, 0)?;
@@ -433,6 +449,64 @@ mod precedence_climbing {
                 }
             }
         }
+
+        #[test]
+        fn test_negative_numbers() {
+            for (expected, node_cnt, test_data) in [
+                ("(- 42)", 2, vec!["-42;", "- 42;", " - 42 ;", " -42 ;"]),
+                (
+                    "(- (- 42))",
+                    3,
+                    vec!["--42;", "- -42;", " -- 42 ;", "- -42 ;", " - - 42 ;"],
+                ),
+                (
+                    "(3 - (- (- 2)))",
+                    5,
+                    vec![
+                        "3---2;",
+                        "3-- -2;",
+                        " 3 - - - 2 ;",
+                        "3 - --2 ;",
+                        " 3 ---2 ;",
+                    ],
+                ),
+                (
+                    "((- 3) - (- 2))",
+                    5,
+                    vec![
+                        "-3--2;",
+                        "-3- -2;",
+                        "- 3 - - 2 ;",
+                        " - 3  --2 ;",
+                        " -3 -- 2 ;",
+                    ],
+                ),
+            ] {
+                for s in test_data {
+                    let cu = lexer::CompilationUnit::from_string("stdin", s);
+                    let parser = Parser::new();
+                    let ast = parser.parse(&cu);
+                    assert!(
+                        matches!(ast, Ok(Ast { root: Some(_), .. })),
+                        "failed on `{}`",
+                        s
+                    );
+                    let ast = ast.unwrap();
+
+                    let printer = PrintAstNodesVisitor;
+                    assert_eq!(
+                        ast.nodes_len(),
+                        node_cnt,
+                        "{}",
+                        printer.visit(&ast, ast.root.unwrap())
+                    );
+                    assert_eq!(printer.visit(&ast, ast.root.unwrap()), expected);
+                }
+            }
+        }
+
+        #[test]
+        fn test_number_with_preceding_positive_sign_should_return_error() {}
 
         #[test]
         fn test_parser() {
