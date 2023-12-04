@@ -6,7 +6,7 @@ use indices::{ByteIndex, ByteIndexSpan, UcContentIndex, UcContentIndexSpan};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TokenIndex(usize);
+pub(crate) struct TokenIndex(usize);
 
 impl TokenIndex {
     pub(crate) fn new(i: usize) -> Self {
@@ -144,7 +144,7 @@ mod test_token_kind {
     );
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Token {
+pub(crate) struct Token {
     kind: TokenKind,
     span: UcContentIndexSpan,
 }
@@ -193,16 +193,20 @@ mod test_token {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Tokens(Vec<Token>);
 
 impl Tokens {
-    pub(crate) fn new(n: usize) -> Self {
+    fn new(n: usize) -> Self {
         Self(Vec::with_capacity(n))
     }
 
-    pub(crate) fn push(&mut self, token: Token) {
+    fn push_token(&mut self, token: Token) {
         self.0.push(token);
+    }
+
+    fn push(&mut self, kind: TokenKind, start: UcContentIndex, inclusive_end: UcContentIndex) {
+        self.push_token(Token::new(kind, start, inclusive_end));
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -242,8 +246,8 @@ mod test_tokens {
             UcContentIndex::new(1),
             UcContentIndex::new(1),
         );
-        tokens.push(token1.clone());
-        tokens.push(token2.clone());
+        tokens.push_token(token1.clone());
+        tokens.push_token(token2.clone());
 
         // Check the length
         assert_eq!(tokens.len(), 2);
@@ -280,7 +284,7 @@ pub(crate) enum CompilationUnitKind {
 }
 
 #[derive(Debug)]
-pub struct CompilationUnit {
+pub(crate) struct CompilationUnit {
     kind: CompilationUnitKind,
     raw_content: String,
     ucs: UcContent,
@@ -445,23 +449,16 @@ impl CompilationUnit {
         while let Some(byte_idx_span) = self.ucs.get(uc_idx) {
             let s = byte_idx_span.get_str(self);
             if s == "\r\n" || s == "\n" {
-                tokens.push(Token::new(TokenKind::NewLine, uc_idx, uc_idx));
+                tokens.push(TokenKind::NewLine, uc_idx, uc_idx);
                 uc_idx += 1;
                 continue;
             }
 
             assert!(!s.is_empty());
             if s.len() != 1 {
-                let mut uc_idx = uc_idx;
-                while let Some(byte_idx_span) = self.ucs.get(uc_idx) {
-                    let s = byte_idx_span.get_str(self);
-                    if s.len() == 1 {
-                        break;
-                    }
-                    uc_idx += 1;
-                }
-                tokens.push(Token::new(TokenKind::Invalid, uc_idx, uc_idx));
-                uc_idx += 1;
+                let new_uc_idx = take_while(self, uc_idx, |s| s.len() != 1);
+                tokens.push(TokenKind::Invalid, uc_idx, new_uc_idx);
+                uc_idx = new_uc_idx + 1;
                 continue;
             }
 
@@ -470,28 +467,39 @@ impl CompilationUnit {
 
             // single-char tokens
             if let Some(token_kind) = get_single_char_token_kind(c) {
-                tokens.push(Token::new(token_kind, uc_idx, uc_idx));
+                tokens.push(token_kind, uc_idx, uc_idx);
                 uc_idx += 1;
                 continue;
             }
 
             // multi-char tokens
             match c {
+                '0' => {
+                    let new_uc_idx = take_while(self, uc_idx, uc_is_ascii_digit);
+                    let kind = if new_uc_idx == uc_idx {
+                        TokenKind::Int64
+                    } else {
+                        TokenKind::Invalid
+                    };
+                    tokens.push(kind, uc_idx, new_uc_idx);
+                    uc_idx = new_uc_idx + 1;
+                    continue;
+                }
                 '1'..='9' => {
-                    tokens.push(Token::new(
+                    tokens.push(
                         TokenKind::Int64,
                         uc_idx,
                         take_while(self, uc_idx, uc_is_ascii_digit),
-                    ));
+                    );
                 }
                 ' ' => {
-                    tokens.push(Token::new(
+                    tokens.push(
                         TokenKind::Spaces,
                         uc_idx,
                         take_while(self, uc_idx, |s| s == " "),
-                    ));
+                    );
                 }
-                _ => tokens.push(Token::new(TokenKind::Invalid, uc_idx, uc_idx)),
+                _ => tokens.push(TokenKind::Invalid, uc_idx, uc_idx),
             }
             uc_idx = tokens.iter().last().unwrap().span.get_inclusive_end() + 1;
             continue;
