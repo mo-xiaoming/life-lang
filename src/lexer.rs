@@ -6,7 +6,7 @@ use indices::{ByteIndex, ByteIndexSpan, UcContentIndex, UcContentIndexSpan};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct TokenIndex(usize);
+pub struct TokenIndex(usize);
 
 impl TokenIndex {
     pub(crate) fn new(i: usize) -> Self {
