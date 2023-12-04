@@ -93,15 +93,19 @@ impl AstNodes {
     }
 }
 
-trait AstNodesVisitor<R> {
-    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> R;
+trait AstNodesVisitor {
+    type R;
+
+    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Self::R;
 }
 
 #[derive(Debug)]
 struct PrintAstNodesVisitor;
 
-impl AstNodesVisitor<String> for PrintAstNodesVisitor {
-    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> String {
+impl AstNodesVisitor for PrintAstNodesVisitor {
+    type R = String;
+
+    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Self::R {
         ast.get_str(idx)
     }
 }
