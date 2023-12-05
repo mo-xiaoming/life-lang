@@ -97,6 +97,7 @@ pub(crate) enum TokenKind {
     Dash,
     Star,
     Slash,
+    Percentage,
     Caret,
 
     LParen,
@@ -116,6 +117,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Dash => write!(f, "Dash"),
             TokenKind::Star => write!(f, "Star"),
             TokenKind::Slash => write!(f, "Slash"),
+            TokenKind::Percentage => write!(f, "Percentage"),
             TokenKind::Caret => write!(f, "Caret"),
             TokenKind::LParen => write!(f, "LParen"),
             TokenKind::RParen => write!(f, "RParen"),
@@ -140,7 +142,8 @@ mod test_token_kind {
     }
 
     test_display!(
-        Spaces, NewLine, SemiColon, Int64, Plus, Dash, Star, Slash, Caret, LParen, RParen, Invalid,
+        Spaces, NewLine, SemiColon, Int64, Plus, Dash, Star, Slash, Percentage, Caret, LParen,
+        RParen, Invalid,
     );
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -434,6 +437,7 @@ impl CompilationUnit {
                 '-' => Some(TokenKind::Dash),
                 '*' => Some(TokenKind::Star),
                 '/' => Some(TokenKind::Slash),
+                '%' => Some(TokenKind::Percentage),
                 '^' => Some(TokenKind::Caret),
                 '(' => Some(TokenKind::LParen),
                 ')' => Some(TokenKind::RParen),

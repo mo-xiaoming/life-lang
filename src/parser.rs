@@ -17,7 +17,7 @@ impl<'cu> Ast<'cu> {
     fn nodes_len(&self) -> usize {
         self.nodes.len()
     }
-    pub fn accept<V: AstNodesVisitor>(&self, visitor: &mut V) -> Option<V::Output> {
+    pub fn accept<V: AstNodesVisitor>(&self, visitor: &V) -> Option<V::Output> {
         self.root.map(|root| visitor.visit(self, root))
     }
 }
@@ -156,8 +156,14 @@ pub enum ParseError {
     LexError(Vec<lexer::TokenIndex>),
 }
 
+#[derive(Debug)]
+struct PackedToken {
+    token_idx: lexer::TokenIndex,
+    token: lexer::Token,
+}
+
 #[derive(Debug, Default)]
-struct PackedTokens(Vec<(lexer::TokenIndex, lexer::Token)>);
+struct PackedTokens(Vec<PackedToken>);
 
 impl Extend<(lexer::TokenIndex, lexer::Token)> for PackedTokens {
     fn extend<T: IntoIterator<Item = (lexer::TokenIndex, lexer::Token)>>(&mut self, iter: T) {
@@ -165,7 +171,10 @@ impl Extend<(lexer::TokenIndex, lexer::Token)> for PackedTokens {
         let (lower_bound, _) = iter.size_hint();
         self.0.reserve(lower_bound);
         for (index, token) in iter {
-            self.0.push((index, token));
+            self.0.push(PackedToken {
+                token_idx: index,
+                token,
+            });
         }
     }
 }
@@ -175,9 +184,17 @@ impl PackedTokens {
         self.0.is_empty()
     }
     fn get_all_indices(&self) -> Vec<lexer::TokenIndex> {
-        self.0.iter().map(|(token_idx, _)| *token_idx).collect()
+        self.0
+            .iter()
+            .map(
+                |PackedToken {
+                     token_idx: idx,
+                     token: _,
+                 }| *idx,
+            )
+            .collect()
     }
-    fn get(&self, idx: PackedTokenIndex) -> Option<&(lexer::TokenIndex, lexer::Token)> {
+    fn get(&self, idx: PackedTokenIndex) -> Option<&PackedToken> {
         self.0.get(idx.get())
     }
 }
@@ -214,41 +231,45 @@ impl Parser {
             token_traits: [
                 (
                     lexer::TokenKind::Plus,
-                    TokenTrait {
-                        precedence: Precedence::new(1),
-                        associativity: Associativity::Left,
-                    },
+                    Precedence::new(1),
+                    Associativity::Left,
                 ),
                 (
                     lexer::TokenKind::Dash,
-                    TokenTrait {
-                        precedence: Precedence::new(1),
-                        associativity: Associativity::Left,
-                    },
+                    Precedence::new(1),
+                    Associativity::Left,
                 ),
                 (
                     lexer::TokenKind::Star,
-                    TokenTrait {
-                        precedence: Precedence::new(2),
-                        associativity: Associativity::Left,
-                    },
+                    Precedence::new(2),
+                    Associativity::Left,
                 ),
                 (
                     lexer::TokenKind::Slash,
-                    TokenTrait {
-                        precedence: Precedence::new(2),
-                        associativity: Associativity::Left,
-                    },
+                    Precedence::new(2),
+                    Associativity::Left,
+                ),
+                (
+                    lexer::TokenKind::Percentage,
+                    Precedence::new(2),
+                    Associativity::Left,
                 ),
                 (
                     lexer::TokenKind::Caret,
-                    TokenTrait {
-                        precedence: Precedence::new(3),
-                        associativity: Associativity::Right,
-                    },
+                    Precedence::new(3),
+                    Associativity::Right,
                 ),
             ]
             .into_iter()
+            .map(|(token_kind, precedence, associativity)| {
+                (
+                    token_kind,
+                    TokenTrait {
+                        precedence,
+                        associativity,
+                    },
+                )
+            })
             .collect(),
         }
     }
@@ -273,13 +294,13 @@ impl Parser {
         }
 
         while let Some(op) = packed_tokens.get(cur_packed_token_idx) {
-            if op.1.get_kind() == lexer::TokenKind::SemiColon {
+            if op.token.get_kind() == lexer::TokenKind::SemiColon {
                 return Ok((lhs, cur_packed_token_idx));
             }
 
             let (precedence, associativity) = self
-                .get_precedence(&op.1)
-                .ok_or(ParseError::UnexpectedToken(op.0))?;
+                .get_precedence(&op.token)
+                .ok_or(ParseError::UnexpectedToken(op.token_idx))?;
             if precedence < min_precedence {
                 break;
             }
@@ -303,7 +324,7 @@ impl Parser {
             let lhs_node_idx = ast.nodes.push(lhs.unwrap());
             let rhs_node_idx = ast.nodes.push(rhs.unwrap());
             lhs = Some(AstNode::BinaryOp {
-                op: op.0,
+                op: op.token_idx,
                 lhs: lhs_node_idx,
                 rhs: rhs_node_idx,
             });
@@ -318,37 +339,30 @@ impl Parser {
         packed_tokens: &PackedTokens,
         mut cur_packed_token_idx: PackedTokenIndex,
     ) -> Result<(Option<AstNode>, PackedTokenIndex), ParseError> {
-        let Some(token) = packed_tokens.get(cur_packed_token_idx) else {
+        let Some(packed_token) = packed_tokens.get(cur_packed_token_idx) else {
             return Ok((None, cur_packed_token_idx));
         };
 
-        match token.1.get_kind() {
-            lexer::TokenKind::Int64 => {
-                Ok((Some(AstNode::Number(token.0)), cur_packed_token_idx + 1))
-            }
-            lexer::TokenKind::Dash => {
-                if let (Some(rhs), new_cur_packed_token_idx) =
-                    self.parse_primary(ast, packed_tokens, cur_packed_token_idx + 1)?
-                {
-                    let rhs_node_idx = ast.nodes.push(rhs);
-                    Ok((
-                        Some(AstNode::UnaryOp {
-                            op: token.0,
-                            rhs: rhs_node_idx,
-                        }),
-                        new_cur_packed_token_idx,
-                    ))
-                } else {
-                    Err(ParseError::UnexpectedEndOfInput)
-                }
-            }
-            lexer::TokenKind::Plus => packed_tokens.get(cur_packed_token_idx + 1).map_or(
+        match packed_token.token.get_kind() {
+            lexer::TokenKind::Int64 => Ok((
+                Some(AstNode::Number(packed_token.token_idx)),
+                cur_packed_token_idx + 1,
+            )),
+            // don't allow chained unary operators
+            lexer::TokenKind::Dash => packed_tokens.get(cur_packed_token_idx + 1).map_or(
                 Err(ParseError::UnexpectedEndOfInput),
-                |(token_idx, token)| match token.get_kind() {
-                    lexer::TokenKind::Int64 => {
-                        Ok((Some(AstNode::Number(*token_idx)), cur_packed_token_idx + 2))
-                    }
-                    _ => Err(ParseError::UnexpectedToken(*token_idx)),
+                |PackedToken {
+                     token_idx: operand_token_idx,
+                     token: operand_token,
+                 }| match operand_token.get_kind() {
+                    lexer::TokenKind::Int64 => Ok((
+                        Some(AstNode::UnaryOp {
+                            op: packed_token.token_idx,
+                            rhs: ast.nodes.push(AstNode::Number(*operand_token_idx)),
+                        }),
+                        cur_packed_token_idx + 2,
+                    )),
+                    _ => Err(ParseError::UnexpectedToken(*operand_token_idx)),
                 },
             ),
             lexer::TokenKind::LParen => {
@@ -360,16 +374,16 @@ impl Parser {
                 )?;
                 cur_packed_token_idx = new_cur_packed_token_idx;
                 return match packed_tokens.get(cur_packed_token_idx) {
-                    Some(token) if token.1.get_kind() == lexer::TokenKind::RParen => {
+                    Some(token) if token.token.get_kind() == lexer::TokenKind::RParen => {
                         Ok((expr, cur_packed_token_idx + 1))
                     }
                     _ => Err(ParseError::MismatchedParentheses {
-                        another_paren: token.0,
+                        another_paren: packed_token.token_idx,
                     }),
                 };
             }
             lexer::TokenKind::SemiColon => Ok((None, cur_packed_token_idx + 1)),
-            _ => Err(ParseError::UnexpectedToken(token.0)),
+            _ => Err(ParseError::UnexpectedToken(packed_token.token_idx)),
         }
     }
 
@@ -413,10 +427,6 @@ impl Parser {
             ast.root = Some(ast.nodes.push(expr));
         }
         // TODO: only read one expression for now
-
-        //if cur_packed_token_idx < tokens.len() {
-        //    return Err(ParseError::UnexpectedToken(tokens[cur_packed_token_idx].0));
-        //}
 
         Ok(ast)
     }
@@ -513,6 +523,30 @@ mod test_parser {
                     "1^1;", " 1^1;", "1 ^1;", "1^ 1;", " 1 ^ 1;", "1 ^ 1 ;", " 1 ^ 1 ;",
                 ],
             ),
+            (
+                "(0 / 0)",
+                vec![
+                    "0/0;", " 0/0;", "0 /0;", "0/ 0;", " 0 / 0;", "0 / 0 ;", " 0 / 0 ;",
+                ],
+            ),
+            (
+                "(1 / 1)",
+                vec![
+                    "1/1;", " 1/1;", "1 /1;", "1/ 1;", " 1 / 1;", "1 / 1 ;", " 1 / 1 ;",
+                ],
+            ),
+            (
+                "(0 % 0)",
+                vec![
+                    "0%0;", " 0%0;", "0 %0;", "0% 0;", " 0 % 0;", "0 % 0 ;", " 0 % 0 ;",
+                ],
+            ),
+            (
+                "(1 % 1)",
+                vec![
+                    "1%1;", " 1%1;", "1 %1;", "1% 1;", " 1 % 1;", "1 % 1 ;", " 1 % 1 ;",
+                ],
+            ),
         ] {
             for s in test_data {
                 let cu = lexer::CompilationUnit::from_string("stdin", s);
@@ -543,20 +577,9 @@ mod test_parser {
         for (expected, node_cnt, test_data) in [
             ("(- 42)", 2, vec!["-42;", "- 42;", " - 42 ;", " -42 ;"]),
             (
-                "(- (- 42))",
-                3,
-                vec!["--42;", "- -42;", " -- 42 ;", "- -42 ;", " - - 42 ;"],
-            ),
-            (
-                "(3 - (- (- 2)))",
-                5,
-                vec![
-                    "3---2;",
-                    "3-- -2;",
-                    " 3 - - - 2 ;",
-                    "3 - --2 ;",
-                    " 3 ---2 ;",
-                ],
+                "(3 - (- 2))",
+                4,
+                vec!["3--2;", "3- -2;", " 3  - - 2 ;", "3 - -2 ;", " 3 --2 ;"],
             ),
             (
                 "((- 3) - (- 2))",
@@ -585,10 +608,11 @@ mod test_parser {
                 assert_eq!(
                     ast.nodes_len(),
                     node_cnt,
-                    "{}",
-                    printer.visit(&ast, ast.root.unwrap())
+                    "input: `{}`, got: `{}`",
+                    s,
+                    ast.accept(&printer).unwrap()
                 );
-                assert_eq!(printer.visit(&ast, ast.root.unwrap()), expected);
+                assert_eq!(ast.accept(&printer).unwrap(), expected);
             }
         }
     }
