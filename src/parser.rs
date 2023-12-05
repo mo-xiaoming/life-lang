@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 use crate::lexer;
 
 #[derive(Debug)]
@@ -16,7 +17,7 @@ impl<'cu> Ast<'cu> {
     fn nodes_len(&self) -> usize {
         self.nodes.len()
     }
-    fn accept<V: AstNodesVisitor>(&self, visitor: &mut V) -> Option<V::Output> {
+    pub fn accept<V: AstNodesVisitor>(&self, visitor: &mut V) -> Option<V::Output> {
         self.root.map(|root| visitor.visit(self, root))
     }
 }
@@ -58,7 +59,7 @@ impl AstNode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct AstNodeIndex(usize);
+pub struct AstNodeIndex(usize);
 
 impl AstNodeIndex {
     fn new(idx: usize) -> Self {
@@ -96,14 +97,14 @@ impl AstNodes {
     }
 }
 
-trait AstNodesVisitor {
+pub trait AstNodesVisitor {
     type Output;
 
     fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Self::Output;
 }
 
 #[derive(Debug)]
-struct PrintAstNodesVisitor;
+pub struct PrintAstNodesVisitor;
 
 impl AstNodesVisitor for PrintAstNodesVisitor {
     type Output = String;
