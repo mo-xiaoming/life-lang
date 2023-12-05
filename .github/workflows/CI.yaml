@@ -58,14 +58,14 @@ jobs:
         if: matrix.toolchain == 'stable'
         run: |
           cargo llvm-cov --tests --benches --examples --lib --fail-under-lines 60 --workspace
-      #- name: llvm-conv for Rust ${{ matrix.toolchain }}
-      #  if: matrix.toolchain == 'stable'
-      #  run: |
-      #    cargo llvm-cov --tests --benches --examples --lib --lcov --output-path lcov.info --workspace
-      #- name: Upload coverage to Codecov for Rust ${{ matrix.toolchain }}
-      #  if: matrix.toolchain == 'stable'
-      #  uses: codecov/codecov-action@v3
-      #  with:
-      #    token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-      #    files: lcov.info
-      #    fail_ci_if_error: true
+      - name: llvm-conv for Rust ${{ matrix.toolchain }}
+        if: matrix.toolchain == 'stable'
+        run: |
+          cargo llvm-cov --tests --benches --examples --lib --lcov --output-path lcov.info --workspace
+      - name: Upload coverage to Codecov for Rust ${{ matrix.toolchain }}
+        if: matrix.toolchain == 'stable'
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+          files: lcov.info
+          fail_ci_if_error: true

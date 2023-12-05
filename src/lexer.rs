@@ -368,7 +368,7 @@ impl IndexSpan for UcContentIndex {
 }
 
 impl CompilationUnit {
-    pub(crate) fn from_file<P>(filename: P) -> Result<Self, String>
+    pub fn from_file<P>(filename: P) -> Result<Self, String>
     where
         P: AsRef<std::path::Path>,
     {
@@ -383,7 +383,7 @@ impl CompilationUnit {
         })
     }
 
-    pub(crate) fn from_string(mark: &str, input: &str) -> Self {
+    pub fn from_string(mark: &str, input: &str) -> Self {
         CompilationUnit {
             kind: CompilationUnitKind::FromString {
                 mark: String::from(mark),
