@@ -98,13 +98,13 @@ impl std::ops::Add<usize> for UcContentIndex {
     type Output = Self;
 
     fn add(self, rhs: usize) -> Self::Output {
-        Self(self.get() + rhs)
+        Self(self.get().checked_add(rhs).unwrap())
     }
 }
 
 impl std::ops::AddAssign<usize> for UcContentIndex {
     fn add_assign(&mut self, rhs: usize) {
-        self.0 += rhs;
+        *self = *self + rhs;
     }
 }
 
@@ -112,13 +112,13 @@ impl std::ops::Sub<usize> for UcContentIndex {
     type Output = Self;
 
     fn sub(self, rhs: usize) -> Self::Output {
-        Self(self.get() - rhs)
+        Self(self.get().checked_sub(rhs).unwrap())
     }
 }
 
 impl std::ops::SubAssign<usize> for UcContentIndex {
     fn sub_assign(&mut self, rhs: usize) {
-        self.0 -= rhs;
+        *self = *self - rhs;
     }
 }
 

@@ -6,7 +6,7 @@ use indices::{ByteIndex, ByteIndexSpan, UcContentIndex, UcContentIndexSpan};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct TokenIndex(usize);
+pub struct TokenIndex(usize);
 
 impl TokenIndex {
     pub(crate) fn new(i: usize) -> Self {
@@ -21,13 +21,13 @@ impl std::ops::Add<usize> for TokenIndex {
     type Output = Self;
 
     fn add(self, rhs: usize) -> Self::Output {
-        Self(self.get() + rhs)
+        Self(self.get().checked_add(rhs).unwrap())
     }
 }
 
 impl std::ops::AddAssign<usize> for TokenIndex {
     fn add_assign(&mut self, rhs: usize) {
-        self.0 += rhs;
+        *self = *self + rhs;
     }
 }
 
@@ -35,13 +35,13 @@ impl std::ops::Sub<usize> for TokenIndex {
     type Output = Self;
 
     fn sub(self, rhs: usize) -> Self::Output {
-        Self(self.get() - rhs)
+        Self(self.get().checked_sub(rhs).unwrap())
     }
 }
 
 impl std::ops::SubAssign<usize> for TokenIndex {
     fn sub_assign(&mut self, rhs: usize) {
-        self.0 -= rhs;
+        *self = *self - rhs;
     }
 }
 
@@ -284,7 +284,7 @@ pub(crate) enum CompilationUnitKind {
 }
 
 #[derive(Debug)]
-pub(crate) struct CompilationUnit {
+pub struct CompilationUnit {
     kind: CompilationUnitKind,
     raw_content: String,
     ucs: UcContent,
