@@ -2,4 +2,7 @@
     "cSpell.words": [
         "Smol"
     ],
+    "rust-analyzer.linkedProjects": [
+        "./Cargo.toml"
+    ]
 }
