@@ -161,38 +161,3 @@ mod test_uc_content_index {
         assert_eq!(index.get(), 2);
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct UcContentIndexSpan {
-    start: UcContentIndex,
-    inclusive_end: UcContentIndex,
-}
-
-impl UcContentIndexSpan {
-    pub(super) fn new(start: UcContentIndex, inclusive_end: UcContentIndex) -> Self {
-        Self {
-            start,
-            inclusive_end,
-        }
-    }
-    pub(super) fn get_start(&self) -> UcContentIndex {
-        self.start
-    }
-    pub(super) fn get_inclusive_end(&self) -> UcContentIndex {
-        self.inclusive_end
-    }
-}
-
-#[cfg(test)]
-mod test_uc_content_index_span {
-    use super::*;
-
-    #[test]
-    fn test_raw_content_start_and_end() {
-        let start = UcContentIndex::new(5);
-        let end = UcContentIndex::new(10);
-        let span = UcContentIndexSpan::new(start, end);
-        assert_eq!(span.get_start(), start);
-        assert_eq!(span.get_inclusive_end(), end);
-    }
-}
