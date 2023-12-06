@@ -254,11 +254,6 @@ impl Parser {
                     Precedence::new(2),
                     Associativity::Left,
                 ),
-                (
-                    lexer::TokenKind::Caret,
-                    Precedence::new(3),
-                    Associativity::Right,
-                ),
             ]
             .into_iter()
             .map(|(token_kind, precedence, associativity)| {
@@ -509,18 +504,6 @@ mod test_parser {
                 "(1 / 1)",
                 vec![
                     "1/1;", " 1/1;", "1 /1;", "1/ 1;", " 1 / 1;", "1 / 1 ;", " 1 / 1 ;",
-                ],
-            ),
-            (
-                "(0 ^ 0)",
-                vec![
-                    "0^0;", " 0^0;", "0 ^0;", "0^ 0;", " 0 ^ 0;", "0 ^ 0 ;", " 0 ^ 0 ;",
-                ],
-            ),
-            (
-                "(1 ^ 1)",
-                vec![
-                    "1^1;", " 1^1;", "1 ^1;", "1^ 1;", " 1 ^ 1;", "1 ^ 1 ;", " 1 ^ 1 ;",
                 ],
             ),
             (
