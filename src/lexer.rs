@@ -98,7 +98,6 @@ pub(crate) enum TokenKind {
     Star,
     Slash,
     Percentage,
-    Caret,
 
     LParen,
     RParen,
@@ -118,7 +117,6 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Star => write!(f, "Star"),
             TokenKind::Slash => write!(f, "Slash"),
             TokenKind::Percentage => write!(f, "Percentage"),
-            TokenKind::Caret => write!(f, "Caret"),
             TokenKind::LParen => write!(f, "LParen"),
             TokenKind::RParen => write!(f, "RParen"),
             TokenKind::Invalid => write!(f, "Invalid"),
@@ -142,8 +140,8 @@ mod test_token_kind {
     }
 
     test_display!(
-        Spaces, NewLine, SemiColon, Int64, Plus, Dash, Star, Slash, Percentage, Caret, LParen,
-        RParen, Invalid,
+        Spaces, NewLine, SemiColon, Int64, Plus, Dash, Star, Slash, Percentage, LParen, RParen,
+        Invalid,
     );
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -438,7 +436,6 @@ impl CompilationUnit {
                 '*' => Some(TokenKind::Star),
                 '/' => Some(TokenKind::Slash),
                 '%' => Some(TokenKind::Percentage),
-                '^' => Some(TokenKind::Caret),
                 '(' => Some(TokenKind::LParen),
                 ')' => Some(TokenKind::RParen),
                 ';' => Some(TokenKind::SemiColon),
@@ -624,7 +621,7 @@ mod test_compile_unit {
 
     #[test]
     fn test_get_tokens() {
-        let cu = CompilationUnit::from_string("mark", "1 + 27 *  3 ^ (4 - -3);\n\r\n");
+        let cu = CompilationUnit::from_string("mark", "1 + 27 *  3 % (4 - -3);\n\r\n");
         let tokens = cu.get_tokens();
         let expected = [
             (TokenKind::Int64, "1"),
@@ -637,7 +634,7 @@ mod test_compile_unit {
             (TokenKind::Spaces, "  "),
             (TokenKind::Int64, "3"),
             (TokenKind::Spaces, " "),
-            (TokenKind::Caret, "^"),
+            (TokenKind::Percentage, "%"),
             (TokenKind::Spaces, " "),
             (TokenKind::LParen, "("),
             (TokenKind::Int64, "4"),
