@@ -2,7 +2,7 @@
 
 mod indices;
 
-use indices::{ByteIndex, ByteIndexSpan, UcContentIndex, UcContentIndexSpan};
+use indices::{ByteIndex, ByteIndexSpan, UcContentIndex};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,15 +147,12 @@ mod test_token_kind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Token {
     kind: TokenKind,
-    span: UcContentIndexSpan,
+    span: ByteIndexSpan,
 }
 
 impl Token {
-    fn new(kind: TokenKind, start: UcContentIndex, inclusive_end: UcContentIndex) -> Self {
-        Self {
-            kind,
-            span: UcContentIndexSpan::new(start, inclusive_end),
-        }
+    fn new(kind: TokenKind, span: ByteIndexSpan) -> Self {
+        Self { kind, span }
     }
 
     pub(crate) fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
@@ -171,12 +168,8 @@ mod test_token {
     #[test]
     fn test_from() {
         use super::*;
-        let span = UcContentIndexSpan::new(UcContentIndex::new(4), UcContentIndex::new(5));
-        let token = Token::new(
-            TokenKind::Invalid,
-            span.get_start(),
-            span.get_inclusive_end(),
-        );
+        let span = ByteIndexSpan::new(ByteIndex::new(42), ByteIndex::new(47));
+        let token = Token::new(TokenKind::Invalid, span);
         assert_eq!(token.kind, TokenKind::Invalid);
         assert_eq!(token.span, span);
     }
@@ -184,13 +177,13 @@ mod test_token {
     #[test]
     fn test_get_str_and_serialize() {
         use super::*;
-        let cu = CompilationUnit::from_string("mark", "hi, 您好");
+        let s = "您好";
+        let cu = CompilationUnit::from_string("mark", &format!("hi, {}", s));
         let token = Token::new(
             TokenKind::Invalid,
-            UcContentIndex::new(4),
-            UcContentIndex::new(5),
+            ByteIndexSpan::new(ByteIndex::new(4), ByteIndex::new(4 + s.len() - 1)),
         );
-        assert_eq!(token.get_str(&cu), "您好");
+        assert_eq!(token.get_str(&cu), s);
     }
 }
 
@@ -206,8 +199,8 @@ impl Tokens {
         self.0.push(token);
     }
 
-    fn push(&mut self, kind: TokenKind, start: UcContentIndex, inclusive_end: UcContentIndex) {
-        self.push_token(Token::new(kind, start, inclusive_end));
+    fn push(&mut self, kind: TokenKind, span: ByteIndexSpan) {
+        self.push_token(Token::new(kind, span));
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -239,13 +232,11 @@ mod test_tokens {
         // Add some tokens
         let token1 = Token::new(
             TokenKind::Spaces,
-            UcContentIndex::new(0),
-            UcContentIndex::new(0),
+            ByteIndexSpan::new(ByteIndex::new(0), ByteIndex::new(0)),
         );
         let token2 = Token::new(
             TokenKind::NewLine,
-            UcContentIndex::new(1),
-            UcContentIndex::new(1),
+            ByteIndexSpan::new(ByteIndex::new(1), ByteIndex::new(1)),
         );
         tokens.push_token(token1.clone());
         tokens.push_token(token2.clone());
@@ -269,7 +260,7 @@ mod test_tokens {
 struct UcContent(Vec<ByteIndexSpan>);
 
 impl UcContent {
-    fn get(&self, index: UcContentIndex) -> Option<&ByteIndexSpan> {
+    fn get_byte_index_span(&self, index: UcContentIndex) -> Option<&ByteIndexSpan> {
         self.0.get(index.get())
     }
 
@@ -330,7 +321,7 @@ mod test_str_to_ucs {
         {
             // Check the start and inclusive_end of each grapheme cluster
             assert_eq!(
-                ucs.0.get(i),
+                ucs.get_byte_index_span(UcContentIndex::new(i)),
                 Some(&ByteIndexSpan::new(
                     ByteIndex::new(*start),
                     ByteIndex::new(*inclusive_end)
@@ -348,23 +339,7 @@ impl IndexSpan for ByteIndexSpan {
     fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
         cu.raw_content
             .get(self.get_start().get()..=self.get_inclusive_end().get())
-            .unwrap()
-    }
-}
-
-impl IndexSpan for UcContentIndexSpan {
-    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
-        cu.ucs
-            .get(self.get_start())
-            .unwrap()
-            .merge(cu.ucs.get(self.get_inclusive_end()).unwrap())
-            .get_str(cu)
-    }
-}
-
-impl IndexSpan for UcContentIndex {
-    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> &'cu str {
-        cu.ucs.get(*self).unwrap().get_str(cu)
+            .unwrap_or_else(|| panic!("failed to get str from {:?} in {:?}", self, cu))
     }
 }
 
@@ -401,13 +376,6 @@ impl CompilationUnit {
         }
     }
 
-    fn get_str<I>(&self, index: I) -> &str
-    where
-        I: IndexSpan,
-    {
-        index.get_str(self)
-    }
-
     pub(crate) fn get_tokens(&self) -> Tokens {
         fn uc_is_ascii_digit(s: &str) -> bool {
             s.len() == 1 && s.chars().next().unwrap().is_ascii_digit()
@@ -418,15 +386,14 @@ impl CompilationUnit {
             mut start: UcContentIndex,
             f: impl Fn(&str) -> bool,
         ) -> UcContentIndex {
-            while let Some(byte_idx_span) = cu.ucs.get(start) {
+            while let Some(byte_idx_span) = cu.ucs.get_byte_index_span(start) {
                 let s = byte_idx_span.get_str(cu);
                 if !f(s) {
-                    start -= 1;
-                    break;
+                    return start - 1;
                 }
                 start += 1;
             }
-            start
+            start - 1
         }
 
         fn get_single_char_token_kind(c: char) -> Option<TokenKind> {
@@ -443,22 +410,46 @@ impl CompilationUnit {
             }
         }
 
+        fn to_byte_range(
+            cu: &CompilationUnit,
+            start: UcContentIndex,
+            inclusive_end: UcContentIndex,
+        ) -> ByteIndexSpan {
+            ByteIndexSpan::new(
+                cu.ucs
+                    .get_byte_index_span(start)
+                    .unwrap_or_else(|| {
+                        panic!("failed to get byte index span for {:?} in {:?}", start, cu)
+                    })
+                    .get_start(),
+                cu.ucs
+                    .get_byte_index_span(inclusive_end)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "failed to get byte index span for {:?} in {:?}",
+                            inclusive_end, cu
+                        )
+                    })
+                    .get_inclusive_end(),
+            )
+        }
+
         let mut tokens = Tokens::new(self.ucs.len());
 
         let mut uc_idx = UcContentIndex::new(0);
 
-        while let Some(byte_idx_span) = self.ucs.get(uc_idx) {
+        while let Some(byte_idx_span) = self.ucs.get_byte_index_span(uc_idx) {
             let s = byte_idx_span.get_str(self);
             if s == "\r\n" || s == "\n" {
-                tokens.push(TokenKind::NewLine, uc_idx, uc_idx);
+                tokens.push(TokenKind::NewLine, to_byte_range(self, uc_idx, uc_idx));
                 uc_idx += 1;
                 continue;
             }
 
             assert!(!s.is_empty());
             if s.len() != 1 {
-                let new_uc_idx = take_while(self, uc_idx, |s| s.len() != 1);
-                tokens.push(TokenKind::Invalid, uc_idx, new_uc_idx);
+                let new_uc_idx = take_while(self, uc_idx + 1, |s| s.len() != 1);
+                tokens.push(TokenKind::Invalid, to_byte_range(self, uc_idx, new_uc_idx));
                 uc_idx = new_uc_idx + 1;
                 continue;
             }
@@ -468,7 +459,7 @@ impl CompilationUnit {
 
             // single-char tokens
             if let Some(token_kind) = get_single_char_token_kind(c) {
-                tokens.push(token_kind, uc_idx, uc_idx);
+                tokens.push(token_kind, to_byte_range(self, uc_idx, uc_idx));
                 uc_idx += 1;
                 continue;
             }
@@ -476,34 +467,30 @@ impl CompilationUnit {
             // multi-char tokens
             match c {
                 '0' => {
-                    let new_uc_idx = take_while(self, uc_idx, uc_is_ascii_digit);
+                    let new_uc_idx = take_while(self, uc_idx + 1, uc_is_ascii_digit);
                     let kind = if new_uc_idx == uc_idx {
                         TokenKind::Int64
                     } else {
                         TokenKind::Invalid
                     };
-                    tokens.push(kind, uc_idx, new_uc_idx);
+                    tokens.push(kind, to_byte_range(self, uc_idx, new_uc_idx));
                     uc_idx = new_uc_idx + 1;
-                    continue;
                 }
                 '1'..='9' => {
-                    tokens.push(
-                        TokenKind::Int64,
-                        uc_idx,
-                        take_while(self, uc_idx, uc_is_ascii_digit),
-                    );
+                    let new_uc_idx = take_while(self, uc_idx + 1, uc_is_ascii_digit);
+                    tokens.push(TokenKind::Int64, to_byte_range(self, uc_idx, new_uc_idx));
+                    uc_idx = new_uc_idx + 1;
                 }
                 ' ' => {
-                    tokens.push(
-                        TokenKind::Spaces,
-                        uc_idx,
-                        take_while(self, uc_idx, |s| s == " "),
-                    );
+                    let new_uc_idx = take_while(self, uc_idx + 1, |s| s == " ");
+                    tokens.push(TokenKind::Spaces, to_byte_range(self, uc_idx, new_uc_idx));
+                    uc_idx = new_uc_idx + 1;
                 }
-                _ => tokens.push(TokenKind::Invalid, uc_idx, uc_idx),
+                _ => {
+                    tokens.push(TokenKind::Invalid, to_byte_range(self, uc_idx, uc_idx));
+                    uc_idx += 1;
+                }
             }
-            uc_idx = tokens.iter().last().unwrap().span.get_inclusive_end() + 1;
-            continue;
         }
 
         tokens
@@ -608,15 +595,6 @@ mod test_compile_unit {
         const MARK: &str = "mark";
         let cu = CompilationUnit::from_string(MARK, "abc");
         assert_eq!(cu.get_origin(), MARK);
-    }
-
-    #[test]
-    fn test_uc_context_span_get_str() {
-        let cu = CompilationUnit::from_string("mark", "hi, 您好");
-        for (b, e, s) in [(2, 2, ","), (4, 4, "您"), (5, 5, "好")] {
-            let span = UcContentIndexSpan::new(UcContentIndex::new(b), UcContentIndex::new(e));
-            assert_eq!(cu.get_str(span), s);
-        }
     }
 
     #[test]
