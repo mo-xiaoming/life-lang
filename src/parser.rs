@@ -17,7 +17,7 @@ impl<'cu> Ast<'cu> {
     fn nodes_len(&self) -> usize {
         self.nodes.len()
     }
-    pub fn accept<V: AstNodesVisitor>(&self, visitor: &V) -> Option<V::Output> {
+    pub fn accept<V: AstNodesVisitor>(&self, visitor: &V) -> Option<Result<V::Output, V::Error>> {
         self.root.map(|root| visitor.visit(self, root))
     }
 }
@@ -99,8 +99,9 @@ impl AstNodes {
 
 pub trait AstNodesVisitor {
     type Output;
+    type Error;
 
-    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Self::Output;
+    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Result<Self::Output, Self::Error>;
 }
 
 #[derive(Debug)]
@@ -108,9 +109,63 @@ pub struct PrintAstNodesVisitor;
 
 impl AstNodesVisitor for PrintAstNodesVisitor {
     type Output = String;
+    type Error = ();
 
-    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Self::Output {
-        ast.get_str(idx)
+    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Result<Self::Output, Self::Error> {
+        Ok(ast.get_str(idx))
+    }
+}
+
+#[derive(Debug)]
+pub struct EvalAstNodesVisitor;
+
+impl AstNodesVisitor for EvalAstNodesVisitor {
+    type Output = i64;
+    type Error = String;
+
+    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Result<Self::Output, Self::Error> {
+        match ast.nodes.get(idx) {
+            AstNode::Number(token_idx) => {
+                let token = ast.tokens.get(*token_idx);
+                Ok(token.get_str(ast.cu).parse().unwrap_or_else(|_| {
+                    panic!("failed to parse `{}` as i64", token.get_str(ast.cu))
+                }))
+            }
+            AstNode::BinaryOp { op, lhs, rhs } => {
+                let op = ast.tokens.get(*op);
+                let lhs = self.visit(ast, *lhs)?;
+                let rhs = self.visit(ast, *rhs)?;
+                match op.get_kind() {
+                    lexer::TokenKind::Plus => lhs
+                        .checked_add(rhs)
+                        .ok_or_else(|| format!("failed to add `{}` and `{}`", lhs, rhs)),
+                    lexer::TokenKind::Dash => lhs
+                        .checked_sub(rhs)
+                        .ok_or_else(|| format!("failed to subtract `{}` from `{}`", rhs, lhs)),
+                    lexer::TokenKind::Star => lhs
+                        .checked_mul(rhs)
+                        .ok_or_else(|| format!("failed to multiply `{}` and `{}`", lhs, rhs)),
+                    lexer::TokenKind::Slash => lhs
+                        .checked_div(rhs)
+                        .ok_or_else(|| format!("failed to divide `{}` by `{}`", lhs, rhs)),
+                    lexer::TokenKind::Percentage => lhs.checked_rem(rhs).ok_or_else(|| {
+                        format!("failed to calculate remainder of `{}` and `{}`", lhs, rhs)
+                    }),
+                    _ => unimplemented!("unsupported binary operator: {:?}", op.get_kind()),
+                }
+            }
+            AstNode::UnaryOp { op, rhs } => {
+                let op = ast.tokens.get(*op);
+                let rhs = self.visit(ast, *rhs)?;
+                match op.get_kind() {
+                    lexer::TokenKind::Dash => rhs
+                        .checked_neg()
+                        .ok_or_else(|| format!("failed to negate `{}`", rhs)),
+                    _ => unimplemented!("unsupported unary operator: {:?}", op.get_kind()),
+                }
+            }
+            _ => unimplemented!("unsupported ast node: {:?}", ast.nodes.get(idx)),
+        }
     }
 }
 
@@ -550,7 +605,10 @@ mod test_parser {
                 );
 
                 let printer = PrintAstNodesVisitor;
-                assert_eq!(printer.visit(&ast, ast.root.unwrap()), expected);
+                assert_eq!(
+                    printer.visit(&ast, ast.root.unwrap()).as_deref(),
+                    Ok(expected)
+                );
             }
         }
     }
@@ -591,17 +649,32 @@ mod test_parser {
                 assert_eq!(
                     ast.nodes_len(),
                     node_cnt,
-                    "input: `{}`, got: `{}`",
+                    "input: `{}`, got: `{:?}`",
                     s,
-                    ast.accept(&printer).unwrap()
+                    ast.accept(&printer)
                 );
-                assert_eq!(ast.accept(&printer).unwrap(), expected);
+                assert_eq!(ast.accept(&printer).unwrap().as_deref(), Ok(expected));
             }
         }
     }
 
     #[test]
-    fn test_number_with_preceding_positive_sign_should_return_error() {}
+    fn test_eval() {
+        for (s, expected) in [("1;", 1i64), ("1+1;", 2), ("1-1;", 0)] {
+            let cu = lexer::CompilationUnit::from_string("stdin", s);
+            let parser = Parser::new();
+            let ast = parser.parse(&cu);
+            assert!(
+                matches!(ast, Ok(Ast { root: Some(_), .. })),
+                "failed on `{}`",
+                s
+            );
+            let ast = ast.unwrap();
+
+            let eval = EvalAstNodesVisitor;
+            assert_eq!(ast.accept(&eval), Some(Ok(expected)));
+        }
+    }
 
     #[test]
     fn test_parser() {

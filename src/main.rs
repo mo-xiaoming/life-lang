@@ -8,5 +8,5 @@ fn main() {
     let parser = parser::Parser::new();
     let ast = parser.parse(&cu).unwrap();
     let printer = parser::PrintAstNodesVisitor;
-    println!("{}", ast.accept(&printer).unwrap());
+    println!("{}", ast.accept(&printer).unwrap().unwrap());
 }
