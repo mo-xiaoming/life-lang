@@ -206,7 +206,7 @@ struct TokenTrait {
 pub enum ParseError {
     UnexpectedEndOfInput,
     IntegerOverflow { token: lexer::TokenIndex },
-    MismatchedParentheses { another_paren: lexer::TokenIndex },
+    MismatchedParentheses { lparen: lexer::TokenIndex },
     UnexpectedToken(lexer::TokenIndex),
     LexError(Vec<lexer::TokenIndex>),
 }
@@ -339,15 +339,20 @@ impl Parser {
     ) -> Result<(Option<AstNode>, PackedTokenIndex), ParseError> {
         let (mut lhs, mut cur_packed_token_idx) =
             self.parse_primary(ast, packed_tokens, cur_packed_token_idx)?;
-        if lhs.is_none() || matches!(lhs, Some(AstNode::EndOfLine { .. })) {
+        if lhs.is_none() {
             return Ok((None, cur_packed_token_idx));
+        }
+        if matches!(lhs, Some(AstNode::EndOfLine { .. })) {
+            return Ok((None, cur_packed_token_idx + 1));
         }
 
         while let Some(op) = packed_tokens.get(cur_packed_token_idx) {
             if op.token.get_kind() == lexer::TokenKind::SemiColon {
+                return Ok((lhs, cur_packed_token_idx + 1));
+            }
+            if op.token.get_kind() == lexer::TokenKind::RParen {
                 return Ok((lhs, cur_packed_token_idx));
             }
-
             let (precedence, associativity) = self
                 .get_precedence(&op.token)
                 .ok_or(ParseError::UnexpectedToken(op.token_idx))?;
@@ -419,18 +424,18 @@ impl Parser {
                 let (expr, new_cur_packed_token_idx) = self.parse_expression(
                     ast,
                     packed_tokens,
-                    cur_packed_token_idx,
+                    cur_packed_token_idx + 1,
                     Precedence::new(0),
                 )?;
                 cur_packed_token_idx = new_cur_packed_token_idx;
-                return match packed_tokens.get(cur_packed_token_idx) {
+                match packed_tokens.get(cur_packed_token_idx) {
                     Some(token) if token.token.get_kind() == lexer::TokenKind::RParen => {
                         Ok((expr, cur_packed_token_idx + 1))
                     }
                     _ => Err(ParseError::MismatchedParentheses {
-                        another_paren: packed_token.token_idx,
+                        lparen: packed_token.token_idx,
                     }),
-                };
+                }
             }
             lexer::TokenKind::SemiColon => Ok((None, cur_packed_token_idx + 1)),
             _ => Err(ParseError::UnexpectedToken(packed_token.token_idx)),
@@ -472,7 +477,7 @@ impl Parser {
                 PackedTokenIndex::new(0),
                 Precedence::new(0),
             )
-            .unwrap();
+            .unwrap_or_else(|e| panic!("failed to parse: {:?}", e));
         if let Some(expr) = expr {
             ast.root = Some(ast.nodes.push(expr));
         }
@@ -678,11 +683,21 @@ mod test_parser {
 
     #[test]
     fn test_parser() {
-        //let cu = lexer::CompilationUnit::from_string(
-        //    "stdin",
-        //    " 7^2 + 3 * (12 / (+15 / -( 3+1) - - 1) ) - 2^3^4",
-        //);
-        //let parser = Parser::new();
-        //let _ast = parser.parse(&cu);
+        let cu = lexer::CompilationUnit::from_string(
+            "stdin",
+            "7%2 + 3 * (12 / ( 15 / - 3+1 - - 1) ) - 2 - 1 + 1;",
+        );
+        let parser = Parser::new();
+        let ast = parser.parse(&cu).unwrap();
+        let printer = PrintAstNodesVisitor;
+        assert_eq!(
+            ast.accept(&printer),
+            Some(Ok(
+                "(((((7 % 2) + (3 * (12 / (((15 / (- 3)) + 1) - (- 1))))) - 2) - 1) + 1)"
+                    .to_owned()
+            ))
+        );
+        let evaluator = EvalAstNodesVisitor;
+        assert_eq!(ast.accept(&evaluator), Some(Ok(-13)));
     }
 }

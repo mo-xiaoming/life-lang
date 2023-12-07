@@ -13,5 +13,5 @@ Just fiddling around, this is like my 4th or 5th repo diving into
 1. To get the following expression parsed
 
     ```text
-    7%2 + 3 * (12 / ( -15 / ( 3+1) - - 1) ) - 2 - 1 + 1;
+    7%2 + 3 * (12 / ( 15 / -( 3+1) - - 1) ) - 2 - 1 + 1;
     ```
