@@ -1,173 +1,7 @@
 #![allow(dead_code)]
 
+use crate::ast;
 use crate::lexer;
-
-#[derive(Debug)]
-pub struct Ast<'cu> {
-    cu: &'cu lexer::CompilationUnit,
-    root: Option<AstNodeIndex>,
-    nodes: AstNodes,
-    tokens: lexer::Tokens,
-}
-
-impl<'cu> Ast<'cu> {
-    fn get_str(&self, idx: AstNodeIndex) -> String {
-        self.nodes.get_str(self, idx)
-    }
-    fn nodes_len(&self) -> usize {
-        self.nodes.len()
-    }
-    pub fn accept<V: AstNodesVisitor>(&self, visitor: &V) -> Option<Result<V::Output, V::Error>> {
-        self.root.map(|root| visitor.visit(self, root))
-    }
-}
-
-#[derive(Debug)]
-enum AstNode {
-    EndOfLine(lexer::TokenIndex),
-    Number(lexer::TokenIndex),
-    BinaryOp {
-        op: lexer::TokenIndex,
-        lhs: AstNodeIndex,
-        rhs: AstNodeIndex,
-    },
-    UnaryOp {
-        op: lexer::TokenIndex,
-        rhs: AstNodeIndex,
-    },
-}
-
-impl AstNode {
-    fn get_str(&self, ast: &Ast) -> String {
-        match self {
-            AstNode::EndOfLine(token_idx) | AstNode::Number(token_idx) => {
-                ast.tokens.get(*token_idx).get_str(ast.cu).to_owned()
-            }
-            AstNode::BinaryOp { op, lhs, rhs } => {
-                let op_str = ast.tokens.get(*op).get_str(ast.cu);
-                let lhs_str = ast.get_str(*lhs);
-                let rhs_str = ast.get_str(*rhs);
-                format!("({} {} {})", lhs_str, op_str, rhs_str)
-            }
-            AstNode::UnaryOp { op, rhs } => {
-                let op_str = ast.tokens.get(*op).get_str(ast.cu);
-                let rhs_str = ast.get_str(*rhs);
-                format!("({} {})", op_str, rhs_str)
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AstNodeIndex(usize);
-
-impl AstNodeIndex {
-    fn new(idx: usize) -> Self {
-        Self(idx)
-    }
-
-    fn get(&self) -> usize {
-        self.0
-    }
-}
-
-#[derive(Debug)]
-struct AstNodes(Vec<AstNode>);
-
-impl AstNodes {
-    fn new(n: usize) -> Self {
-        Self(Vec::with_capacity(n))
-    }
-
-    fn push(&mut self, node: AstNode) -> AstNodeIndex {
-        self.0.push(node);
-        AstNodeIndex::new(self.0.len() - 1)
-    }
-
-    fn get(&self, idx: AstNodeIndex) -> &AstNode {
-        self.0.get(idx.get()).unwrap()
-    }
-
-    fn get_str(&self, ast: &Ast, idx: AstNodeIndex) -> String {
-        self.get(idx).get_str(ast)
-    }
-
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-}
-
-pub trait AstNodesVisitor {
-    type Output;
-    type Error;
-
-    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Result<Self::Output, Self::Error>;
-}
-
-#[derive(Debug)]
-pub struct PrintAstNodesVisitor;
-
-impl AstNodesVisitor for PrintAstNodesVisitor {
-    type Output = String;
-    type Error = ();
-
-    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Result<Self::Output, Self::Error> {
-        Ok(ast.get_str(idx))
-    }
-}
-
-#[derive(Debug)]
-pub struct EvalAstNodesVisitor;
-
-impl AstNodesVisitor for EvalAstNodesVisitor {
-    type Output = i64;
-    type Error = String;
-
-    fn visit(&self, ast: &Ast, idx: AstNodeIndex) -> Result<Self::Output, Self::Error> {
-        match ast.nodes.get(idx) {
-            AstNode::Number(token_idx) => {
-                let token = ast.tokens.get(*token_idx);
-                Ok(token.get_str(ast.cu).parse().unwrap_or_else(|_| {
-                    panic!("failed to parse `{}` as i64", token.get_str(ast.cu))
-                }))
-            }
-            AstNode::BinaryOp { op, lhs, rhs } => {
-                let op = ast.tokens.get(*op);
-                let lhs = self.visit(ast, *lhs)?;
-                let rhs = self.visit(ast, *rhs)?;
-                match op.get_kind() {
-                    lexer::TokenKind::Plus => lhs
-                        .checked_add(rhs)
-                        .ok_or_else(|| format!("failed to add `{}` and `{}`", lhs, rhs)),
-                    lexer::TokenKind::Dash => lhs
-                        .checked_sub(rhs)
-                        .ok_or_else(|| format!("failed to subtract `{}` from `{}`", rhs, lhs)),
-                    lexer::TokenKind::Star => lhs
-                        .checked_mul(rhs)
-                        .ok_or_else(|| format!("failed to multiply `{}` and `{}`", lhs, rhs)),
-                    lexer::TokenKind::Slash => lhs
-                        .checked_div(rhs)
-                        .ok_or_else(|| format!("failed to divide `{}` by `{}`", lhs, rhs)),
-                    lexer::TokenKind::Percentage => lhs.checked_rem(rhs).ok_or_else(|| {
-                        format!("failed to calculate remainder of `{}` and `{}`", lhs, rhs)
-                    }),
-                    _ => unimplemented!("unsupported binary operator: {:?}", op.get_kind()),
-                }
-            }
-            AstNode::UnaryOp { op, rhs } => {
-                let op = ast.tokens.get(*op);
-                let rhs = self.visit(ast, *rhs)?;
-                match op.get_kind() {
-                    lexer::TokenKind::Dash => rhs
-                        .checked_neg()
-                        .ok_or_else(|| format!("failed to negate `{}`", rhs)),
-                    _ => unimplemented!("unsupported unary operator: {:?}", op.get_kind()),
-                }
-            }
-            _ => unimplemented!("unsupported ast node: {:?}", ast.nodes.get(idx)),
-        }
-    }
-}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Associativity {
@@ -275,6 +109,12 @@ impl std::ops::Add<usize> for PackedTokenIndex {
     }
 }
 
+impl std::ops::AddAssign<usize> for PackedTokenIndex {
+    fn add_assign(&mut self, rhs: usize) {
+        *self = *self + rhs;
+    }
+}
+
 #[derive(Debug)]
 pub struct Parser {
     token_traits: std::collections::HashMap<lexer::TokenKind, TokenTrait>,
@@ -330,20 +170,63 @@ impl Parser {
             .map(|token_trait| (token_trait.precedence, token_trait.associativity))
     }
 
+    fn parse_module(
+        &self,
+        ast: &mut ast::Ast,
+        packed_tokens: &PackedTokens,
+        mut cur_packed_token_idx: PackedTokenIndex,
+    ) -> Result<(ast::AstNode, PackedTokenIndex), ParseError> {
+        let mut module_node = ast::AstNode::new_module(50);
+        while let Some(token) = packed_tokens.get(cur_packed_token_idx) {
+            if token.token.get_kind() == lexer::TokenKind::SemiColon {
+                cur_packed_token_idx += 1;
+                continue;
+            }
+            let (statement_node, new_cur_packed_token_idx) =
+                self.parse_statement(ast, packed_tokens, cur_packed_token_idx)?;
+            let Some(statement) = statement_node else {
+                break;
+            };
+            let statement_node_idx = ast.push(statement);
+            module_node.add_statement_to_module(ast, statement_node_idx);
+            cur_packed_token_idx = new_cur_packed_token_idx;
+        }
+        Ok((module_node, cur_packed_token_idx))
+    }
+
+    fn parse_statement(
+        &self,
+        ast: &mut ast::Ast,
+        packed_tokens: &PackedTokens,
+        cur_packed_token_idx: PackedTokenIndex,
+    ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
+        let (expr, cur_packed_token_idx) =
+            self.parse_expression(ast, packed_tokens, cur_packed_token_idx, Precedence::new(0))?;
+        match expr {
+            Some(expr) => match expr {
+                ast::AstNode::Expression(_) => Ok((
+                    Some(ast::AstNode::Statement {
+                        expression_node_idx: ast.push(expr),
+                    }),
+                    cur_packed_token_idx,
+                )),
+                _ => panic!("BUG: expected expression, got {:?}", expr),
+            },
+            None => Ok((None, cur_packed_token_idx)),
+        }
+    }
+
     fn parse_expression(
         &self,
-        ast: &mut Ast,
+        ast: &mut ast::Ast,
         packed_tokens: &PackedTokens,
         cur_packed_token_idx: PackedTokenIndex,
         min_precedence: Precedence,
-    ) -> Result<(Option<AstNode>, PackedTokenIndex), ParseError> {
+    ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
         let (mut lhs, mut cur_packed_token_idx) =
             self.parse_primary(ast, packed_tokens, cur_packed_token_idx)?;
         if lhs.is_none() {
             return Ok((None, cur_packed_token_idx));
-        }
-        if matches!(lhs, Some(AstNode::EndOfLine { .. })) {
-            return Ok((None, cur_packed_token_idx + 1));
         }
 
         while let Some(op) = packed_tokens.get(cur_packed_token_idx) {
@@ -376,13 +259,13 @@ impl Parser {
                 break;
             }
             cur_packed_token_idx = new_cur_packed_token_idx;
-            let lhs_node_idx = ast.nodes.push(lhs.unwrap());
-            let rhs_node_idx = ast.nodes.push(rhs.unwrap());
-            lhs = Some(AstNode::BinaryOp {
-                op: op.token_idx,
+            let lhs_node_idx = ast.push(lhs.unwrap());
+            let rhs_node_idx = ast.push(rhs.unwrap());
+            lhs = Some(ast::AstNode::Expression(ast::Expr::BinaryOp {
+                operator: op.token_idx,
                 lhs: lhs_node_idx,
                 rhs: rhs_node_idx,
-            });
+            }));
         }
 
         Ok((lhs, cur_packed_token_idx))
@@ -390,17 +273,19 @@ impl Parser {
 
     fn parse_primary(
         &self,
-        ast: &mut Ast,
+        ast: &mut ast::Ast,
         packed_tokens: &PackedTokens,
         mut cur_packed_token_idx: PackedTokenIndex,
-    ) -> Result<(Option<AstNode>, PackedTokenIndex), ParseError> {
+    ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
         let Some(packed_token) = packed_tokens.get(cur_packed_token_idx) else {
             return Ok((None, cur_packed_token_idx));
         };
 
         match packed_token.token.get_kind() {
             lexer::TokenKind::Int64 => Ok((
-                Some(AstNode::Number(packed_token.token_idx)),
+                Some(ast::AstNode::Expression(ast::Expr::I64(
+                    packed_token.token_idx,
+                ))),
                 cur_packed_token_idx + 1,
             )),
             // don't allow chained unary operators
@@ -411,10 +296,11 @@ impl Parser {
                      token: operand_token,
                  }| match operand_token.get_kind() {
                     lexer::TokenKind::Int64 => Ok((
-                        Some(AstNode::UnaryOp {
-                            op: packed_token.token_idx,
-                            rhs: ast.nodes.push(AstNode::Number(*operand_token_idx)),
-                        }),
+                        Some(ast::AstNode::Expression(ast::Expr::UnaryOp {
+                            operator: packed_token.token_idx,
+                            operand: ast
+                                .push(ast::AstNode::Expression(ast::Expr::I64(*operand_token_idx))),
+                        })),
                         cur_packed_token_idx + 2,
                     )),
                     _ => Err(ParseError::UnexpectedToken(*operand_token_idx)),
@@ -442,7 +328,7 @@ impl Parser {
         }
     }
 
-    pub fn parse<'cu>(&self, cu: &'cu lexer::CompilationUnit) -> Result<Ast<'cu>, ParseError> {
+    pub fn parse<'cu>(&self, cu: &'cu lexer::CompilationUnit) -> Result<ast::Ast<'cu>, ParseError> {
         fn partition_packed_tokens_and_lex_errors(
             tokens: lexer::Tokens,
         ) -> (PackedTokens, PackedTokens) {
@@ -457,32 +343,17 @@ impl Parser {
                 .partition(|(_, token)| token.get_kind() != lexer::TokenKind::Invalid)
         }
 
-        let tokens = cu.get_tokens();
-        let mut ast = Ast {
-            cu,
-            root: None,
-            nodes: AstNodes::new(tokens.len()),
-            tokens,
-        };
+        let mut ast = ast::Ast::new(cu);
 
-        let (tokens, lex_errors) = partition_packed_tokens_and_lex_errors(ast.tokens.clone());
+        let (tokens, lex_errors) = partition_packed_tokens_and_lex_errors(ast.get_tokens().clone());
         if !lex_errors.is_empty() {
             return Err(ParseError::LexError(lex_errors.get_all_indices()));
         }
 
-        let (expr, _cur_packed_token_idx) = self
-            .parse_expression(
-                &mut ast,
-                &tokens,
-                PackedTokenIndex::new(0),
-                Precedence::new(0),
-            )
+        let (module, _cur_packed_token_idx) = self
+            .parse_module(&mut ast, &tokens, PackedTokenIndex::new(0))
             .unwrap_or_else(|e| panic!("failed to parse: {:?}", e));
-        if let Some(expr) = expr {
-            ast.root = Some(ast.nodes.push(expr));
-        }
-        // TODO: only read one expression for now
-
+        ast.set_module(module);
         Ok(ast)
     }
 }
@@ -502,134 +373,23 @@ mod test_parser {
         for s in ["", " ", ";", "\r\n\n;", "  ;", "\r\n\n"] {
             let cu = lexer::CompilationUnit::from_string("stdin", s);
             let parser = Parser::new();
-            let ast = parser.parse(&cu);
-            assert!(ast.is_ok());
-            assert!(
-                matches!(ast, Ok(Ast { root: None, .. })),
-                "input: `{}`, ast: {:?}",
-                s,
-                ast
-            );
-        }
-    }
-
-    #[test]
-    fn test_simple_math() {
-        for (expected, test_data) in [
-            ("0", vec!["0;", " 0;", "0 ;", " 0 ;"]),
-            ("1", vec!["1;", " 1;", "1 ;", " 1 ;"]),
-            (
-                "(0 + 0)",
-                vec![
-                    "0+0;", " 0+0;", "0 +0;", "0+ 0;", " 0 + 0;", "0 + 0 ;", " 0 + 0 ;",
-                ],
-            ),
-            (
-                "(1 + 1)",
-                vec![
-                    "1+1;", " 1+1;", "1 +1;", "1+ 1;", " 1 + 1;", "1 + 1 ;", " 1 + 1 ;",
-                ],
-            ),
-            (
-                "(0 - 0)",
-                vec![
-                    "0-0;", " 0-0;", "0 -0;", "0- 0;", " 0 - 0;", "0 - 0 ;", " 0 - 0 ;",
-                ],
-            ),
-            (
-                "(1 - 1)",
-                vec![
-                    "1-1;", " 1-1;", "1 -1;", "1- 1;", " 1 - 1;", "1 - 1 ;", " 1 - 1 ;",
-                ],
-            ),
-            (
-                "(0 * 0)",
-                vec![
-                    "0*0;", " 0*0;", "0 *0;", "0* 0;", " 0 * 0;", "0 * 0 ;", " 0 * 0 ;",
-                ],
-            ),
-            (
-                "(1 * 1)",
-                vec![
-                    "1*1;", " 1*1;", "1 *1;", "1* 1;", " 1 * 1;", "1 * 1 ;", " 1 * 1 ;",
-                ],
-            ),
-            (
-                "(0 / 0)",
-                vec![
-                    "0/0;", " 0/0;", "0 /0;", "0/ 0;", " 0 / 0;", "0 / 0 ;", " 0 / 0 ;",
-                ],
-            ),
-            (
-                "(1 / 1)",
-                vec![
-                    "1/1;", " 1/1;", "1 /1;", "1/ 1;", " 1 / 1;", "1 / 1 ;", " 1 / 1 ;",
-                ],
-            ),
-            (
-                "(0 / 0)",
-                vec![
-                    "0/0;", " 0/0;", "0 /0;", "0/ 0;", " 0 / 0;", "0 / 0 ;", " 0 / 0 ;",
-                ],
-            ),
-            (
-                "(1 / 1)",
-                vec![
-                    "1/1;", " 1/1;", "1 /1;", "1/ 1;", " 1 / 1;", "1 / 1 ;", " 1 / 1 ;",
-                ],
-            ),
-            (
-                "(0 % 0)",
-                vec![
-                    "0%0;", " 0%0;", "0 %0;", "0% 0;", " 0 % 0;", "0 % 0 ;", " 0 % 0 ;",
-                ],
-            ),
-            (
-                "(1 % 1)",
-                vec![
-                    "1%1;", " 1%1;", "1 %1;", "1% 1;", " 1 % 1;", "1 % 1 ;", " 1 % 1 ;",
-                ],
-            ),
-        ] {
-            for s in test_data {
-                let cu = lexer::CompilationUnit::from_string("stdin", s);
-                let parser = Parser::new();
-                let ast = parser.parse(&cu);
-                assert!(
-                    matches!(ast, Ok(Ast { root: Some(_), .. })),
-                    "failed on `{}`",
-                    s
-                );
-                let ast = ast.unwrap();
-                assert!(
-                    matches!(ast, Ast { root: Some(ast_node_idx), .. } if ast.get_str(ast_node_idx) == expected),
-                    "ast: {:?}, expected: `{}`, got: `{}`",
-                    ast,
-                    expected,
-                    ast.get_str(ast.root.unwrap())
-                );
-
-                let printer = PrintAstNodesVisitor;
-                assert_eq!(
-                    printer.visit(&ast, ast.root.unwrap()).as_deref(),
-                    Ok(expected)
-                );
-            }
+            let ast = parser
+                .parse(&cu)
+                .unwrap_or_else(|e| panic!("failed to parse: \"{}\", {:?}", s, e));
+            assert!(ast.is_empty(), "ast: {}", ast);
         }
     }
 
     #[test]
     fn test_negative_numbers() {
-        for (expected, node_cnt, test_data) in [
-            ("(- 42)", 2, vec!["-42;", "- 42;", " - 42 ;", " -42 ;"]),
+        for (expected, test_data) in [
+            ("-42", vec!["-42;", "- 42;", " - 42 ;", " -42 ;"]),
             (
-                "(3 - (- 2))",
-                4,
+                "(3 - -2)",
                 vec!["3--2;", "3- -2;", " 3  - - 2 ;", "3 - -2 ;", " 3 --2 ;"],
             ),
             (
-                "((- 3) - (- 2))",
-                5,
+                "(-3 - -2)",
                 vec![
                     "-3--2;",
                     "-3- -2;",
@@ -642,23 +402,11 @@ mod test_parser {
             for s in test_data {
                 let cu = lexer::CompilationUnit::from_string("stdin", s);
                 let parser = Parser::new();
-                let ast = parser.parse(&cu);
-                assert!(
-                    matches!(ast, Ok(Ast { root: Some(_), .. })),
-                    "failed on `{}`",
-                    s
-                );
-                let ast = ast.unwrap();
-
-                let printer = PrintAstNodesVisitor;
-                assert_eq!(
-                    ast.nodes_len(),
-                    node_cnt,
-                    "input: `{}`, got: `{:?}`",
-                    s,
-                    ast.accept(&printer)
-                );
-                assert_eq!(ast.accept(&printer).unwrap().as_deref(), Ok(expected));
+                let ast = parser
+                    .parse(&cu)
+                    .unwrap_or_else(|e| panic!("failed to parse: \"{}\", {:?}", s, e));
+                let result = ast.accept(&mut ast::AstPrinter::new(&ast));
+                assert_eq!(result, expected, "ast: {}", ast);
             }
         }
     }
@@ -668,16 +416,16 @@ mod test_parser {
         for (s, expected) in [("1;", 1i64), ("1+1;", 2), ("1-1;", 0)] {
             let cu = lexer::CompilationUnit::from_string("stdin", s);
             let parser = Parser::new();
-            let ast = parser.parse(&cu);
+            let ast = parser
+                .parse(&cu)
+                .unwrap_or_else(|e| panic!("failed to parse: \"{}\", {:?}", s, e));
+            let result = ast.accept(&mut ast::AstEvaluator::new(&ast));
             assert!(
-                matches!(ast, Ok(Ast { root: Some(_), .. })),
-                "failed on `{}`",
-                s
+                matches!(result, Ok(Some(got)) if expected == got),
+                "expected: {:?}, got: {:?}",
+                expected,
+                result
             );
-            let ast = ast.unwrap();
-
-            let eval = EvalAstNodesVisitor;
-            assert_eq!(ast.accept(&eval), Some(Ok(expected)));
         }
     }
 
@@ -688,16 +436,14 @@ mod test_parser {
             "7%2 + 3 * (12 / ( 15 / - 3+1 - - 1) ) - 2 - 1 + 1;",
         );
         let parser = Parser::new();
-        let ast = parser.parse(&cu).unwrap();
-        let printer = PrintAstNodesVisitor;
-        assert_eq!(
-            ast.accept(&printer),
-            Some(Ok(
-                "(((((7 % 2) + (3 * (12 / (((15 / (- 3)) + 1) - (- 1))))) - 2) - 1) + 1)"
-                    .to_owned()
-            ))
+        let ast = parser
+            .parse(&cu)
+            .unwrap_or_else(|e| panic!("failed to parse: {:?}", e));
+        let result = ast.accept(&mut ast::AstEvaluator::new(&ast));
+        assert!(
+            matches!(result, Ok(Some(got)) if got == -13),
+            "expected: -13, got: {:?}",
+            result
         );
-        let evaluator = EvalAstNodesVisitor;
-        assert_eq!(ast.accept(&evaluator), Some(Ok(-13)));
     }
 }
