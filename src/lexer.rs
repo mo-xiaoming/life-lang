@@ -145,7 +145,7 @@ mod test_token_kind {
     );
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Token {
+pub struct Token {
     kind: TokenKind,
     span: ByteIndexSpan,
 }
@@ -214,9 +214,20 @@ impl Tokens {
     pub(crate) fn into_iter(self) -> impl Iterator<Item = Token> {
         self.0.into_iter()
     }
+}
 
-    pub(crate) fn get(&self, index: TokenIndex) -> &Token {
-        self.0.get(index.get()).unwrap()
+impl std::ops::Index<TokenIndex> for Tokens {
+    type Output = Token;
+
+    fn index(&self, index: TokenIndex) -> &Self::Output {
+        self.0.get(index.get()).unwrap_or_else(|| {
+            panic!(
+                "BUG: TokenIndex out of bounds: {} >= {}, tokens: {:?}",
+                index.get(),
+                self.0.len(),
+                self,
+            )
+        })
     }
 }
 
@@ -251,8 +262,8 @@ mod test_tokens {
         assert_eq!(iter.next(), None);
 
         // Check indexing
-        assert_eq!(tokens.get(TokenIndex(0)), &token1);
-        assert_eq!(tokens.get(TokenIndex(1)), &token2);
+        assert_eq!(tokens[TokenIndex::new(0)], token1);
+        assert_eq!(tokens[TokenIndex::new(1)], token2);
     }
 }
 
@@ -260,7 +271,7 @@ mod test_tokens {
 struct UcContent(Vec<ByteIndexSpan>);
 
 impl UcContent {
-    fn get_byte_index_span(&self, index: UcContentIndex) -> Option<&ByteIndexSpan> {
+    fn try_to_byte_index_span(&self, index: UcContentIndex) -> Option<&ByteIndexSpan> {
         self.0.get(index.get())
     }
 
@@ -321,7 +332,7 @@ mod test_str_to_ucs {
         {
             // Check the start and inclusive_end of each grapheme cluster
             assert_eq!(
-                ucs.get_byte_index_span(UcContentIndex::new(i)),
+                ucs.try_to_byte_index_span(UcContentIndex::new(i)),
                 Some(&ByteIndexSpan::new(
                     ByteIndex::new(*start),
                     ByteIndex::new(*inclusive_end)
@@ -369,6 +380,10 @@ impl CompilationUnit {
         }
     }
 
+    pub(crate) fn byte_len(&self) -> usize {
+        self.raw_content.len()
+    }
+
     pub(crate) fn get_origin(&self) -> String {
         match &self.kind {
             CompilationUnitKind::FromFile { path } => format!("{}", path.display()),
@@ -386,7 +401,7 @@ impl CompilationUnit {
             mut start: UcContentIndex,
             f: impl Fn(&str) -> bool,
         ) -> UcContentIndex {
-            while let Some(byte_idx_span) = cu.ucs.get_byte_index_span(start) {
+            while let Some(byte_idx_span) = cu.ucs.try_to_byte_index_span(start) {
                 let s = byte_idx_span.get_str(cu);
                 if !f(s) {
                     return start - 1;
@@ -417,13 +432,13 @@ impl CompilationUnit {
         ) -> ByteIndexSpan {
             ByteIndexSpan::new(
                 cu.ucs
-                    .get_byte_index_span(start)
+                    .try_to_byte_index_span(start)
                     .unwrap_or_else(|| {
                         panic!("failed to get byte index span for {:?} in {:?}", start, cu)
                     })
                     .get_start(),
                 cu.ucs
-                    .get_byte_index_span(inclusive_end)
+                    .try_to_byte_index_span(inclusive_end)
                     .unwrap_or_else(|| {
                         panic!(
                             "failed to get byte index span for {:?} in {:?}",
@@ -438,7 +453,7 @@ impl CompilationUnit {
 
         let mut uc_idx = UcContentIndex::new(0);
 
-        while let Some(byte_idx_span) = self.ucs.get_byte_index_span(uc_idx) {
+        while let Some(byte_idx_span) = self.ucs.try_to_byte_index_span(uc_idx) {
             let s = byte_idx_span.get_str(self);
             if s == "\r\n" || s == "\n" {
                 tokens.push(TokenKind::NewLine, to_byte_range(self, uc_idx, uc_idx));
