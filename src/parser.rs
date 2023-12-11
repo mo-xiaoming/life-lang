@@ -2,6 +2,7 @@
 
 use crate::ast;
 use crate::lexer;
+use crate::lexer::TokenIndex;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Associativity {
@@ -42,7 +43,7 @@ pub enum ParseError {
     IntegerOverflow { token: lexer::TokenIndex },
     MismatchedParentheses { lparen: lexer::TokenIndex },
     UnexpectedToken(lexer::TokenIndex),
-    LexError(Vec<lexer::TokenIndex>),
+    LexError(Vec<(lexer::TokenIndex, String)>),
 }
 
 #[derive(Debug)]
@@ -72,16 +73,8 @@ impl PackedTokens {
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-    fn get_all_indices(&self) -> Vec<lexer::TokenIndex> {
-        self.0
-            .iter()
-            .map(
-                |PackedToken {
-                     token_idx: idx,
-                     token: _,
-                 }| *idx,
-            )
-            .collect()
+    fn into_iter(self) -> std::vec::IntoIter<PackedToken> {
+        self.0.into_iter()
     }
     fn get(&self, idx: PackedTokenIndex) -> Option<&PackedToken> {
         self.0.get(idx.get())
@@ -166,7 +159,7 @@ impl Parser {
 
     fn get_precedence(&self, token: &lexer::Token) -> Option<(Precedence, Associativity)> {
         self.token_traits
-            .get(&token.get_kind())
+            .get(token.get_kind())
             .map(|token_trait| (token_trait.precedence, token_trait.associativity))
     }
 
@@ -178,7 +171,7 @@ impl Parser {
     ) -> Result<(ast::AstNode, PackedTokenIndex), ParseError> {
         let mut module_node = ast::AstNode::new_module(50);
         while let Some(token) = packed_tokens.get(cur_packed_token_idx) {
-            if token.token.get_kind() == lexer::TokenKind::SemiColon {
+            if token.token.get_kind() == &lexer::TokenKind::SemiColon {
                 cur_packed_token_idx += 1;
                 continue;
             }
@@ -230,10 +223,10 @@ impl Parser {
         }
 
         while let Some(op) = packed_tokens.get(cur_packed_token_idx) {
-            if op.token.get_kind() == lexer::TokenKind::SemiColon {
+            if op.token.get_kind() == &lexer::TokenKind::SemiColon {
                 return Ok((lhs, cur_packed_token_idx + 1));
             }
-            if op.token.get_kind() == lexer::TokenKind::RParen {
+            if op.token.get_kind() == &lexer::TokenKind::RParen {
                 return Ok((lhs, cur_packed_token_idx));
             }
             let (precedence, associativity) = self
@@ -282,7 +275,7 @@ impl Parser {
         };
 
         match packed_token.token.get_kind() {
-            lexer::TokenKind::Int64 => Ok((
+            lexer::TokenKind::I64 => Ok((
                 Some(ast::AstNode::Expression(ast::Expr::I64(
                     packed_token.token_idx,
                 ))),
@@ -295,7 +288,7 @@ impl Parser {
                      token_idx: operand_token_idx,
                      token: operand_token,
                  }| match operand_token.get_kind() {
-                    lexer::TokenKind::Int64 => Ok((
+                    lexer::TokenKind::I64 => Ok((
                         Some(ast::AstNode::Expression(ast::Expr::UnaryOp {
                             operator: packed_token.token_idx,
                             operand: ast
@@ -315,7 +308,7 @@ impl Parser {
                 )?;
                 cur_packed_token_idx = new_cur_packed_token_idx;
                 match packed_tokens.get(cur_packed_token_idx) {
-                    Some(token) if token.token.get_kind() == lexer::TokenKind::RParen => {
+                    Some(token) if token.token.get_kind() == &lexer::TokenKind::RParen => {
                         Ok((expr, cur_packed_token_idx + 1))
                     }
                     _ => Err(ParseError::MismatchedParentheses {
@@ -324,6 +317,13 @@ impl Parser {
                 }
             }
             lexer::TokenKind::SemiColon => Ok((None, cur_packed_token_idx + 1)),
+            lexer::TokenKind::StringLiteral { content } => Ok((
+                Some(ast::AstNode::Expression(ast::Expr::StringLiteral {
+                    token_idx: packed_token.token_idx,
+                    content: content.clone(),
+                })),
+                cur_packed_token_idx + 1,
+            )),
             _ => Err(ParseError::UnexpectedToken(packed_token.token_idx)),
         }
     }
@@ -331,23 +331,35 @@ impl Parser {
     pub fn parse<'cu>(&self, cu: &'cu lexer::CompilationUnit) -> Result<ast::Ast<'cu>, ParseError> {
         fn partition_packed_tokens_and_lex_errors(
             tokens: lexer::Tokens,
-        ) -> (PackedTokens, PackedTokens) {
-            tokens
+        ) -> (PackedTokens, Vec<(TokenIndex, String)>) {
+            let (tokens, invalid_tokens) = tokens
                 .into_iter()
                 .enumerate()
                 .filter(|(_, token)| {
-                    token.get_kind() != lexer::TokenKind::Spaces
-                        && token.get_kind() != lexer::TokenKind::NewLine
+                    token.get_kind() != &lexer::TokenKind::Spaces
+                        && token.get_kind() != &lexer::TokenKind::NewLine
                 })
-                .map(|(token_idx, token)| (lexer::TokenIndex::new(token_idx), token))
-                .partition(|(_, token)| token.get_kind() != lexer::TokenKind::Invalid)
+                .map(|(i, token)| (TokenIndex::new(i), token))
+                .partition(|(_, token)| {
+                    !matches!(token.get_kind(), lexer::TokenKind::Invalid { .. })
+                });
+            (
+                tokens,
+                invalid_tokens
+                    .into_iter()
+                    .map(|PackedToken { token_idx, token }| match token.get_kind() {
+                        lexer::TokenKind::Invalid { msg } => (token_idx, msg.clone()),
+                        _ => panic!("BUG: expected invalid token, got {:?}", token),
+                    })
+                    .collect(),
+            )
         }
 
         let mut ast = ast::Ast::new(cu);
 
         let (tokens, lex_errors) = partition_packed_tokens_and_lex_errors(ast.get_tokens().clone());
         if !lex_errors.is_empty() {
-            return Err(ParseError::LexError(lex_errors.get_all_indices()));
+            return Err(ParseError::LexError(lex_errors));
         }
 
         let (module, _cur_packed_token_idx) = self
@@ -445,5 +457,17 @@ mod test_parser {
             "expected: -13, got: {:?}",
             result
         );
+    }
+
+    #[test]
+    fn test_parsing_string() {
+        let cu = lexer::CompilationUnit::from_string(
+            "stdin",
+            r#"" \u{41} x\u{4f60}xy{}\u{597d}a\u{1f316}""#,
+        );
+        let parser = Parser::new();
+        let ast = parser.parse(&cu).unwrap();
+        let printer = &mut ast::AstPrinter::new(&ast);
+        assert_eq!(ast.accept(printer), " A x你xy{}好a🌖");
     }
 }

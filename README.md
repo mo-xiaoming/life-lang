@@ -10,7 +10,7 @@ Just fiddling around, this is like my 4th or 5th repo diving into
 
 <!-- Following Julian Hartl's youtube series [_Building a compiler in rust_](https://github.com/julian-hartl/fusion-lang) -->
 
-[x] step 1
+[x] parse simple math expressions
 
 ```rust
 use life_lang::{lexer, parser, ast};
@@ -21,6 +21,26 @@ let cu = lexer::CompilationUnit::from_string(
 );
 let parser = parser::Parser::new();
 let ast = parser.parse(&cu).unwrap();
-let printer = &mut ast::AstEvaluator::new(&ast);
-assert_eq!(ast.accept(printer), Ok(Some(-13)));
+let evaluator = &mut ast::AstEvaluator::new(&ast);
+assert_eq!(ast.accept(evaluator), Ok(Some(-13)));
 ```
+
+[x] support string
+
+- special characters: `\\`, `\"`, `\n`, `\r`, `\t`, `\0`, `\u{...}` (1-6 hex number within `{}`)
+- double quoted strings like `"abc"`
+
+```rust
+use life_lang::{lexer, parser, ast};
+
+let cu = lexer::CompilationUnit::from_string(
+    "stdin",
+    r#""\u{4f60}\u{597d}\u{1f316}""#,
+);
+let parser = parser::Parser::new();
+let ast = parser.parse(&cu).unwrap();
+let printer = &mut ast::AstPrinter::new(&ast);
+assert_eq!(ast.accept(printer), "你好🌖");
+```
+
+[ ] `let` and `var`

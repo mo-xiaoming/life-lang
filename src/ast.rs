@@ -134,6 +134,10 @@ impl AstNode {
 #[derive(Debug)]
 pub enum Expr {
     I64(lexer::TokenIndex),
+    StringLiteral {
+        token_idx: lexer::TokenIndex,
+        content: String,
+    },
     BinaryOp {
         operator: lexer::TokenIndex,
         lhs: AstNodeIndex,

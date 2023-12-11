@@ -28,7 +28,8 @@ impl<'cu> AstNodeVisitor<String> for AstPrinter<'cu> {
             AstNode::Statement {
                 expression_node_idx,
             } => self.visit(&self.ast[*expression_node_idx]),
-            AstNode::Expression(Expr::I64(token)) => self.ast.to_string(*token),
+            AstNode::Expression(Expr::I64(token_idx)) => self.ast.to_string(*token_idx),
+            AstNode::Expression(Expr::StringLiteral { content, .. }) => content.clone(),
             AstNode::Expression(Expr::BinaryOp { operator, lhs, rhs }) => {
                 format!(
                     "({} {} {})",
@@ -84,7 +85,7 @@ impl<'cu> AstNodeVisitor<Result<Option<i64>, String>> for AstEvaluator<'cu> {
             AstNode::Expression(Expr::I64(token_idx)) => {
                 let token = &self.ast[*token_idx];
                 match token.get_kind() {
-                    lexer::TokenKind::Int64 => self
+                    lexer::TokenKind::I64 => self
                         .ast
                         .to_string(*token_idx)
                         .parse()
@@ -98,6 +99,9 @@ impl<'cu> AstNodeVisitor<Result<Option<i64>, String>> for AstEvaluator<'cu> {
                         .map(Some),
                     _ => panic!("BUG: expected i64 token, but got `{:?}`", token.get_kind()),
                 }
+            }
+            AstNode::Expression(Expr::StringLiteral { .. }) => {
+                panic!("doesn't support eval a string literal")
             }
             AstNode::Expression(Expr::BinaryOp { operator, lhs, rhs }) => {
                 let lhs_str = self.ast.to_string(*lhs);
