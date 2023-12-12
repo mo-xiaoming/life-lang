@@ -46,6 +46,35 @@ pub enum ParseError {
     LexError(Vec<(lexer::TokenIndex, String)>),
 }
 
+impl ParseError {
+    fn to_string(&self, ast: &ast::Ast) -> String {
+        match self {
+            Self::UnexpectedEndOfInput => "unexpected end of input".to_string(),
+            Self::IntegerOverflow { token } => {
+                format!("integer overflow: `{}`, {:?}", ast.to_string(*token), self)
+            }
+            Self::MismatchedParentheses { lparen } => format!(
+                "mismatched parentheses: `{}`, {:?}",
+                ast.to_string(*lparen),
+                self
+            ),
+            Self::UnexpectedToken(token) => {
+                format!("unexpected token: `{}`, {:?}", ast.to_string(*token), self)
+            }
+            Self::LexError(errors) => format!(
+                "lex error: {}",
+                errors
+                    .iter()
+                    .map(|(token_idx, msg)| {
+                        format!("`{}`: {}\n", ast.to_string(*token_idx), msg)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }
+    }
+}
+
 #[derive(Debug)]
 struct PackedToken {
     token_idx: lexer::TokenIndex,
@@ -167,67 +196,148 @@ impl Parser {
         &self,
         ast: &mut ast::Ast,
         packed_tokens: &PackedTokens,
-        mut cur_packed_token_idx: PackedTokenIndex,
+        mut next_token_idx: PackedTokenIndex,
     ) -> Result<(ast::AstNode, PackedTokenIndex), ParseError> {
         let mut module_node = ast::AstNode::new_module(50);
-        while let Some(token) = packed_tokens.get(cur_packed_token_idx) {
+        while let Some(token) = packed_tokens.get(next_token_idx) {
             if token.token.get_kind() == &lexer::TokenKind::SemiColon {
-                cur_packed_token_idx += 1;
+                next_token_idx += 1;
                 continue;
             }
-            let (statement_node, new_cur_packed_token_idx) =
-                self.parse_statement(ast, packed_tokens, cur_packed_token_idx)?;
+            let (statement_node, new_next_token_idx) =
+                self.parse_statement(ast, packed_tokens, next_token_idx)?;
             let Some(statement) = statement_node else {
                 break;
             };
             let statement_node_idx = ast.push(statement);
             module_node.add_statement_to_module(ast, statement_node_idx);
-            cur_packed_token_idx = new_cur_packed_token_idx;
+            next_token_idx = new_next_token_idx;
         }
-        Ok((module_node, cur_packed_token_idx))
+        Ok((module_node, next_token_idx))
+    }
+
+    fn try_parse_definition(
+        &self,
+        ast: &mut ast::Ast,
+        packed_tokens: &PackedTokens,
+        next_token_idx: PackedTokenIndex,
+    ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
+        // has something
+        let Some(packed_token) = packed_tokens.get(next_token_idx) else {
+            return Ok((None, next_token_idx));
+        };
+
+        // must be either `let` or `var`
+        let kind = packed_token.token.get_kind();
+        if kind != &lexer::TokenKind::KwLet && kind != &lexer::TokenKind::KwVar {
+            return Err(ParseError::UnexpectedToken(packed_token.token_idx));
+        }
+        let kw_token_idx = packed_token.token_idx;
+
+        // lhs is an expression. TODO: must be something can be assigned to
+        let (lhs_expr, new_next_token_idx) =
+            self.parse_expression(ast, packed_tokens, next_token_idx + 1, Precedence::new(0))?;
+        let next_token_idx = new_next_token_idx;
+
+        // must be `=`
+        let Some(packed_token) = packed_tokens.get(next_token_idx) else {
+            return Err(ParseError::UnexpectedEndOfInput);
+        };
+        if !matches!(packed_token.token.get_kind(), &lexer::TokenKind::Equal) {
+            return Err(ParseError::UnexpectedToken(packed_token.token_idx));
+        }
+        let eq_token_idx = packed_token.token_idx;
+
+        // rhs is an expression
+        let (rhs_expr, new_next_token_idx) =
+            self.parse_expression(ast, packed_tokens, next_token_idx + 1, Precedence::new(0))?;
+        let next_token_idx = new_next_token_idx;
+
+        // ends with `;`
+        let Some(packed_token) = packed_tokens.get(next_token_idx) else {
+            return Err(ParseError::UnexpectedEndOfInput);
+        };
+        if !matches!(packed_token.token.get_kind(), lexer::TokenKind::SemiColon) {
+            return Err(ParseError::UnexpectedToken(packed_token.token_idx));
+        }
+
+        // return
+        Ok((
+            Some(ast::AstNode::Statement(ast::Stat::Definition {
+                kw: kw_token_idx,
+                lhs_expression_node_idx: ast.push(lhs_expr.unwrap()),
+                eq: eq_token_idx,
+                rhs_expression_node_idx: ast.push(rhs_expr.unwrap()),
+            })),
+            next_token_idx + 1,
+        ))
+    }
+
+    fn try_parse_expression(
+        &self,
+        ast: &mut ast::Ast,
+        packed_tokens: &PackedTokens,
+        next_token_idx: PackedTokenIndex,
+    ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
+        let (expr, next_token_idx) =
+            self.parse_expression(ast, packed_tokens, next_token_idx, Precedence::new(0))?;
+        match expr {
+            Some(expr) => match expr {
+                ast::AstNode::Expression(_) => Ok((
+                    Some(ast::AstNode::Statement(ast::Stat::Expression(
+                        ast.push(expr),
+                    ))),
+                    next_token_idx,
+                )),
+                _ => panic!("BUG: expected expression, got {:?}", expr),
+            },
+            None => Ok((None, next_token_idx)),
+        }
     }
 
     fn parse_statement(
         &self,
         ast: &mut ast::Ast,
         packed_tokens: &PackedTokens,
-        cur_packed_token_idx: PackedTokenIndex,
+        next_token_idx: PackedTokenIndex,
     ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
-        let (expr, cur_packed_token_idx) =
-            self.parse_expression(ast, packed_tokens, cur_packed_token_idx, Precedence::new(0))?;
-        match expr {
-            Some(expr) => match expr {
-                ast::AstNode::Expression(_) => Ok((
-                    Some(ast::AstNode::Statement {
-                        expression_node_idx: ast.push(expr),
-                    }),
-                    cur_packed_token_idx,
-                )),
-                _ => panic!("BUG: expected expression, got {:?}", expr),
-            },
-            None => Ok((None, cur_packed_token_idx)),
+        let mut errors = Vec::with_capacity(5);
+        match self.try_parse_definition(ast, packed_tokens, next_token_idx) {
+            Err(e) => errors.push(e),
+            a => return a,
         }
+
+        match self.try_parse_expression(ast, packed_tokens, next_token_idx) {
+            Err(e) => errors.push(e),
+            a => return a,
+        }
+
+        assert!(!errors.is_empty());
+        Err(errors[0].clone())
     }
 
     fn parse_expression(
         &self,
         ast: &mut ast::Ast,
         packed_tokens: &PackedTokens,
-        cur_packed_token_idx: PackedTokenIndex,
+        next_token_idx: PackedTokenIndex,
         min_precedence: Precedence,
     ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
-        let (mut lhs, mut cur_packed_token_idx) =
-            self.parse_primary(ast, packed_tokens, cur_packed_token_idx)?;
+        let (mut lhs, mut next_token_idx) =
+            self.parse_primary(ast, packed_tokens, next_token_idx)?;
         if lhs.is_none() {
-            return Ok((None, cur_packed_token_idx));
+            return Ok((None, next_token_idx));
         }
 
-        while let Some(op) = packed_tokens.get(cur_packed_token_idx) {
-            if op.token.get_kind() == &lexer::TokenKind::SemiColon {
-                return Ok((lhs, cur_packed_token_idx + 1));
-            }
-            if op.token.get_kind() == &lexer::TokenKind::RParen {
-                return Ok((lhs, cur_packed_token_idx));
+        while let Some(op) = packed_tokens.get(next_token_idx) {
+            if [
+                lexer::TokenKind::RParen,
+                lexer::TokenKind::Equal,
+                lexer::TokenKind::SemiColon,
+            ]
+            .contains(op.token.get_kind())
+            {
+                return Ok((lhs, next_token_idx));
             }
             let (precedence, associativity) = self
                 .get_precedence(&op.token)
@@ -241,17 +351,13 @@ impl Parser {
                 precedence
             };
 
-            let (rhs, new_cur_packed_token_idx) = self.parse_expression(
-                ast,
-                packed_tokens,
-                cur_packed_token_idx + 1,
-                min_precedence,
-            )?;
+            let (rhs, new_next_token_idx) =
+                self.parse_expression(ast, packed_tokens, next_token_idx + 1, min_precedence)?;
             if rhs.is_none() {
-                cur_packed_token_idx = new_cur_packed_token_idx;
+                next_token_idx = new_next_token_idx;
                 break;
             }
-            cur_packed_token_idx = new_cur_packed_token_idx;
+            next_token_idx = new_next_token_idx;
             let lhs_node_idx = ast.push(lhs.unwrap());
             let rhs_node_idx = ast.push(rhs.unwrap());
             lhs = Some(ast::AstNode::Expression(ast::Expr::BinaryOp {
@@ -261,17 +367,17 @@ impl Parser {
             }));
         }
 
-        Ok((lhs, cur_packed_token_idx))
+        Ok((lhs, next_token_idx))
     }
 
     fn parse_primary(
         &self,
         ast: &mut ast::Ast,
         packed_tokens: &PackedTokens,
-        mut cur_packed_token_idx: PackedTokenIndex,
+        mut next_token_idx: PackedTokenIndex,
     ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
-        let Some(packed_token) = packed_tokens.get(cur_packed_token_idx) else {
-            return Ok((None, cur_packed_token_idx));
+        let Some(packed_token) = packed_tokens.get(next_token_idx) else {
+            return Ok((None, next_token_idx));
         };
 
         match packed_token.token.get_kind() {
@@ -279,10 +385,16 @@ impl Parser {
                 Some(ast::AstNode::Expression(ast::Expr::I64(
                     packed_token.token_idx,
                 ))),
-                cur_packed_token_idx + 1,
+                next_token_idx + 1,
+            )),
+            lexer::TokenKind::Identifier => Ok((
+                Some(ast::AstNode::Expression(ast::Expr::Identifier(
+                    packed_token.token_idx,
+                ))),
+                next_token_idx + 1,
             )),
             // don't allow chained unary operators
-            lexer::TokenKind::Dash => packed_tokens.get(cur_packed_token_idx + 1).map_or(
+            lexer::TokenKind::Dash => packed_tokens.get(next_token_idx + 1).map_or(
                 Err(ParseError::UnexpectedEndOfInput),
                 |PackedToken {
                      token_idx: operand_token_idx,
@@ -294,35 +406,35 @@ impl Parser {
                             operand: ast
                                 .push(ast::AstNode::Expression(ast::Expr::I64(*operand_token_idx))),
                         })),
-                        cur_packed_token_idx + 2,
+                        next_token_idx + 2,
                     )),
                     _ => Err(ParseError::UnexpectedToken(*operand_token_idx)),
                 },
             ),
             lexer::TokenKind::LParen => {
-                let (expr, new_cur_packed_token_idx) = self.parse_expression(
+                let (expr, new_next_token_idx) = self.parse_expression(
                     ast,
                     packed_tokens,
-                    cur_packed_token_idx + 1,
+                    next_token_idx + 1,
                     Precedence::new(0),
                 )?;
-                cur_packed_token_idx = new_cur_packed_token_idx;
-                match packed_tokens.get(cur_packed_token_idx) {
+                next_token_idx = new_next_token_idx;
+                match packed_tokens.get(next_token_idx) {
                     Some(token) if token.token.get_kind() == &lexer::TokenKind::RParen => {
-                        Ok((expr, cur_packed_token_idx + 1))
+                        Ok((expr, next_token_idx + 1))
                     }
                     _ => Err(ParseError::MismatchedParentheses {
                         lparen: packed_token.token_idx,
                     }),
                 }
             }
-            lexer::TokenKind::SemiColon => Ok((None, cur_packed_token_idx + 1)),
+            lexer::TokenKind::SemiColon => Ok((None, next_token_idx + 1)),
             lexer::TokenKind::StringLiteral { content } => Ok((
                 Some(ast::AstNode::Expression(ast::Expr::StringLiteral {
                     token_idx: packed_token.token_idx,
                     content: content.clone(),
                 })),
-                cur_packed_token_idx + 1,
+                next_token_idx + 1,
             )),
             _ => Err(ParseError::UnexpectedToken(packed_token.token_idx)),
         }
@@ -362,9 +474,9 @@ impl Parser {
             return Err(ParseError::LexError(lex_errors));
         }
 
-        let (module, _cur_packed_token_idx) = self
+        let (module, _next_token_idx) = self
             .parse_module(&mut ast, &tokens, PackedTokenIndex::new(0))
-            .unwrap_or_else(|e| panic!("failed to parse: {:?}", e));
+            .unwrap_or_else(|e| panic!("failed to parse: {}", e.to_string(&ast)));
         ast.set_module(module);
         Ok(ast)
     }
@@ -469,5 +581,19 @@ mod test_parser {
         let ast = parser.parse(&cu).unwrap();
         let printer = &mut ast::AstPrinter::new(&ast);
         assert_eq!(ast.accept(printer), " A x你xy{}好a🌖");
+    }
+
+    #[test]
+    fn test_definitions() {
+        let cu = lexer::CompilationUnit::from_string("stdin", "let x = 3; var y = x - 42;");
+        let parser = Parser::new();
+        let ast = parser.parse(&cu).unwrap();
+        let printer = &mut ast::AstPrinter::new(&ast);
+        assert_eq!(
+            ast.accept(printer),
+            "let x = 3;\nvar y = (x - 42);\n",
+            "ast: {}",
+            ast
+        );
     }
 }

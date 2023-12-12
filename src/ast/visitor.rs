@@ -1,4 +1,6 @@
-use super::{Ast, AstNode, Expr};
+use core::panic;
+
+use super::{Ast, AstNode, Expr, Stat};
 use crate::lexer;
 
 pub trait AstNodeVisitor<R> {
@@ -25,10 +27,25 @@ impl<'cu> AstNodeVisitor<String> for AstPrinter<'cu> {
                 .iter()
                 .map(|idx| self.visit(&self.ast[*idx]))
                 .collect(),
-            AstNode::Statement {
-                expression_node_idx,
-            } => self.visit(&self.ast[*expression_node_idx]),
+            AstNode::Statement(Stat::Definition {
+                kw,
+                lhs_expression_node_idx,
+                eq,
+                rhs_expression_node_idx,
+            }) => {
+                format!(
+                    "{} {} {} {};\n",
+                    self.ast.to_string(*kw),
+                    self.ast.to_string(*lhs_expression_node_idx),
+                    self.ast.to_string(*eq),
+                    self.ast.to_string(*rhs_expression_node_idx)
+                )
+            }
+            AstNode::Statement(Stat::Expression(expression_node_idx)) => {
+                self.visit(&self.ast[*expression_node_idx])
+            }
             AstNode::Expression(Expr::I64(token_idx)) => self.ast.to_string(*token_idx),
+            AstNode::Expression(Expr::Identifier(token_idx)) => self.ast.to_string(*token_idx),
             AstNode::Expression(Expr::StringLiteral { content, .. }) => content.clone(),
             AstNode::Expression(Expr::BinaryOp { operator, lhs, rhs }) => {
                 format!(
@@ -76,11 +93,12 @@ impl<'cu> AstNodeVisitor<Result<Option<i64>, String>> for AstEvaluator<'cu> {
                 }
                 self.visit(&self.ast[statements_node_indices[0]])
             }
-            AstNode::Statement {
-                expression_node_idx,
-            } => {
+            AstNode::Statement(Stat::Expression(expression_node_idx)) => {
                 // TODO: should be (), just returning the value for expression for now
                 self.visit(&self.ast[*expression_node_idx])
+            }
+            AstNode::Statement(Stat::Definition { .. }) => {
+                panic!("doesn't support eval a definition")
             }
             AstNode::Expression(Expr::I64(token_idx)) => {
                 let token = &self.ast[*token_idx];
@@ -102,6 +120,9 @@ impl<'cu> AstNodeVisitor<Result<Option<i64>, String>> for AstEvaluator<'cu> {
             }
             AstNode::Expression(Expr::StringLiteral { .. }) => {
                 panic!("doesn't support eval a string literal")
+            }
+            AstNode::Expression(Expr::Identifier(_)) => {
+                panic!("BUG: doesn't support eval an identifier")
             }
             AstNode::Expression(Expr::BinaryOp { operator, lhs, rhs }) => {
                 let lhs_str = self.ast.to_string(*lhs);
