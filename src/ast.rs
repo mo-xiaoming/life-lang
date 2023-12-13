@@ -28,7 +28,7 @@ impl<'cu> Ast<'cu> {
     pub fn accept<R>(&self, visitor: &mut impl AstNodeVisitor<R>) -> R {
         visitor.visit(self.nodes.last())
     }
-    fn to_string(&self, index: impl Indexable) -> String {
+    pub(crate) fn to_string(&self, index: impl Indexable) -> String {
         index.to_string(self)
     }
     pub(crate) fn push(&mut self, node: AstNode) -> AstNodeIndex {
@@ -76,7 +76,7 @@ impl std::fmt::Display for Ast<'_> {
     }
 }
 
-trait Indexable {
+pub(crate) trait Indexable {
     fn to_string(&self, ast: &Ast) -> String;
 }
 
@@ -98,9 +98,7 @@ pub enum AstNode {
     Module {
         statements_node_indices: Vec<AstNodeIndex>,
     },
-    Statement {
-        expression_node_idx: AstNodeIndex,
-    },
+    Statement(Stat),
     Expression(Expr),
 }
 
@@ -134,6 +132,7 @@ impl AstNode {
 #[derive(Debug)]
 pub enum Expr {
     I64(lexer::TokenIndex),
+    Identifier(lexer::TokenIndex),
     StringLiteral {
         token_idx: lexer::TokenIndex,
         content: String,
@@ -146,6 +145,17 @@ pub enum Expr {
     UnaryOp {
         operator: lexer::TokenIndex,
         operand: AstNodeIndex,
+    },
+}
+
+#[derive(Debug)]
+pub enum Stat {
+    Expression(AstNodeIndex),
+    Definition {
+        kw: lexer::TokenIndex,
+        lhs_expression_node_idx: AstNodeIndex,
+        eq: lexer::TokenIndex,
+        rhs_expression_node_idx: AstNodeIndex,
     },
 }
 

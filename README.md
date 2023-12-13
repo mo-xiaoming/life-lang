@@ -43,4 +43,19 @@ let printer = &mut ast::AstPrinter::new(&ast);
 assert_eq!(ast.accept(printer), "你好🌖");
 ```
 
-[ ] `let` and `var`
+[x] `let` and `var`
+
+```rust
+use life_lang::{lexer, parser, ast};
+
+let cu = lexer::CompilationUnit::from_string(
+    "stdin",
+    "let x = 3; var y = x - 42;"
+);
+let parser = parser::Parser::new();
+let ast = parser.parse(&cu).unwrap();
+let printer = &mut ast::AstPrinter::new(&ast);
+assert_eq!(ast.accept(printer), "let x = 3;\nvar y = (x - 42);\n");
+```
+
+[x] better error messages

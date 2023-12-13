@@ -1,9 +1,11 @@
 #![allow(dead_code)]
 
+mod get_tokens_utils;
 mod indices;
 
-use std::collections::HashMap;
-
+use get_tokens_utils::{
+    try_multi_byte_char, try_multi_byte_tokens, try_new_line, try_single_char_token,
+};
 use indices::{ByteIndex, ByteIndexSpan, UcContentIndex};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -106,6 +108,13 @@ pub(crate) enum TokenKind {
     LParen,
     RParen,
 
+    Equal,
+
+    Identifier,
+
+    KwLet,
+    KwVar,
+
     Invalid { msg: String },
 }
 
@@ -122,8 +131,12 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Star => write!(f, "Star"),
             TokenKind::Slash => write!(f, "Slash"),
             TokenKind::Percentage => write!(f, "Percentage"),
+            TokenKind::Equal => write!(f, "Equal"),
             TokenKind::LParen => write!(f, "LParen"),
             TokenKind::RParen => write!(f, "RParen"),
+            TokenKind::Identifier => write!(f, "Identifier"),
+            TokenKind::KwLet => write!(f, "KwLet"),
+            TokenKind::KwVar => write!(f, "KwVar"),
             TokenKind::Invalid { msg } => write!(f, "{}", msg),
         }
     }
@@ -145,7 +158,8 @@ mod test_token_kind {
     }
 
     test_display!(
-        Spaces, NewLine, SemiColon, I64, Plus, Dash, Star, Slash, Percentage, LParen, RParen,
+        Spaces, NewLine, SemiColon, I64, Plus, Dash, Star, Slash, Percentage, Equal, LParen,
+        RParen, Identifier, KwLet, KwVar,
     );
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -396,261 +410,38 @@ impl CompilationUnit {
     }
 
     pub(crate) fn get_tokens(&self) -> Tokens {
-        fn uc_is_ascii_digit(s: &str) -> bool {
-            s.len() == 1 && s.chars().next().unwrap().is_ascii_digit()
-        }
-
-        fn take_while(
-            cu: &CompilationUnit,
-            mut start: UcContentIndex,
-            f: impl Fn(&str) -> bool,
-        ) -> UcContentIndex {
-            while let Some(byte_idx_span) = cu.ucs.try_to_byte_index_span(start) {
-                let s = byte_idx_span.get_str(cu);
-                if !f(s) {
-                    return start - 1;
-                }
-                start += 1;
-            }
-            start - 1
-        }
-
-        fn take_string(
-            cu: &CompilationUnit,
-            mut start: UcContentIndex,
-        ) -> Result<(UcContentIndex, String), (UcContentIndex, String)> {
-            fn take_unicode(
-                cu: &CompilationUnit,
-                mut start: UcContentIndex,
-            ) -> Result<(UcContentIndex, String), (UcContentIndex, String)> {
-                let origin_start = start;
-
-                if let Some(byte_idx_span) = cu.ucs.try_to_byte_index_span(start) {
-                    let s = byte_idx_span.get_str(cu);
-                    if s != "{" {
-                        return Err((
-                            start,
-                            "unicode should be in the format of \\u{{...}}".to_owned(),
-                        ));
-                    }
-                } else {
-                    return Err((
-                        start,
-                        "unicode should be in the format of \\u{abcdef}".to_owned(),
-                    ));
-                };
-                start += 1;
-
-                while let Some(byte_idx_span) = cu.ucs.try_to_byte_index_span(start) {
-                    let s = byte_idx_span.get_str(cu);
-                    if s == "}" {
-                        break;
-                    }
-                    if s.len() != 1 || !s.chars().next().unwrap().is_ascii_hexdigit() {
-                        return Err((
-                            start,
-                            format!("only hex numbers are allowed in unicode sequence, `{}` is not allowed", s)
-                        ));
-                    }
-                    start += 1;
-                }
-
-                if start == origin_start + 1 {
-                    return Err((
-                        start,
-                        "unicode should be in the format of \\u{...}, cannot be empty between `{}`"
-                            .to_owned(),
-                    ));
-                }
-                let mut s = ByteIndexSpan::new(
-                    cu.ucs
-                        .try_to_byte_index_span(origin_start + 1)
-                        .unwrap()
-                        .get_start(),
-                    cu.ucs
-                        .try_to_byte_index_span(start - 1)
-                        .unwrap()
-                        .get_inclusive_end(),
-                )
-                .get_str(cu)
-                .to_owned();
-                if s.len() % 2 != 0 {
-                    s = format!("0{}", s);
-                }
-                let c = std::char::from_u32(u32::from_str_radix(&s, 16).unwrap_or_else(|e| {
-                    panic!("BUG: failed to parse `{}` as hex number: {}", s, e)
-                }))
-                .ok_or_else(|| {
-                    (
-                        start,
-                        format!("failed to convert `{}` to unicode character", s),
-                    )
-                })?;
-                Ok((start, c.to_string()))
-            }
-
-            let mut content = String::with_capacity(50);
-
-            let escaped_chars: HashMap<&str, &str> = [
-                ("\\", "\\"),
-                ("\"", "\""),
-                ("n", "\n"),
-                ("r", "\r"),
-                ("t", "\t"),
-                ("0", "\0"),
-            ]
-            .into_iter()
-            .collect();
-            let mut in_escape = false;
-            while let Some(byte_idx_span) = cu.ucs.try_to_byte_index_span(start) {
-                let s = byte_idx_span.get_str(cu);
-                if in_escape {
-                    if s == "u" {
-                        let (new_start, chunk) = take_unicode(cu, start + 1)?;
-                        start = new_start + 1;
-                        content.push_str(&chunk);
-                    } else if escaped_chars.contains_key(&s) {
-                        start += 1;
-                        content.push_str(escaped_chars[&s]);
-                    } else {
-                        return Err((start - 1, format!("unrecogonized escape `{}`", s)));
-                    }
-                    in_escape = false;
-                    continue;
-                } else if s == r#"""# {
-                    return Ok((start, content));
-                }
-                if s == "\\" {
-                    in_escape = true;
-                } else {
-                    content.push_str(s);
-                }
-                start += 1;
-            }
-
-            Err((start - 1, "unfinished string".to_owned()))
-        }
-
-        fn get_single_char_token_kind(c: char) -> Option<TokenKind> {
-            match c {
-                '+' => Some(TokenKind::Plus),
-                '-' => Some(TokenKind::Dash),
-                '*' => Some(TokenKind::Star),
-                '/' => Some(TokenKind::Slash),
-                '%' => Some(TokenKind::Percentage),
-                '(' => Some(TokenKind::LParen),
-                ')' => Some(TokenKind::RParen),
-                ';' => Some(TokenKind::SemiColon),
-                _ => None,
-            }
-        }
-
-        fn to_byte_range(
-            cu: &CompilationUnit,
-            start: UcContentIndex,
-            inclusive_end: UcContentIndex,
-        ) -> ByteIndexSpan {
-            ByteIndexSpan::new(
-                cu.ucs
-                    .try_to_byte_index_span(start)
-                    .unwrap_or_else(|| {
-                        panic!("failed to get byte index span for {:?} in {:?}", start, cu)
-                    })
-                    .get_start(),
-                cu.ucs
-                    .try_to_byte_index_span(inclusive_end)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "failed to get byte index span for {:?} in {:?}",
-                            inclusive_end, cu
-                        )
-                    })
-                    .get_inclusive_end(),
-            )
-        }
-
         let mut tokens = Tokens::new(self.ucs.len());
 
         let mut uc_idx = UcContentIndex::new(0);
 
         while let Some(byte_idx_span) = self.ucs.try_to_byte_index_span(uc_idx) {
             let s = byte_idx_span.get_str(self);
-            if s == "\r\n" || s == "\n" {
-                tokens.push(TokenKind::NewLine, to_byte_range(self, uc_idx, uc_idx));
-                uc_idx += 1;
+
+            // new line
+            if let Some(new_uc_idx) = try_new_line(self, &mut tokens, uc_idx, s) {
+                uc_idx = new_uc_idx;
                 continue;
             }
 
-            assert!(!s.is_empty());
-            if s.len() != 1 {
-                let new_uc_idx = take_while(self, uc_idx + 1, |s| s.len() != 1);
-                tokens.push(
-                    TokenKind::Invalid {
-                        msg: format!(
-                            "multi-char unicode like `{}` only supported in strings and comments",
-                            s
-                        ),
-                    },
-                    to_byte_range(self, uc_idx, new_uc_idx),
-                );
-                uc_idx = new_uc_idx + 1;
+            // illegal mutli-byte char
+            if let Some(new_uc_idx) = try_multi_byte_char(self, &mut tokens, uc_idx, s) {
+                uc_idx = new_uc_idx;
                 continue;
             }
 
-            assert!(s.len() == 1);
             let c = s.chars().next().unwrap();
 
             // single-char tokens
-            if let Some(token_kind) = get_single_char_token_kind(c) {
-                tokens.push(token_kind, to_byte_range(self, uc_idx, uc_idx));
-                uc_idx += 1;
+            if let Some(new_uc_idx) = try_single_char_token(self, &mut tokens, uc_idx, c) {
+                uc_idx = new_uc_idx;
                 continue;
             }
 
             // multi-char tokens
-            match c {
-                '0' => {
-                    let new_uc_idx = take_while(self, uc_idx + 1, uc_is_ascii_digit);
-                    let kind = if new_uc_idx == uc_idx {
-                        TokenKind::I64
-                    } else {
-                        TokenKind::Invalid {
-                            msg: "leading zero is not allowed".to_owned(),
-                        }
-                    };
-                    tokens.push(kind, to_byte_range(self, uc_idx, new_uc_idx));
-                    uc_idx = new_uc_idx + 1;
-                }
-                '1'..='9' => {
-                    let new_uc_idx = take_while(self, uc_idx + 1, uc_is_ascii_digit);
-                    tokens.push(TokenKind::I64, to_byte_range(self, uc_idx, new_uc_idx));
-                    uc_idx = new_uc_idx + 1;
-                }
-                ' ' => {
-                    let new_uc_idx = take_while(self, uc_idx + 1, |s| s == " ");
-                    tokens.push(TokenKind::Spaces, to_byte_range(self, uc_idx, new_uc_idx));
-                    uc_idx = new_uc_idx + 1;
-                }
-                '"' => {
-                    let new_uc_idx = take_string(self, uc_idx + 1);
-                    let (kind, new_uc_idx) = match new_uc_idx {
-                        Ok((new_uc_idx, content)) => {
-                            (TokenKind::StringLiteral { content }, new_uc_idx)
-                        }
-                        Err((new_uc_idx, msg)) => (TokenKind::Invalid { msg }, new_uc_idx),
-                    };
-                    tokens.push(kind, to_byte_range(self, uc_idx, new_uc_idx));
-                    uc_idx = new_uc_idx + 1;
-                }
-                _ => {
-                    tokens.push(
-                        TokenKind::Invalid {
-                            msg: format!("unsupported {}", c),
-                        },
-                        to_byte_range(self, uc_idx, uc_idx),
-                    );
-                    uc_idx += 1;
-                }
+            if let Some(new_uc_idx) = try_multi_byte_tokens(self, &mut tokens, uc_idx, c) {
+                uc_idx = new_uc_idx;
+            } else {
+                continue;
             }
         }
 
@@ -793,6 +584,44 @@ mod test_compile_unit {
             (TokenKind::SemiColon, ";"),
             (TokenKind::NewLine, "\n"),
             (TokenKind::NewLine, "\r\n"),
+        ];
+        assert_eq!(tokens.len(), expected.len(), "{:?} {:?}", tokens, expected);
+        for (token, (expected_kind, expected_str)) in tokens.iter().zip(expected.into_iter()) {
+            assert_eq!(token.kind, expected_kind);
+            assert_eq!(token.get_str(&cu), expected_str);
+        }
+    }
+
+    #[test]
+    fn test_let() {
+        let cu = CompilationUnit::from_string("mark", "let x = 3 + 2;\nvar y = x - 1;");
+        let tokens = cu.get_tokens();
+        let expected = [
+            (TokenKind::KwLet, "let"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Identifier, "x"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Equal, "="),
+            (TokenKind::Spaces, " "),
+            (TokenKind::I64, "3"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Plus, "+"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::I64, "2"),
+            (TokenKind::SemiColon, ";"),
+            (TokenKind::NewLine, "\n"),
+            (TokenKind::KwVar, "var"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Identifier, "y"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Equal, "="),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Identifier, "x"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::Dash, "-"),
+            (TokenKind::Spaces, " "),
+            (TokenKind::I64, "1"),
+            (TokenKind::SemiColon, ";"),
         ];
         assert_eq!(tokens.len(), expected.len(), "{:?} {:?}", tokens, expected);
         for (token, (expected_kind, expected_str)) in tokens.iter().zip(expected.into_iter()) {
