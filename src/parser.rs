@@ -39,17 +39,28 @@ struct TokenTrait {
 
 #[derive(Debug, Clone)]
 pub enum ParseError {
-    UnexpectedEndOfInput,
-    IntegerOverflow { token: lexer::TokenIndex },
-    MismatchedParentheses { lparen: lexer::TokenIndex },
-    UnexpectedToken(lexer::TokenIndex),
+    UnexpectedEndOfInput {
+        msg: String,
+        start_token_idx: lexer::TokenIndex,
+    },
+    IntegerOverflow {
+        token: lexer::TokenIndex,
+    },
+    MismatchedParentheses {
+        lparen: lexer::TokenIndex,
+    },
+    UnexpectedToken {
+        msg: String,
+        start_token_idx: lexer::TokenIndex,
+        inclusive_end_token_idx: lexer::TokenIndex,
+    },
     LexError(Vec<(lexer::TokenIndex, String)>),
 }
 
 impl ParseError {
-    fn to_string(&self, ast: &ast::Ast) -> String {
+    fn get_string(&self, ast: &ast::Ast) -> String {
         match self {
-            Self::UnexpectedEndOfInput => "unexpected end of input".to_string(),
+            Self::UnexpectedEndOfInput { msg, .. } => format!("unexpected end of input, {}", msg),
             Self::IntegerOverflow { token } => {
                 format!("integer overflow: `{}`, {:?}", ast.to_string(*token), self)
             }
@@ -58,8 +69,17 @@ impl ParseError {
                 ast.to_string(*lparen),
                 self
             ),
-            Self::UnexpectedToken(token) => {
-                format!("unexpected token: `{}`, {:?}", ast.to_string(*token), self)
+            Self::UnexpectedToken {
+                msg,
+                start_token_idx: _start_token_idx,
+                inclusive_end_token_idx,
+            } => {
+                format!(
+                    "unexpected token: {}, but got `{}` instead, {:?}",
+                    msg,
+                    ast.to_string(*inclusive_end_token_idx),
+                    self
+                )
             }
             Self::LexError(errors) => format!(
                 "lex error: {}",
@@ -220,45 +240,73 @@ impl Parser {
         &self,
         ast: &mut ast::Ast,
         packed_tokens: &PackedTokens,
-        next_token_idx: PackedTokenIndex,
+        start_packed_token_idx: PackedTokenIndex,
     ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
         // has something
-        let Some(packed_token) = packed_tokens.get(next_token_idx) else {
-            return Ok((None, next_token_idx));
+        let Some(packed_token) = packed_tokens.get(start_packed_token_idx) else {
+            return Ok((None, start_packed_token_idx));
         };
+        let origin_start_token_idx = packed_token.token_idx;
 
         // must be either `let` or `var`
         let kind = packed_token.token.get_kind();
         if kind != &lexer::TokenKind::KwLet && kind != &lexer::TokenKind::KwVar {
-            return Err(ParseError::UnexpectedToken(packed_token.token_idx));
+            return Err(ParseError::UnexpectedToken {
+                msg: "expression should start with `let` or `var`, but got".to_owned(),
+                start_token_idx: packed_token.token_idx,
+                inclusive_end_token_idx: packed_token.token_idx,
+            });
         }
         let kw_token_idx = packed_token.token_idx;
+        let after_kw_packed_token_idx = start_packed_token_idx + 1;
 
         // lhs is an expression. TODO: must be something can be assigned to
-        let (lhs_expr, new_next_token_idx) =
-            self.parse_expression(ast, packed_tokens, next_token_idx + 1, Precedence::new(0))?;
-        let next_token_idx = new_next_token_idx;
+        let (lhs_expr, after_lhs_packed_token_idx) = self.parse_expression(
+            ast,
+            packed_tokens,
+            after_kw_packed_token_idx,
+            Precedence::new(0),
+        )?;
 
         // must be `=`
-        let Some(packed_token) = packed_tokens.get(next_token_idx) else {
-            return Err(ParseError::UnexpectedEndOfInput);
+        let Some(packed_token) = packed_tokens.get(after_lhs_packed_token_idx) else {
+            return Err(ParseError::UnexpectedEndOfInput {
+                msg: "expected definition but could not find `=`".to_owned(),
+                start_token_idx: origin_start_token_idx,
+            });
         };
         if !matches!(packed_token.token.get_kind(), &lexer::TokenKind::Equal) {
-            return Err(ParseError::UnexpectedToken(packed_token.token_idx));
+            return Err(ParseError::UnexpectedToken {
+                msg: "definition expects `=`".to_owned(),
+                start_token_idx: origin_start_token_idx,
+                inclusive_end_token_idx: packed_token.token_idx,
+            });
         }
         let eq_token_idx = packed_token.token_idx;
+        let after_eq_packed_token_idx = after_lhs_packed_token_idx + 1;
 
         // rhs is an expression
-        let (rhs_expr, new_next_token_idx) =
-            self.parse_expression(ast, packed_tokens, next_token_idx + 1, Precedence::new(0))?;
-        let next_token_idx = new_next_token_idx;
+        let (rhs_expr, after_rhs_packed_token_idx) = self.parse_expression(
+            ast,
+            packed_tokens,
+            after_eq_packed_token_idx,
+            Precedence::new(0),
+        )?;
 
         // ends with `;`
-        let Some(packed_token) = packed_tokens.get(next_token_idx) else {
-            return Err(ParseError::UnexpectedEndOfInput);
+        let Some(packed_token) = packed_tokens.get(after_rhs_packed_token_idx) else {
+            return Err(ParseError::UnexpectedEndOfInput {
+                msg: "expected definition but could not find `;`".to_owned(),
+                start_token_idx: origin_start_token_idx,
+            });
         };
+        // `;` should be checked in parse_statement
         if !matches!(packed_token.token.get_kind(), lexer::TokenKind::SemiColon) {
-            return Err(ParseError::UnexpectedToken(packed_token.token_idx));
+            return Err(ParseError::UnexpectedToken {
+                msg: "definition is a statement, it must ends with `;`".to_owned(),
+                start_token_idx: origin_start_token_idx,
+                inclusive_end_token_idx: packed_token.token_idx,
+            });
         }
 
         // return
@@ -269,7 +317,7 @@ impl Parser {
                 eq: eq_token_idx,
                 rhs_expression_node_idx: ast.push(rhs_expr.unwrap()),
             })),
-            next_token_idx + 1,
+            after_rhs_packed_token_idx + 1,
         ))
     }
 
@@ -313,6 +361,11 @@ impl Parser {
         }
 
         assert!(!errors.is_empty());
+        if errors.len() > 1 {
+            for e in errors.iter() {
+                dbg!(format!("{}, {:?}", e.get_string(ast), e));
+            }
+        }
         Err(errors[0].clone())
     }
 
@@ -320,28 +373,36 @@ impl Parser {
         &self,
         ast: &mut ast::Ast,
         packed_tokens: &PackedTokens,
-        next_token_idx: PackedTokenIndex,
+        start_packed_token_idx: PackedTokenIndex,
         min_precedence: Precedence,
     ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
-        let (mut lhs, mut next_token_idx) =
-            self.parse_primary(ast, packed_tokens, next_token_idx)?;
+        let (mut lhs, after_lhs_packed_token_idx) =
+            self.parse_primary(ast, packed_tokens, start_packed_token_idx)?;
         if lhs.is_none() {
-            return Ok((None, next_token_idx));
-        }
+            return Ok((None, start_packed_token_idx));
+        };
 
-        while let Some(op) = packed_tokens.get(next_token_idx) {
+        let mut next_packed_token_idx = after_lhs_packed_token_idx;
+        while let Some(op) = packed_tokens.get(next_packed_token_idx) {
             if [
-                lexer::TokenKind::RParen,
                 lexer::TokenKind::Equal,
                 lexer::TokenKind::SemiColon,
+                lexer::TokenKind::RParen,
             ]
             .contains(op.token.get_kind())
             {
-                return Ok((lhs, next_token_idx));
+                return Ok((lhs, next_packed_token_idx));
             }
-            let (precedence, associativity) = self
-                .get_precedence(&op.token)
-                .ok_or(ParseError::UnexpectedToken(op.token_idx))?;
+            let (precedence, associativity) =
+                self.get_precedence(&op.token)
+                    .ok_or_else(|| ParseError::UnexpectedToken {
+                        msg: "expect an operator makes sense here".to_owned(),
+                        start_token_idx: packed_tokens
+                            .get(start_packed_token_idx)
+                            .unwrap()
+                            .token_idx,
+                        inclusive_end_token_idx: op.token_idx,
+                    })?;
             if precedence < min_precedence {
                 break;
             }
@@ -351,13 +412,18 @@ impl Parser {
                 precedence
             };
 
-            let (rhs, new_next_token_idx) =
-                self.parse_expression(ast, packed_tokens, next_token_idx + 1, min_precedence)?;
+            let (rhs, after_rhs_packed_token_idx) = self.parse_expression(
+                ast,
+                packed_tokens,
+                next_packed_token_idx + 1,
+                min_precedence,
+            )?;
             if rhs.is_none() {
-                next_token_idx = new_next_token_idx;
-                break;
-            }
-            next_token_idx = new_next_token_idx;
+                return Err(ParseError::UnexpectedEndOfInput {
+                    msg: "expected an expression after operator".to_owned(),
+                    start_token_idx: op.token_idx,
+                });
+            };
             let lhs_node_idx = ast.push(lhs.unwrap());
             let rhs_node_idx = ast.push(rhs.unwrap());
             lhs = Some(ast::AstNode::Expression(ast::Expr::BinaryOp {
@@ -365,19 +431,20 @@ impl Parser {
                 lhs: lhs_node_idx,
                 rhs: rhs_node_idx,
             }));
+            next_packed_token_idx = after_rhs_packed_token_idx;
         }
 
-        Ok((lhs, next_token_idx))
+        Ok((lhs, next_packed_token_idx))
     }
 
     fn parse_primary(
         &self,
         ast: &mut ast::Ast,
         packed_tokens: &PackedTokens,
-        mut next_token_idx: PackedTokenIndex,
+        start_packed_token_idx: PackedTokenIndex,
     ) -> Result<(Option<ast::AstNode>, PackedTokenIndex), ParseError> {
-        let Some(packed_token) = packed_tokens.get(next_token_idx) else {
-            return Ok((None, next_token_idx));
+        let Some(packed_token) = packed_tokens.get(start_packed_token_idx) else {
+            return Ok((None, start_packed_token_idx));
         };
 
         match packed_token.token.get_kind() {
@@ -385,17 +452,20 @@ impl Parser {
                 Some(ast::AstNode::Expression(ast::Expr::I64(
                     packed_token.token_idx,
                 ))),
-                next_token_idx + 1,
+                start_packed_token_idx + 1,
             )),
             lexer::TokenKind::Identifier => Ok((
                 Some(ast::AstNode::Expression(ast::Expr::Identifier(
                     packed_token.token_idx,
                 ))),
-                next_token_idx + 1,
+                start_packed_token_idx + 1,
             )),
             // don't allow chained unary operators
-            lexer::TokenKind::Dash => packed_tokens.get(next_token_idx + 1).map_or(
-                Err(ParseError::UnexpectedEndOfInput),
+            lexer::TokenKind::Dash => packed_tokens.get(start_packed_token_idx + 1).map_or(
+                Err(ParseError::UnexpectedEndOfInput {
+                    msg: "negative number expects digits after `-`".to_owned(),
+                    start_token_idx: packed_token.token_idx,
+                }),
                 |PackedToken {
                      token_idx: operand_token_idx,
                      token: operand_token,
@@ -406,37 +476,44 @@ impl Parser {
                             operand: ast
                                 .push(ast::AstNode::Expression(ast::Expr::I64(*operand_token_idx))),
                         })),
-                        next_token_idx + 2,
+                        start_packed_token_idx + 2,
                     )),
-                    _ => Err(ParseError::UnexpectedToken(*operand_token_idx)),
+                    _ => Err(ParseError::UnexpectedToken {
+                        msg: "unary `-` only accepts integer".to_owned(),
+                        start_token_idx: packed_token.token_idx,
+                        inclusive_end_token_idx: *operand_token_idx,
+                    }),
                 },
             ),
             lexer::TokenKind::LParen => {
-                let (expr, new_next_token_idx) = self.parse_expression(
+                let (expr, after_expr_packed_token_idx) = self.parse_expression(
                     ast,
                     packed_tokens,
-                    next_token_idx + 1,
+                    start_packed_token_idx + 1,
                     Precedence::new(0),
                 )?;
-                next_token_idx = new_next_token_idx;
-                match packed_tokens.get(next_token_idx) {
+                match packed_tokens.get(after_expr_packed_token_idx) {
                     Some(token) if token.token.get_kind() == &lexer::TokenKind::RParen => {
-                        Ok((expr, next_token_idx + 1))
+                        Ok((expr, after_expr_packed_token_idx + 1))
                     }
                     _ => Err(ParseError::MismatchedParentheses {
                         lparen: packed_token.token_idx,
                     }),
                 }
             }
-            lexer::TokenKind::SemiColon => Ok((None, next_token_idx + 1)),
+            lexer::TokenKind::SemiColon => Ok((None, start_packed_token_idx + 1)),
             lexer::TokenKind::StringLiteral { content } => Ok((
                 Some(ast::AstNode::Expression(ast::Expr::StringLiteral {
                     token_idx: packed_token.token_idx,
                     content: content.clone(),
                 })),
-                next_token_idx + 1,
+                start_packed_token_idx + 1,
             )),
-            _ => Err(ParseError::UnexpectedToken(packed_token.token_idx)),
+            _ => Err(ParseError::UnexpectedToken {
+                msg: "expected an expression, but got".to_owned(),
+                start_token_idx: packed_token.token_idx,
+                inclusive_end_token_idx: packed_token.token_idx,
+            }),
         }
     }
 
@@ -476,7 +553,7 @@ impl Parser {
 
         let (module, _next_token_idx) = self
             .parse_module(&mut ast, &tokens, PackedTokenIndex::new(0))
-            .unwrap_or_else(|e| panic!("failed to parse: {}", e.to_string(&ast)));
+            .unwrap_or_else(|e| panic!("failed to parse: {}", e.get_string(&ast)));
         ast.set_module(module);
         Ok(ast)
     }

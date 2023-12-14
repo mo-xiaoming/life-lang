@@ -6,6 +6,24 @@ use crate::lexer;
 pub use visitor::{AstEvaluator, AstNodeVisitor, AstPrinter};
 
 #[derive(Debug)]
+struct LineNumber(usize);
+
+#[derive(Debug)]
+struct ColumnNumber(usize);
+
+#[derive(Debug)]
+pub(crate) struct SourceLocation {
+    line_nr: LineNumber,
+    column_nr: ColumnNumber,
+}
+
+#[derive(Debug)]
+pub(crate) struct SourceRange {
+    start: SourceLocation,
+    end: SourceLocation,
+}
+
+#[derive(Debug)]
 pub struct Ast<'cu> {
     cu: &'cu lexer::CompilationUnit,
     nodes: AstNodes, // last node is always a module
@@ -29,7 +47,7 @@ impl<'cu> Ast<'cu> {
         visitor.visit(self.nodes.last())
     }
     pub(crate) fn to_string(&self, index: impl Indexable) -> String {
-        index.to_string(self)
+        index.get_string(self)
     }
     pub(crate) fn push(&mut self, node: AstNode) -> AstNodeIndex {
         self.nodes.push(node)
@@ -77,17 +95,17 @@ impl std::fmt::Display for Ast<'_> {
 }
 
 pub(crate) trait Indexable {
-    fn to_string(&self, ast: &Ast) -> String;
+    fn get_string(&self, ast: &Ast) -> String;
 }
 
 impl Indexable for lexer::TokenIndex {
-    fn to_string(&self, ast: &Ast) -> String {
+    fn get_string(&self, ast: &Ast) -> String {
         ast[*self].get_str(ast.cu).to_owned()
     }
 }
 
 impl Indexable for AstNodeIndex {
-    fn to_string(&self, ast: &Ast) -> String {
+    fn get_string(&self, ast: &Ast) -> String {
         let mut printer = AstPrinter::new(ast);
         printer.visit(&ast[*self])
     }
