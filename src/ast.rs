@@ -1,27 +1,46 @@
-#![allow(dead_code)]
-
 mod visitor;
 use crate::lexer;
 
 pub use visitor::{AstEvaluator, AstNodeVisitor, AstPrinter};
 
-#[derive(Debug)]
-struct LineNumber(usize);
-
-#[derive(Debug)]
-struct ColumnNumber(usize);
-
-#[derive(Debug)]
-pub(crate) struct SourceLocation {
-    line_nr: LineNumber,
-    column_nr: ColumnNumber,
-}
-
-#[derive(Debug)]
-pub(crate) struct SourceRange {
-    start: SourceLocation,
-    end: SourceLocation,
-}
+//#[derive(Debug)]
+//struct LineNumber(usize);
+//
+//#[derive(Debug)]
+//struct ColumnNumber(usize);
+//
+//#[derive(Debug)]
+//pub(crate) struct SourceLocation {
+//    line_nr: LineNumber,
+//    column_nr: ColumnNumber,
+//}
+//
+//#[derive(Debug)]
+//pub(crate) struct SourceRange {
+//    start: SourceLocation,
+//    end: SourceLocation,
+//}
+//
+//fn get_src_location(ast: &Ast, token_idx: lexer::TokenIndex) -> SourceLocation {
+//    let token = &ast[token_idx];
+//    let line_nr = LineNumber(token.get_line_nr());
+//    let column_nr = ColumnNumber(token.get_column_nr());
+//    SourceLocation { line_nr, column_nr }
+//}
+//
+//fn split_lines(ast: &Ast) -> Vec<lexer::TokenIndex> {
+//    ast.get_tokens()
+//        .iter()
+//        .enumerate()
+//        .filter_map(|(i, token)| {
+//            if token.get_kind() == &lexer::TokenKind::NewLine {
+//                Some(lexer::TokenIndex::new(i))
+//            } else {
+//                None
+//            }
+//        })
+//        .collect()
+//}
 
 #[derive(Debug)]
 pub struct Ast<'cu> {
@@ -51,10 +70,6 @@ impl<'cu> Ast<'cu> {
     }
     pub(crate) fn push(&mut self, node: AstNode) -> AstNodeIndex {
         self.nodes.push(node)
-    }
-    pub(crate) fn is_empty(&self) -> bool {
-        assert!(!self.nodes.is_empty());
-        self.nodes.len() == 1
     }
     pub(crate) fn set_module(&mut self, module: AstNode) {
         match module {
@@ -186,9 +201,6 @@ impl AstNodes {
     }
     fn len(&self) -> usize {
         self.0.len()
-    }
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
     fn push(&mut self, node: AstNode) -> AstNodeIndex {
         self.0.push(node);

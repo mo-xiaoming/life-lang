@@ -8,8 +8,6 @@ Just fiddling around, this is like my 4th or 5th repo diving into
 - Rust (finally decided to ditch c++)
 - compiler design (probably light-years beyond my imaginary intelligence)
 
-<!-- Following Julian Hartl's youtube series [_Building a compiler in rust_](https://github.com/julian-hartl/fusion-lang) -->
-
 [x] parse simple math expressions
 
 ```rust
@@ -17,10 +15,9 @@ use life_lang::{lexer, parser, ast};
 
 let cu = lexer::CompilationUnit::from_string(
     "stdin",
-    "7%2 + 3 * (12 / ( 15 / - 3+1 - - 1) ) - 2 - 1 + 1",
+    "7%2 + 3 * (12 / ( 15 / - 3+1 - - 1) ) - 2 - 1 + 1;",
 );
-let parser = parser::Parser::new();
-let ast = parser.parse(&cu).unwrap();
+let ast = parser::parse(&cu).unwrap();
 let evaluator = &mut ast::AstEvaluator::new(&ast);
 assert_eq!(ast.accept(evaluator), Ok(Some(-13)));
 ```
@@ -35,12 +32,11 @@ use life_lang::{lexer, parser, ast};
 
 let cu = lexer::CompilationUnit::from_string(
     "stdin",
-    r#""\u{4f60}\u{597d}\u{1f316}""#,
+    r#""\u{4f60}\u{597d}\u{1f316}";"#,
 );
-let parser = parser::Parser::new();
-let ast = parser.parse(&cu).unwrap();
+let ast = parser::parse(&cu).unwrap();
 let printer = &mut ast::AstPrinter::new(&ast);
-assert_eq!(ast.accept(printer), "你好🌖");
+assert_eq!(ast.accept(printer), "你好🌖;\n");
 ```
 
 [x] `let` and `var`
@@ -52,10 +48,9 @@ let cu = lexer::CompilationUnit::from_string(
     "stdin",
     "let x = 3; var y = x - 42;"
 );
-let parser = parser::Parser::new();
-let ast = parser.parse(&cu).unwrap();
+let ast = parser::parse(&cu).unwrap();
 let printer = &mut ast::AstPrinter::new(&ast);
 assert_eq!(ast.accept(printer), "let x = 3;\nvar y = (x - 42);\n");
 ```
 
-[x] better error messages
+[ ] better error messages

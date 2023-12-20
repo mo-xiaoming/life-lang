@@ -42,7 +42,7 @@ impl<'cu> AstNodeVisitor<String> for AstPrinter<'cu> {
                 )
             }
             AstNode::Statement(Stat::Expression(expression_node_idx)) => {
-                self.visit(&self.ast[*expression_node_idx])
+                format!("{};\n", self.visit(&self.ast[*expression_node_idx]))
             }
             AstNode::Expression(Expr::I64(token_idx)) => self.ast.to_string(*token_idx),
             AstNode::Expression(Expr::Identifier(token_idx)) => self.ast.to_string(*token_idx),
