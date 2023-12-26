@@ -5,8 +5,7 @@ fn main() {
         "stdin",
         "7%2 + 3 * (12 / ( 15 / - 3+1 - - 1) ) - 2 - 1 + 1",
     );
-    let parser = parser::Parser::new();
-    let ast = parser.parse(&cu).unwrap();
+    let ast = parser::parse(&cu);
     let printer = &mut ast::AstEvaluator::new(&ast);
     println!(
         "should be -13, got {}",

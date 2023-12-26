@@ -1,42 +1,72 @@
 #![allow(dead_code)]
-
 mod visitor;
-use crate::lexer;
 
+use super::lexer;
 pub use visitor::{AstEvaluator, AstNodeVisitor, AstPrinter};
 
+pub trait AstError: std::marker::Sized + std::fmt::Debug {
+    fn get_string<'cu>(&self, ast: &'cu Ast<'cu, Self>) -> String;
+}
+
 #[derive(Debug)]
-pub struct Ast<'cu> {
+pub struct Ast<'cu, E: AstError> {
     cu: &'cu lexer::CompilationUnit,
     nodes: AstNodes, // last node is always a module
     tokens: lexer::Tokens,
+    diag_ctx: lexer::DiagCtx,
+    error: Option<E>,
 }
 
-impl<'cu> Ast<'cu> {
+impl<'cu, E: AstError> Ast<'cu, E> {
     pub(crate) fn new(cu: &'cu lexer::CompilationUnit) -> Self {
-        let tokens = cu.get_tokens();
+        let (tokens, diag_ctx) = cu.get_tokens();
         let tokens_len = tokens.len();
         Self {
             cu,
-            nodes: AstNodes::new(tokens_len),
+            nodes: AstNodes::with_capacity(tokens_len),
             tokens,
+            diag_ctx,
+            error: None,
         }
     }
     pub(crate) fn get_tokens(&self) -> &lexer::Tokens {
         &self.tokens
     }
+    pub(crate) fn get_diag_ctx(&self) -> &lexer::DiagCtx {
+        &self.diag_ctx
+    }
     pub fn accept<R>(&self, visitor: &mut impl AstNodeVisitor<R>) -> R {
         visitor.visit(self.nodes.last())
     }
-    pub(crate) fn to_string(&self, index: impl Indexable) -> String {
-        index.to_string(self)
+    fn get_token(&self, token_idx: lexer::TokenIdx) -> Option<&lexer::Token> {
+        self.tokens.get(token_idx)
     }
-    pub(crate) fn push(&mut self, node: AstNode) -> AstNodeIndex {
+    fn get_token_unchecked(&self, token_idx: lexer::TokenIdx) -> &lexer::Token {
+        self.tokens
+            .get(token_idx)
+            .unwrap_or_else(|| panic!("BUG: failed to get token {:?} from ast {}", token_idx, self))
+    }
+    fn get_node(&self, node_idx: AstNodeIdx) -> Option<&AstNode> {
+        self.nodes.get(node_idx)
+    }
+    fn get_node_unchecked(&self, node_idx: AstNodeIdx) -> &AstNode {
+        self.nodes
+            .get(node_idx)
+            .unwrap_or_else(|| panic!("BUG: failed to get node {:?} from ast {}", node_idx, self))
+    }
+    pub(crate) fn get_string_unchecked(
+        &'cu self,
+        index: impl Indexable + std::fmt::Debug,
+    ) -> String {
+        index.get_string(self).unwrap_or_else(|| {
+            panic!(
+                "BUG: failed to get string from index {:?} in {:?}",
+                index, self
+            )
+        })
+    }
+    pub(crate) fn push(&mut self, node: AstNode) -> AstNodeIdx {
         self.nodes.push(node)
-    }
-    pub(crate) fn is_empty(&self) -> bool {
-        assert!(!self.nodes.is_empty());
-        self.nodes.len() == 1
     }
     pub(crate) fn set_module(&mut self, module: AstNode) {
         match module {
@@ -46,10 +76,15 @@ impl<'cu> Ast<'cu> {
             _ => panic!("BUG: expected Module, but got `{:?}`", module),
         }
     }
+    pub(crate) fn set_error(&mut self, error: E) {
+        self.error = Some(error);
+    }
+    pub(crate) fn get_error(&self) -> Option<&E> {
+        self.error.as_ref()
+    }
 }
 
-#[cfg(test)]
-impl std::fmt::Display for Ast<'_> {
+impl<'cu, E: AstError> std::fmt::Display for Ast<'cu, E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -72,31 +107,37 @@ impl std::fmt::Display for Ast<'_> {
                     acc
                 }
             )
-        )
+        )?;
+        if let Some(e) = self.get_error() {
+            let s = e.get_string(self);
+            write!(f, "\nerror: {}", s)?;
+        }
+        Ok(())
     }
 }
 
 pub(crate) trait Indexable {
-    fn to_string(&self, ast: &Ast) -> String;
+    fn get_string<'cu, E: AstError>(&self, ast: &'cu Ast<'cu, E>) -> Option<String>;
 }
 
-impl Indexable for lexer::TokenIndex {
-    fn to_string(&self, ast: &Ast) -> String {
-        ast[*self].get_str(ast.cu).to_owned()
+impl Indexable for lexer::TokenIdx {
+    fn get_string<'cu, E: AstError>(&self, ast: &'cu Ast<'cu, E>) -> Option<String> {
+        ast.get_token(*self)
+            .map(|token| token.get_str(ast.cu).to_owned())
     }
 }
 
-impl Indexable for AstNodeIndex {
-    fn to_string(&self, ast: &Ast) -> String {
+impl Indexable for AstNodeIdx {
+    fn get_string<'cu, E: AstError>(&self, ast: &'cu Ast<'cu, E>) -> Option<String> {
         let mut printer = AstPrinter::new(ast);
-        printer.visit(&ast[*self])
+        ast.get_node(*self).map(|node| printer.visit(node))
     }
 }
 
 #[derive(Debug)]
 pub enum AstNode {
     Module {
-        statements_node_indices: Vec<AstNodeIndex>,
+        statements_node_indices: Vec<AstNodeIdx>,
     },
     Statement(Stat),
     Expression(Expr),
@@ -108,7 +149,11 @@ impl AstNode {
             statements_node_indices: Vec::with_capacity(n),
         }
     }
-    pub(crate) fn add_statement_to_module(&mut self, ast: &Ast, statement_node_idx: AstNodeIndex) {
+    pub(crate) fn add_statement_to_module<'cu, E: AstError>(
+        &mut self,
+        ast: &'cu Ast<'cu, E>,
+        statement_node_idx: AstNodeIdx,
+    ) {
         let printer = &mut AstPrinter::new(ast);
 
         let AstNode::Module {
@@ -118,7 +163,7 @@ impl AstNode {
             panic!("BUG: expected Module, but got `{:?}`", ast.accept(printer));
         };
 
-        let AstNode::Statement { .. } = &ast[statement_node_idx] else {
+        let Some(AstNode::Statement { .. }) = ast.get_node(statement_node_idx) else {
             panic!(
                 "BUG: expected Statement, but got `{:?}`",
                 ast.accept(printer)
@@ -131,31 +176,31 @@ impl AstNode {
 
 #[derive(Debug)]
 pub enum Expr {
-    I64(lexer::TokenIndex),
-    Identifier(lexer::TokenIndex),
+    I64(lexer::TokenIdx),
+    Identifier(lexer::TokenIdx),
     StringLiteral {
-        token_idx: lexer::TokenIndex,
+        token_idx: lexer::TokenIdx,
         content: String,
     },
     BinaryOp {
-        operator: lexer::TokenIndex,
-        lhs: AstNodeIndex,
-        rhs: AstNodeIndex,
+        operator: lexer::TokenIdx,
+        lhs: AstNodeIdx,
+        rhs: AstNodeIdx,
     },
     UnaryOp {
-        operator: lexer::TokenIndex,
-        operand: AstNodeIndex,
+        operator: lexer::TokenIdx,
+        operand: AstNodeIdx,
     },
 }
 
 #[derive(Debug)]
 pub enum Stat {
-    Expression(AstNodeIndex),
+    Expression(AstNodeIdx),
     Definition {
-        kw: lexer::TokenIndex,
-        lhs_expression_node_idx: AstNodeIndex,
-        eq: lexer::TokenIndex,
-        rhs_expression_node_idx: AstNodeIndex,
+        kw: lexer::TokenIdx,
+        lhs_expression_node_idx: AstNodeIdx,
+        eq: lexer::TokenIdx,
+        rhs_expression_node_idx: AstNodeIdx,
     },
 }
 
@@ -163,18 +208,19 @@ pub enum Stat {
 pub(crate) struct AstNodes(Vec<AstNode>);
 
 impl AstNodes {
-    fn new(n: usize) -> Self {
+    fn with_capacity(n: usize) -> Self {
         Self(Vec::with_capacity(n))
     }
     fn len(&self) -> usize {
         self.0.len()
     }
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
+    fn get(&self, idx: AstNodeIdx) -> Option<&AstNode> {
+        self.0.get(idx.get())
     }
-    fn push(&mut self, node: AstNode) -> AstNodeIndex {
+    #[must_use]
+    fn push(&mut self, node: AstNode) -> AstNodeIdx {
         self.0.push(node);
-        AstNodeIndex::new(self.len() - 1)
+        AstNodeIdx::new(self.len() - 1)
     }
     fn last(&self) -> &AstNode {
         self.0.last().unwrap_or_else(|| {
@@ -183,29 +229,10 @@ impl AstNodes {
     }
 }
 
-impl<'cu> std::ops::Index<AstNodeIndex> for Ast<'cu> {
-    type Output = AstNode;
-
-    fn index(&self, index: AstNodeIndex) -> &Self::Output {
-        match self.nodes.0.get(index.get()) {
-            Some(node) => node,
-            None => panic!("BUG: AstNodeIndex out of bounds"),
-        }
-    }
-}
-
-impl<'cu> std::ops::Index<lexer::TokenIndex> for Ast<'cu> {
-    type Output = lexer::Token;
-
-    fn index(&self, index: lexer::TokenIndex) -> &Self::Output {
-        &self.tokens[index]
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
-pub struct AstNodeIndex(usize);
+pub struct AstNodeIdx(usize);
 
-impl AstNodeIndex {
+impl AstNodeIdx {
     fn new(index: usize) -> Self {
         Self(index)
     }

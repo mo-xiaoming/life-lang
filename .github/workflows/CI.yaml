@@ -54,10 +54,10 @@ jobs:
       - name: Install cargo-llvm-cov
         if: matrix.toolchain == 'stable'
         uses: taiki-e/install-action@cargo-llvm-cov
-      - name: llvm-cov
-        if: matrix.toolchain == 'stable'
-        run: |
-          cargo llvm-cov --tests --benches --examples --lib --fail-under-lines 60 --workspace
+      #- name: llvm-cov
+      #  if: matrix.toolchain == 'stable'
+      #  run: |
+      #    cargo llvm-cov --tests --benches --examples --lib --fail-under-lines 60 --workspace
       - name: llvm-cov for Rust ${{ matrix.toolchain }}
         if: matrix.toolchain == 'stable'
         run: |
