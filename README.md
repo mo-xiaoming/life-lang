@@ -17,7 +17,7 @@ let cu = lexer::CompilationUnit::from_string(
     "stdin",
     "7%2 + 3 * (12 / ( 15 / - 3+1 - - 1) ) - 2 - 1 + 1;",
 );
-let ast = parser::parse(&cu).unwrap();
+let ast = parser::parse(&cu);
 let evaluator = &mut ast::AstEvaluator::new(&ast);
 assert_eq!(ast.accept(evaluator), Ok(Some(-13)));
 ```
@@ -34,7 +34,7 @@ let cu = lexer::CompilationUnit::from_string(
     "stdin",
     r#""\u{4f60}\u{597d}\u{1f316}";"#,
 );
-let ast = parser::parse(&cu).unwrap();
+let ast = parser::parse(&cu);
 let printer = &mut ast::AstPrinter::new(&ast);
 assert_eq!(ast.accept(printer), "你好🌖;\n");
 ```
@@ -48,7 +48,7 @@ let cu = lexer::CompilationUnit::from_string(
     "stdin",
     "let x = 3; var y = x - 42;"
 );
-let ast = parser::parse(&cu).unwrap();
+let ast = parser::parse(&cu);
 let printer = &mut ast::AstPrinter::new(&ast);
 assert_eq!(ast.accept(printer), "let x = 3;\nvar y = (x - 42);\n");
 ```

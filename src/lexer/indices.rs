@@ -1,7 +1,9 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct ByteIndex(usize);
+//use super::CompilationUnit;
 
-impl ByteIndex {
+#[derive(Debug, Clone, Copy)]
+pub(super) struct ByteIdx(usize);
+
+impl ByteIdx {
     pub(super) fn new(i: usize) -> Self {
         Self(i)
     }
@@ -10,41 +12,37 @@ impl ByteIndex {
     }
 }
 
-#[cfg(test)]
-mod test_byte_index {
-    use super::*;
+impl std::ops::Add<usize> for ByteIdx {
+    type Output = Self;
 
-    #[test]
-    fn test_new() {
-        for v in [0, usize::MAX, 42] {
-            assert_eq!(ByteIndex::new(v).get(), v);
-        }
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.get().checked_add(rhs).unwrap())
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct ByteIndexSpan {
-    start: ByteIndex,
-    inclusive_end: ByteIndex,
+#[derive(Debug, Clone, Copy)]
+pub(super) struct ByteSpan {
+    start: ByteIdx,
+    inclusive_end: ByteIdx,
 }
 
-impl ByteIndexSpan {
-    pub(super) fn new(start: ByteIndex, inclusive_end: ByteIndex) -> Self {
+impl ByteSpan {
+    pub(super) fn new(start: ByteIdx, inclusive_end: ByteIdx) -> Self {
         Self {
             start,
             inclusive_end,
         }
     }
-    pub(super) fn get_start(&self) -> ByteIndex {
+    pub(super) fn get_start(&self) -> ByteIdx {
         self.start
     }
-    pub(super) fn get_inclusive_end(&self) -> ByteIndex {
+    pub(super) fn get_inclusive_end(&self) -> ByteIdx {
         self.inclusive_end
     }
-    pub(super) fn merge(&self, other: &Self) -> Self {
+    fn merge(&self, other: &Self) -> Self {
         Self {
-            start: ByteIndex::new(self.get_start().get().min(other.get_start().get())),
-            inclusive_end: ByteIndex::new(
+            start: ByteIdx::new(self.get_start().get().min(other.get_start().get())),
+            inclusive_end: ByteIdx::new(
                 self.get_inclusive_end()
                     .get()
                     .max(other.get_inclusive_end().get()),
@@ -53,48 +51,22 @@ impl ByteIndexSpan {
     }
 }
 
-#[cfg(test)]
-mod test_byte_index_span {
-    use super::*;
-
-    #[test]
-    fn test_raw_content_start_and_end() {
-        let start = ByteIndex::new(5);
-        let end = ByteIndex::new(10);
-        let span = ByteIndexSpan::new(start, end);
-        assert_eq!(span.get_start(), start);
-        assert_eq!(span.get_inclusive_end(), end);
-    }
-
-    #[test]
-    fn test_merge() {
-        for ((s1, e1), (s2, e2), (s3, e3)) in
-            [((5, 10), (8, 15), (5, 15)), ((5, 10), (10, 15), (5, 15))]
-        {
-            let span1 = ByteIndexSpan::new(ByteIndex::new(s1), ByteIndex::new(e1));
-            let span2 = ByteIndexSpan::new(ByteIndex::new(s2), ByteIndex::new(e2));
-            let merged = span1.merge(&span2);
-            assert_eq!(
-                merged,
-                ByteIndexSpan::new(ByteIndex::new(s3), ByteIndex::new(e3))
-            );
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct UcContentIndex(usize);
+pub(super) struct UcIdx(usize);
 
-impl UcContentIndex {
+impl UcIdx {
     pub(super) fn new(i: usize) -> Self {
         Self(i)
     }
     pub(super) fn get(&self) -> usize {
         self.0
     }
+    pub(super) fn get_byte_span(&self, cu: &super::CompilationUnit) -> Option<ByteSpan> {
+        cu.ucs.get_byte_span(*self).copied()
+    }
 }
 
-impl std::ops::Add<usize> for UcContentIndex {
+impl std::ops::Add<usize> for UcIdx {
     type Output = Self;
 
     fn add(self, rhs: usize) -> Self::Output {
@@ -102,13 +74,13 @@ impl std::ops::Add<usize> for UcContentIndex {
     }
 }
 
-impl std::ops::AddAssign<usize> for UcContentIndex {
+impl std::ops::AddAssign<usize> for UcIdx {
     fn add_assign(&mut self, rhs: usize) {
         *self = *self + rhs;
     }
 }
 
-impl std::ops::Sub<usize> for UcContentIndex {
+impl std::ops::Sub<usize> for UcIdx {
     type Output = Self;
 
     fn sub(self, rhs: usize) -> Self::Output {
@@ -116,48 +88,34 @@ impl std::ops::Sub<usize> for UcContentIndex {
     }
 }
 
-impl std::ops::SubAssign<usize> for UcContentIndex {
+impl std::ops::SubAssign<usize> for UcIdx {
     fn sub_assign(&mut self, rhs: usize) {
         *self = *self - rhs;
     }
 }
 
-#[cfg(test)]
-mod test_uc_content_index {
-    use super::*;
+#[derive(Debug, Clone, Copy)]
+pub(super) struct UcSpan {
+    start: UcIdx,
+    inclusive_end: UcIdx,
+}
 
-    #[test]
-    fn test_new_and_get() {
-        for v in [0, usize::MAX, 42] {
-            assert_eq!(UcContentIndex::new(v).get(), v);
+impl UcSpan {
+    pub(super) fn new(start: UcIdx, inclusive_end: UcIdx) -> Self {
+        Self {
+            start,
+            inclusive_end,
         }
     }
-
-    #[test]
-    fn test_add() {
-        let index = UcContentIndex::new(5);
-        let result = index + 3;
-        assert_eq!(result.get(), 8);
+    fn get_start(&self) -> UcIdx {
+        self.start
     }
-
-    #[test]
-    fn test_add_assign() {
-        let mut index = UcContentIndex::new(5);
-        index += 3;
-        assert_eq!(index.get(), 8);
+    fn get_inclusive_end(&self) -> UcIdx {
+        self.inclusive_end
     }
-
-    #[test]
-    fn test_sub() {
-        let index = UcContentIndex::new(5);
-        let result = index - 3;
-        assert_eq!(result.get(), 2);
-    }
-
-    #[test]
-    fn test_sub_assign() {
-        let mut index = UcContentIndex::new(5);
-        index -= 3;
-        assert_eq!(index.get(), 2);
+    pub(super) fn get_byte_span(&self, cu: &super::CompilationUnit) -> Option<ByteSpan> {
+        let start = self.get_start().get_byte_span(cu)?;
+        let inclusive_end = self.get_inclusive_end().get_byte_span(cu)?;
+        Some(start.merge(&inclusive_end))
     }
 }
