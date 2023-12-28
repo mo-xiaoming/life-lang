@@ -54,3 +54,19 @@ assert_eq!(ast.accept(printer), "let x = 3;\nvar y = (x - 42);\n");
 ```
 
 [ ] better error messages
+
+```javascript
+
+// following line should not have two `-`
+// it is not supported
+
+let x = - - 4;
+```
+
+```text
+error: `-` cannot be chained
+    5|let x = - - 4;
+     |        ~~^
+context: an expression must start with an expression
+context: expect an expression after `=` for a definition
+```

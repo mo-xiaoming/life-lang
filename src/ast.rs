@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 mod visitor;
 
+use crate::lexer::TokenIdx;
+
 use super::lexer;
 pub use visitor::{AstEvaluator, AstNodeVisitor, AstPrinter};
 
@@ -13,7 +15,7 @@ pub struct Ast<'cu, E: AstError> {
     cu: &'cu lexer::CompilationUnit,
     nodes: AstNodes, // last node is always a module
     tokens: lexer::Tokens,
-    diag_ctx: lexer::DiagCtx,
+    diag_ctx: lexer::DiagCtx<'cu>,
     error: Option<E>,
 }
 
@@ -65,13 +67,27 @@ impl<'cu, E: AstError> Ast<'cu, E> {
             )
         })
     }
-    pub(crate) fn push(&mut self, node: AstNode) -> AstNodeIdx {
+    pub fn get_diagnostics(&self, start_token_idx: TokenIdx) -> String {
+        self.get_diag_ctx()
+            .get_context(start_token_idx, &self.tokens, self.cu)
+            .to_string()
+    }
+    pub fn get_diagnostics_with_error_token(
+        &self,
+        start_token_idx: TokenIdx,
+        error_token_idx: TokenIdx,
+    ) -> String {
+        self.get_diag_ctx()
+            .get_context_with_error_token(start_token_idx, error_token_idx, &self.tokens, self.cu)
+            .to_string()
+    }
+    pub(crate) fn push_node(&mut self, node: AstNode) -> AstNodeIdx {
         self.nodes.push(node)
     }
     pub(crate) fn set_module(&mut self, module: AstNode) {
         match module {
             AstNode::Module { .. } => {
-                self.push(module);
+                self.push_node(module);
             }
             _ => panic!("BUG: expected Module, but got `{:?}`", module),
         }
@@ -110,7 +126,7 @@ impl<'cu, E: AstError> std::fmt::Display for Ast<'cu, E> {
         )?;
         if let Some(e) = self.get_error() {
             let s = e.get_string(self);
-            write!(f, "\nerror: {}", s)?;
+            write!(f, "\nerror:\n{}", s)?;
         }
         Ok(())
     }

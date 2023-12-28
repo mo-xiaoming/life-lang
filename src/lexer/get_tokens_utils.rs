@@ -1,8 +1,6 @@
-use super::{
-    indices::UcIdx, indices::UcSpan, CompilationUnit, DiagCtx, TokenIdx, TokenKind, Tokens,
-};
+use super::{indices::UcIdx, indices::UcSpan, CompilationUnit, TokenKind, Tokens};
 
-trait StringLike {
+pub(super) trait StringLike {
     fn is_new_line(&self) -> bool;
 }
 
@@ -161,8 +159,7 @@ fn get_keyword(s: &str) -> Option<TokenKind> {
 }
 
 pub(crate) fn try_new_line(
-    cu: &CompilationUnit,
-    diag_ctx: &mut DiagCtx,
+    _cu: &CompilationUnit,
     tokens: &mut Tokens,
     uc_idx: UcIdx,
     c: char,
@@ -172,13 +169,6 @@ pub(crate) fn try_new_line(
     }
 
     tokens.push(TokenKind::NewLine, uc_idx, uc_idx);
-    diag_ctx.push(
-        TokenIdx::new(tokens.len()),
-        uc_idx
-            .get_byte_span(cu)
-            .map(|span| span.get_inclusive_end() + 1)
-            .unwrap_or_else(|| panic!("BUG: failed to get byte span for {:?}, no way!", uc_idx)),
-    );
     Some(uc_idx + 1)
 }
 
@@ -222,7 +212,6 @@ pub(crate) fn try_single_char_token(
 
 pub(crate) fn try_string(
     cu: &CompilationUnit,
-    diag_ctx: &mut DiagCtx,
     tokens: &mut Tokens,
     uc_idx: UcIdx,
     c: char,
@@ -233,23 +222,7 @@ pub(crate) fn try_string(
 
     let new_uc_idx = take_string(cu, uc_idx + 1);
     let (kind, new_uc_idx) = match new_uc_idx {
-        Ok((new_uc_idx, content)) => {
-            content
-                .char_indices()
-                .filter(|(_, c)| c.is_new_line())
-                .for_each(|(i, _)| {
-                    diag_ctx.push(
-                        TokenIdx::new(tokens.len()),
-                        uc_idx
-                            .get_byte_span(cu)
-                            .map(|span| span.get_inclusive_end() + 1 + i)
-                            .unwrap_or_else(|| {
-                                panic!("BUG: failed to get byte span for {:?}, no way!", uc_idx)
-                            }),
-                    );
-                });
-            (TokenKind::StringLiteral { content }, new_uc_idx)
-        }
+        Ok((new_uc_idx, content)) => (TokenKind::StringLiteral { content }, new_uc_idx),
         Err((new_uc_idx, msg)) => (TokenKind::Invalid { msg }, new_uc_idx),
     };
     tokens.push(kind, uc_idx, new_uc_idx);
@@ -267,37 +240,26 @@ pub(crate) fn try_multi_byte_tokens(
         '1'..='9' => must_be_integer(cu, tokens, uc_idx),
         ' ' => must_be_spaces(cu, tokens, uc_idx),
         'a'..='z' | 'A'..='Z' | '_' => must_be_name(cu, tokens, uc_idx, c),
-        '/' => must_be_comment(cu, tokens, uc_idx),
         _ => invalid_stuff(cu, tokens, uc_idx, c),
     })
 }
 
-fn must_be_comment(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
-    if let Some(next_slash) = cu.get_str(uc_idx + 1) {
-        if next_slash == "/" {
-            let new_uc_idx = take_while(cu, uc_idx + 2, |s| !s.is_new_line());
-            tokens.push(TokenKind::Comment, uc_idx, new_uc_idx);
-            new_uc_idx + 1
-        } else {
-            tokens.push(
-                TokenKind::Invalid {
-                    msg: "comment must be starts with `//`".to_owned(),
-                },
-                uc_idx,
-                uc_idx + 1,
-            );
-            uc_idx + 1
-        }
-    } else {
-        tokens.push(
-            TokenKind::Invalid {
-                msg: "comment must be starts with `//`".to_owned(),
-            },
-            uc_idx,
-            uc_idx,
-        );
-        uc_idx + 1
+pub(crate) fn try_comment(
+    cu: &CompilationUnit,
+    tokens: &mut Tokens,
+    uc_idx: UcIdx,
+    c: char,
+) -> Option<UcIdx> {
+    if c != '/' {
+        return None;
     }
+    let Some("/") = cu.get_str(uc_idx + 1) else {
+        return None;
+    };
+
+    let new_uc_idx = take_while(cu, uc_idx + 2, |s| !s.is_new_line());
+    tokens.push(TokenKind::Comment, uc_idx, new_uc_idx);
+    Some(new_uc_idx + 1)
 }
 
 fn must_be_single_zero(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
@@ -321,7 +283,13 @@ fn must_be_integer(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> 
 
 fn must_be_spaces(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
     let new_uc_idx = take_while(cu, uc_idx + 1, |s| s == " ");
-    tokens.push(TokenKind::Spaces, uc_idx, new_uc_idx);
+    tokens.push(
+        TokenKind::Spaces {
+            count: (new_uc_idx - uc_idx).width(),
+        },
+        uc_idx,
+        new_uc_idx,
+    );
     new_uc_idx + 1
 }
 
@@ -342,7 +310,11 @@ fn must_be_name(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx, c: cha
     if let Some(kind) = get_keyword(s) {
         tokens.push(kind, uc_idx, new_uc_idx);
     } else {
-        tokens.push(TokenKind::Identifier, uc_idx, new_uc_idx);
+        tokens.push(
+            TokenKind::Identifier { name: s.to_owned() },
+            uc_idx,
+            new_uc_idx,
+        );
     }
     new_uc_idx + 1
 }

@@ -1,15 +1,14 @@
-#![allow(unused)]
-
 mod dp;
 
 use crate::{ast, lexer};
+use colored::*;
 
 #[derive(Debug)]
 enum IntermediateResult {
     Finished,
     Node {
         node: ast::AstNode,
-        next_packed_token_idx: PackedTokenIndex,
+        next_token_idx: lexer::TokenIdx,
     },
 }
 
@@ -17,8 +16,9 @@ type ParseResult = Result<IntermediateResult, ParseError>;
 
 trait ParseResultExt {
     fn is_finished(&self) -> bool;
-    fn new_node(node: ast::AstNode, next_token_idx: PackedTokenIndex) -> Self;
+    fn new_node(node: ast::AstNode, next_token_idx: lexer::TokenIdx) -> Self;
     fn new_finished() -> Self;
+    fn new_single_error(error: SingleParseError) -> Self;
     fn new_error_lex_error(errors: Vec<(lexer::TokenIdx, String)>) -> Self;
     fn new_error_unexpected_token(
         msg: impl Into<String>,
@@ -30,24 +30,27 @@ trait ParseResultExt {
         lparen: lexer::TokenIdx,
         start_token_idx: lexer::TokenIdx,
     ) -> Self;
-    fn add_upper_context_to_error(ctx: ParseError, error: ParseError) -> Self;
+    fn add_upper_context_to_error(ctx_msg: impl Into<String>, error: ParseError) -> Self;
 }
 
 impl ParseResultExt for ParseResult {
     fn is_finished(&self) -> bool {
         matches!(self, Ok(IntermediateResult::Finished))
     }
-    fn new_node(node: ast::AstNode, next_token_idx: PackedTokenIndex) -> Self {
+    fn new_node(node: ast::AstNode, next_token_idx: lexer::TokenIdx) -> Self {
         Ok(IntermediateResult::Node {
             node,
-            next_packed_token_idx: next_token_idx,
+            next_token_idx,
         })
     }
     fn new_finished() -> Self {
         Ok(IntermediateResult::Finished)
     }
+    fn new_single_error(error: SingleParseError) -> Self {
+        Err(ParseError::new_single_error(error))
+    }
     fn new_error_lex_error(errors: Vec<(lexer::TokenIdx, String)>) -> Self {
-        Err(ParseError::new_single_error(SingleParseError::LexError(
+        Err(ParseError::new_single_error(SingleParseError::LexErrors(
             errors,
         )))
     }
@@ -60,13 +63,13 @@ impl ParseResultExt for ParseResult {
             SingleParseError::UnexpectedToken {
                 msg: msg.into(),
                 start_token_idx,
-                inclusive_end_token_idx,
+                error_token_idx: inclusive_end_token_idx,
             },
         ))
     }
     fn new_error_unexpected_eof(msg: impl Into<String>, start_token_idx: lexer::TokenIdx) -> Self {
         Err(ParseError::new_single_error(
-            SingleParseError::UnexpectedEndOfInput {
+            SingleParseError::UnexpectedEof {
                 msg: msg.into(),
                 start_token_idx,
             },
@@ -83,8 +86,8 @@ impl ParseResultExt for ParseResult {
             },
         ))
     }
-    fn add_upper_context_to_error(ctx: ParseError, error: ParseError) -> Self {
-        Err(error.add_error_context(ctx))
+    fn add_upper_context_to_error(ctx_msg: impl Into<String>, error: ParseError) -> Self {
+        Err(error.add_error_context(ctx_msg))
     }
 }
 
@@ -105,11 +108,8 @@ impl ParseError {
     // B calls A
     // before [A, ...]
     // after [A, B, ...]
-    fn add_error_context(self, context: ParseError) -> Self {
-        assert!(matches!(
-            context,
-            Self::SingleParseError(SingleParseError::Context { .. })
-        ));
+    fn add_error_context(self, msg: impl Into<String>) -> Self {
+        let context = ParseError::new_single_error(SingleParseError::Context { msg: msg.into() });
         match self {
             Self::ErrorWithContext(mut errors) => {
                 errors.push(context);
@@ -118,37 +118,26 @@ impl ParseError {
             e => Self::ErrorWithContext(vec![e, context]),
         }
     }
-    // B tries X and Y
-    // X returns [X]
-    // Y returns [Y]
-    // after [B, [X, Y]]
-    fn merge_alternative_errors(context: ParseError, children: Vec<ParseError>) -> Self {
-        match context {
-            Self::SingleParseError(error) => Self::AlternativeError { error, children },
-            _ => panic!("`merge_alternative_error`s should only be called on a `SingleParseError`"),
-        }
-    }
 
     fn get_string<'cu>(&self, ast: &'cu ast::Ast<'cu, ParseError>) -> String {
+        const LEN_PER_ERROR: usize = 100;
         match self {
             Self::SingleParseError(error) => error.get_string(ast),
-            Self::ErrorWithContext(errors) => format!(
-                "multiple errors: {}",
-                errors
-                    .iter()
-                    .map(|error| error.get_string(ast))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-            Self::AlternativeError { error, children } => format!(
-                "alternative errors: {}, children: {}",
-                error.get_string(ast),
-                children
-                    .iter()
-                    .map(|error| error.get_string(ast))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            Self::ErrorWithContext(errors) => {
+                let mut s = String::with_capacity(errors.len() * LEN_PER_ERROR);
+                for e in errors {
+                    s.push_str(&e.get_string(ast));
+                }
+                s
+            }
+            Self::AlternativeError { error, children } => {
+                let mut s = String::with_capacity((children.len() + 1) * LEN_PER_ERROR);
+                s.push_str(&error.get_string(ast));
+                for e in children {
+                    s.push_str(&e.get_string(ast));
+                }
+                s
+            }
         }
     }
 }
@@ -159,19 +148,12 @@ impl ast::AstError for ParseError {
     }
 }
 
-#[derive(Debug)]
-struct MultiParseErrors {
-    top_error: SingleParseError,
-    children: Vec<MultiParseErrors>,
-}
-
 #[derive(Debug, Clone)]
 pub enum SingleParseError {
     Context {
         msg: String,
-        start_token_idx: lexer::TokenIdx,
     },
-    UnexpectedEndOfInput {
+    UnexpectedEof {
         msg: String,
         start_token_idx: lexer::TokenIdx,
     },
@@ -185,59 +167,61 @@ pub enum SingleParseError {
     UnexpectedToken {
         msg: String,
         start_token_idx: lexer::TokenIdx,
-        inclusive_end_token_idx: lexer::TokenIdx,
+        error_token_idx: lexer::TokenIdx,
     },
-    LexError(Vec<(lexer::TokenIdx, String)>),
+    LexErrors(Vec<(lexer::TokenIdx, String)>),
 }
 
 impl SingleParseError {
+    fn context_str() -> ColoredString {
+        "context".blue()
+    }
+    fn error_str() -> ColoredString {
+        "error".red()
+    }
     fn get_string<'cu>(&self, ast: &'cu ast::Ast<'cu, ParseError>) -> String {
         match self {
-            Self::Context {
-                msg,
-                start_token_idx,
-            } => {
-                format!(
-                    "context: `{}`, from `{}`",
-                    msg,
-                    ast.get_string_unchecked(*start_token_idx),
-                )
+            Self::Context { msg } => {
+                format!("{}: {}\n", Self::context_str(), msg.blue(),)
             }
-            Self::UnexpectedEndOfInput { msg, .. } => format!("unexpected end of input, {}", msg),
+            Self::UnexpectedEof { msg, .. } => {
+                format!("{}: unexpected end of input, {}", Self::error_str(), msg)
+            }
             Self::IntegerOverflow { token: token_idx } => {
                 format!(
-                    "integer overflow: `{}`, {:?}",
-                    ast.get_string_unchecked(*token_idx),
-                    self
+                    "{}: integer overflow `{}`",
+                    Self::error_str(),
+                    ast.get_diagnostics(*token_idx)
                 )
             }
             Self::MismatchedParentheses {
                 lparen,
                 start_token_idx,
             } => format!(
-                "mismatched parentheses: `{}`, at `{}`, {:?}",
-                ast.get_string_unchecked(*lparen),
-                ast.get_string_unchecked(*start_token_idx),
-                self
+                "{}: mismatched parentheses `{}`, at `{}`",
+                Self::error_str(),
+                ast.get_diagnostics(*lparen),
+                ast.get_diagnostics(*start_token_idx),
             ),
             Self::UnexpectedToken {
                 msg,
-                start_token_idx: _start_token_idx,
-                inclusive_end_token_idx,
+                start_token_idx,
+                error_token_idx,
             } => {
                 format!(
-                    "unexpected token: {}, but got `{}` instead, {:?}",
-                    msg,
-                    ast.get_string_unchecked(*inclusive_end_token_idx),
-                    self
+                    "{}: {}\n{}",
+                    Self::error_str(),
+                    msg.red(),
+                    ast.get_diagnostics_with_error_token(*start_token_idx, *error_token_idx),
                 )
             }
-            Self::LexError(errors) => format!(
-                "lex error: {}",
+            Self::LexErrors(errors) => format!(
+                "{}: {}",
+                Self::error_str(),
                 errors
                     .iter()
                     .map(|(token_idx, msg)| {
-                        format!("`{}`: {}\n", ast.get_string_unchecked(*token_idx), msg)
+                        format!("`{}`: {}\n", ast.get_diagnostics(*token_idx), msg)
                     })
                     .collect::<Vec<_>>()
                     .join(", ")
@@ -246,92 +230,29 @@ impl SingleParseError {
     }
 }
 
-#[derive(Debug)]
-struct PackedToken {
-    token_idx: lexer::TokenIdx,
-    token: lexer::Token,
-}
+//impl Extend<(lexer::TokenIdx, lexer::Token)> for Tokens {
+//    fn extend<T: IntoIterator<Item = (lexer::TokenIdx, lexer::Token)>>(&mut self, iter: T) {
+//        let iter = iter.into_iter();
+//        let (lower_bound, _) = iter.size_hint();
+//        self.0.reserve(lower_bound);
+//        for (index, token) in iter {
+//            self.0.push(PackedToken {
+//                token_idx: index,
+//                token,
+//            });
+//        }
+//    }
+//}
 
-#[derive(Debug, Default)]
-struct PackedTokens(Vec<PackedToken>);
-
-impl Extend<(lexer::TokenIdx, lexer::Token)> for PackedTokens {
-    fn extend<T: IntoIterator<Item = (lexer::TokenIdx, lexer::Token)>>(&mut self, iter: T) {
-        let iter = iter.into_iter();
-        let (lower_bound, _) = iter.size_hint();
-        self.0.reserve(lower_bound);
-        for (index, token) in iter {
-            self.0.push(PackedToken {
-                token_idx: index,
-                token,
-            });
-        }
-    }
-}
-
-impl PackedTokens {
-    fn into_iter(self) -> std::vec::IntoIter<PackedToken> {
-        self.0.into_iter()
-    }
-    fn get(&self, idx: PackedTokenIndex) -> Option<&PackedToken> {
-        self.0.get(idx.get())
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-struct PackedTokenIndex(usize);
-
-impl PackedTokenIndex {
-    fn new(idx: usize) -> Self {
-        Self(idx)
-    }
-
-    fn get(&self) -> usize {
-        self.0
-    }
-}
-
-impl std::ops::Add<usize> for PackedTokenIndex {
-    type Output = Self;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        Self(self.get().checked_add(rhs).unwrap())
-    }
-}
-
-impl std::ops::AddAssign<usize> for PackedTokenIndex {
-    fn add_assign(&mut self, rhs: usize) {
-        *self = *self + rhs;
-    }
-}
-
-impl std::ops::Sub<usize> for PackedTokenIndex {
-    type Output = Self;
-
-    fn sub(self, rhs: usize) -> Self::Output {
-        Self(self.get().checked_sub(rhs).unwrap())
-    }
-}
-
-// recursive decendent parser
 pub fn parse(cu: &lexer::CompilationUnit) -> ast::Ast<ParseError> {
     let mut ast = ast::Ast::new(cu);
 
-    let (tokens, lex_errors) = dp::partition_packed_tokens_and_lex_errors(ast.get_tokens().clone());
-    if !lex_errors.is_empty() {
-        ast.set_error(ParseError::SingleParseError(SingleParseError::LexError(
-            lex_errors,
-        )));
-    } else {
-        let result = dp::parse_module(&mut ast, &tokens, PackedTokenIndex::new(0));
-        match result {
-            Ok(module_node) => {
-                ast.set_module(module_node);
-            }
-            Err(e) => {
-                ast.set_error(e);
-            }
+    let tokens = ast.get_tokens();
+    match dp::get_lex_errors(tokens) {
+        Some(lex_errors) => {
+            ast.set_error(ParseError::SingleParseError(lex_errors));
         }
+        None => dp::parse_module(&mut ast, lexer::TokenIdx::new(0)),
     }
     ast
 }
@@ -339,6 +260,19 @@ pub fn parse(cu: &lexer::CompilationUnit) -> ast::Ast<ParseError> {
 #[cfg(test)]
 mod test_parser {
     use super::*;
+
+    struct ColorOff;
+    impl ColorOff {
+        fn new() -> Self {
+            colored::control::set_override(false);
+            Self
+        }
+    }
+    impl Drop for ColorOff {
+        fn drop(&mut self) {
+            colored::control::unset_override();
+        }
+    }
 
     #[test]
     fn test_empty_ast() {
@@ -381,9 +315,26 @@ mod test_parser {
 
     #[test]
     fn test_negative_number_error() {
-        let cu = lexer::CompilationUnit::from_string("stdin", "- - 42;");
+        let _color_off = ColorOff::new();
+
+        let input = r#"
+// following line should not have two `-`
+// it is not supported
+
+let x = - - 4;
+"#;
+        let cu = lexer::CompilationUnit::from_string("stdin", input);
         let ast = parse(&cu);
         assert!(ast.get_error().is_some(), "ast: {}", ast);
+        let got = ast.get_error().unwrap().get_string(&ast);
+        println!("{}", got);
+        let expected = r#"error: `-` cannot be chained
+    5|let x = - - 4;
+     |        ~~^
+context: an expression must start with an expression
+context: expect an expression after `=` for a definition
+"#;
+        assert_eq!(got, expected);
     }
 
     #[test]
