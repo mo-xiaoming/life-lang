@@ -1,6 +1,6 @@
 //use super::CompilationUnit;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct ByteIdx(usize);
 
 impl ByteIdx {
@@ -94,6 +94,15 @@ impl std::ops::SubAssign<usize> for UcIdx {
     }
 }
 
+impl std::ops::Sub<UcIdx> for UcIdx {
+    type Output = UcSpan;
+
+    fn sub(self, rhs: UcIdx) -> Self::Output {
+        assert!(self.get() >= rhs.get());
+        UcSpan::new(rhs, self)
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(super) struct UcSpan {
     start: UcIdx,
@@ -107,11 +116,14 @@ impl UcSpan {
             inclusive_end,
         }
     }
-    fn get_start(&self) -> UcIdx {
+    pub(super) fn get_start(&self) -> UcIdx {
         self.start
     }
-    fn get_inclusive_end(&self) -> UcIdx {
+    pub(super) fn get_inclusive_end(&self) -> UcIdx {
         self.inclusive_end
+    }
+    pub(super) fn width(&self) -> usize {
+        self.get_inclusive_end().get() - self.get_start().get() + 1
     }
     pub(super) fn get_byte_span(&self, cu: &super::CompilationUnit) -> Option<ByteSpan> {
         let start = self.get_start().get_byte_span(cu)?;

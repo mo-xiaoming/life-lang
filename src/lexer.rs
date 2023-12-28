@@ -2,12 +2,14 @@ mod get_tokens_utils;
 mod indices;
 
 use get_tokens_utils::{
-    try_multi_byte_char, try_multi_byte_tokens, try_new_line, try_single_char_token, try_string,
+    try_comment, try_multi_byte_char, try_multi_byte_tokens, try_new_line, try_single_char_token,
+    try_string,
 };
 use indices::{ByteIdx, ByteSpan, UcIdx, UcSpan};
 use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenIdx(usize);
 
 impl TokenIdx {
@@ -49,7 +51,7 @@ impl std::ops::SubAssign<usize> for TokenIdx {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(super) enum TokenKind {
-    Spaces,
+    Spaces { count: usize },
     NewLine,
     SemiColon,
 
@@ -69,7 +71,7 @@ pub(super) enum TokenKind {
 
     Equal,
 
-    Identifier,
+    Identifier { name: String },
 
     KwLet,
     KwVar,
@@ -80,7 +82,7 @@ pub(super) enum TokenKind {
 impl std::fmt::Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            TokenKind::Spaces => write!(f, "Spaces"),
+            TokenKind::Spaces { .. } => write!(f, "Spaces"),
             TokenKind::NewLine => write!(f, "NewLine"),
             TokenKind::SemiColon => write!(f, "SemiColon"),
             TokenKind::I64 => write!(f, "I64"),
@@ -94,7 +96,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Equal => write!(f, "Equal"),
             TokenKind::LParen => write!(f, "LParen"),
             TokenKind::RParen => write!(f, "RParen"),
-            TokenKind::Identifier => write!(f, "Identifier"),
+            TokenKind::Identifier { .. } => write!(f, "Identifier"),
             TokenKind::KwLet => write!(f, "KwLet"),
             TokenKind::KwVar => write!(f, "KwVar"),
             TokenKind::Invalid { msg } => write!(f, "{}", msg),
@@ -102,22 +104,193 @@ impl std::fmt::Display for TokenKind {
     }
 }
 
-#[derive(Debug)]
-pub struct DiagCtx {
-    line_starts: Vec<TokenIdx>,
-    lines: Vec<ByteIdx>,
+pub(super) trait TokenKindRepr {
+    fn get_string_repr(&self) -> String;
 }
 
-impl DiagCtx {
+impl TokenKindRepr for TokenKind {
+    fn get_string_repr(&self) -> String {
+        match self {
+            TokenKind::Spaces { count } => " ".repeat(*count),
+            TokenKind::NewLine => String::from("\n"),
+            TokenKind::SemiColon => String::from(";"),
+            TokenKind::StringLiteral { content } => format!("\"{}\"", content),
+            TokenKind::Comment => String::from("//"),
+            TokenKind::Plus => String::from("+"),
+            TokenKind::Dash => String::from("-"),
+            TokenKind::Star => String::from("*"),
+            TokenKind::Slash => String::from("/"),
+            TokenKind::Percentage => String::from("%"),
+            TokenKind::Equal => String::from("="),
+            TokenKind::LParen => String::from("("),
+            TokenKind::RParen => String::from(")"),
+            TokenKind::Identifier { name } => name.clone(),
+            TokenKind::KwLet => String::from("let"),
+            TokenKind::KwVar => String::from("var"),
+            TokenKind::Invalid { msg } => msg.to_owned(),
+            _ => self.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct LineNr(usize);
+
+impl LineNr {
+    fn new(i: usize) -> Self {
+        Self(i)
+    }
+    fn get(&self) -> usize {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ColNr(usize);
+
+impl ColNr {
+    fn new(i: usize) -> Self {
+        Self(i)
+    }
+}
+
+#[derive(Debug)]
+pub(super) struct TokenContext<'cu> {
+    line: &'cu str,
+    line_nr: LineNr,
+    _col_nr: ColNr,
+    leading_str_width: usize,
+    ctx_width: usize,
+    error_width: usize,
+}
+
+impl std::fmt::Display for TokenContext<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "{: >5}|{}", self.line_nr.get(), self.line)?;
+        writeln!(
+            f,
+            "{: >5}|{: >leading_str_width$}{:~>ctx_width$}{:^>error_width$}",
+            "",
+            "",
+            "",
+            "",
+            leading_str_width = self.leading_str_width,
+            ctx_width = self.ctx_width,
+            error_width = self.error_width
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub(super) struct DiagCtx<'cu> {
+    line_starts: Vec<(ByteIdx, &'cu str)>,
+}
+
+impl<'cu> DiagCtx<'cu> {
     fn with_capacity(n: usize) -> Self {
         Self {
             line_starts: Vec::with_capacity(n),
-            lines: Vec::with_capacity(n),
         }
     }
-    fn push(&mut self, after_new_line_token_idx: TokenIdx, line_starts_byte_idx: ByteIdx) {
-        self.line_starts.push(after_new_line_token_idx);
-        self.lines.push(line_starts_byte_idx);
+    fn push(&mut self, line_starts_byte_idx: ByteIdx, line: &'cu str) {
+        self.line_starts.push((line_starts_byte_idx, line));
+    }
+
+    fn get_location(
+        &self,
+        ctx_start_byte_idx: ByteIdx,
+        error_byte_span: Option<ByteSpan>,
+        cu: &'cu CompilationUnit,
+    ) -> TokenContext {
+        let (line_nr, line) = self
+            .line_starts
+            .iter()
+            .enumerate()
+            .find(|(_, (byte_idx, _))| *byte_idx >= ctx_start_byte_idx)
+            .map(|(line_nr, &(_, s))| (LineNr::new(line_nr + 1), s))
+            .unwrap_or((
+                LineNr::new(self.line_starts.len()),
+                self.line_starts
+                    .last()
+                    .unwrap_or_else(|| panic!("BUG: no line found"))
+                    .1,
+            ));
+        let line_start_idx = line.as_ptr() as usize - cu.raw_content.as_ptr() as usize;
+        let leading_str = &line[..(ctx_start_byte_idx.get() - line_start_idx)];
+        let leading_str_width = UnicodeWidthStr::width(leading_str);
+        let (ctx_width, error_width) = if let Some(error_byte_span) = error_byte_span {
+            let error_start_idx = error_byte_span.get_start().get() - line_start_idx;
+            let error_inclusive_end_idx =
+                error_byte_span.get_inclusive_end().get() - line_start_idx;
+            let error_width =
+                UnicodeWidthStr::width(&line[error_start_idx..=error_inclusive_end_idx]);
+            let ctx_width = UnicodeWidthStr::width(&line[leading_str_width..error_start_idx]);
+            (ctx_width, error_width)
+        } else {
+            let ctx_str = &line[leading_str.len()..];
+            let ctx_width = UnicodeWidthStr::width(ctx_str);
+            let error_width = 0;
+            (ctx_width, error_width)
+        };
+        let col_nr = ColNr::new(leading_str.grapheme_indices(true).count() + 1);
+
+        TokenContext {
+            line,
+            line_nr,
+            _col_nr: col_nr,
+            leading_str_width,
+            ctx_width,
+            error_width,
+        }
+    }
+
+    pub(super) fn get_context(
+        &self,
+        start_token_idx: TokenIdx,
+        tokens: &'cu Tokens,
+        cu: &'cu CompilationUnit,
+    ) -> TokenContext {
+        let token = &tokens[start_token_idx];
+        let token_start_byte_idx = token
+            .uc_span
+            .get_byte_span(cu)
+            .unwrap_or_else(|| {
+                panic!(
+                    "BUG: failed to get byte span for token {:?}",
+                    start_token_idx
+                )
+            })
+            .get_start();
+
+        self.get_location(token_start_byte_idx, None, cu)
+    }
+    pub(super) fn get_context_with_error_token(
+        &self,
+        start_token_idx: TokenIdx,
+        error_token_idx: TokenIdx,
+        tokens: &'cu Tokens,
+        cu: &'cu CompilationUnit,
+    ) -> TokenContext {
+        let start_token = &tokens[start_token_idx];
+        let token_start_byte_idx = start_token
+            .uc_span
+            .get_byte_span(cu)
+            .unwrap_or_else(|| {
+                panic!(
+                    "BUG: failed to get byte span for token {:?}",
+                    start_token_idx
+                )
+            })
+            .get_start();
+
+        let error_token = &tokens[error_token_idx];
+
+        self.get_location(
+            token_start_byte_idx,
+            error_token.uc_span.get_byte_span(cu),
+            cu,
+        )
     }
 }
 
@@ -148,7 +321,7 @@ impl Token {
 }
 
 #[derive(Debug, Clone)]
-pub struct Tokens(Vec<Token>);
+pub(crate) struct Tokens(Vec<Token>);
 
 impl Tokens {
     fn with_capacity(n: usize) -> Self {
@@ -175,8 +348,33 @@ impl Tokens {
         self.0.iter()
     }
 
-    pub(super) fn into_iter(self) -> impl Iterator<Item = Token> {
-        self.0.into_iter()
+    pub(super) fn find_next_non_blank_token(
+        &self,
+        next_token_idx: TokenIdx,
+    ) -> Option<(TokenIdx, &Token)> {
+        self.iter()
+            .skip(next_token_idx.get())
+            .enumerate()
+            .find(|(_, token)| {
+                !matches!(
+                    token.get_kind(),
+                    TokenKind::Spaces { .. } | TokenKind::NewLine
+                )
+            })
+            .map(|(i, token)| (TokenIdx::new(i + next_token_idx.get()), token))
+    }
+}
+
+impl std::ops::Index<TokenIdx> for Tokens {
+    type Output = Token;
+
+    fn index(&self, index: TokenIdx) -> &Self::Output {
+        self.get(index).unwrap_or_else(|| {
+            panic!(
+                "BUG: failed to get token {:?} from tokens {:?}",
+                index, self
+            )
+        })
     }
 }
 
@@ -259,9 +457,8 @@ impl CompilationUnit {
         span.get_str(self)
     }
 
-    pub fn get_tokens(&self) -> (Tokens, DiagCtx) {
+    pub(crate) fn get_tokens(&self) -> (Tokens, DiagCtx) {
         let mut tokens = Tokens::with_capacity(self.ucs.len());
-        let mut diag_ctx = DiagCtx::with_capacity(self.ucs.len());
         let mut uc_idx = UcIdx::new(0);
 
         while let Some(s) = self.get_str(uc_idx) {
@@ -272,14 +469,16 @@ impl CompilationUnit {
             }
 
             let c = s.chars().next().unwrap();
-            if let Some(new_uc_idx) = try_new_line(self, &mut diag_ctx, &mut tokens, uc_idx, c) {
+            if let Some(new_uc_idx) = try_new_line(self, &mut tokens, uc_idx, c) {
                 // new linesrc_loc, &mut
+                uc_idx = new_uc_idx;
+            } else if let Some(new_uc_idx) = try_comment(self, &mut tokens, uc_idx, c) {
+                // comments
                 uc_idx = new_uc_idx;
             } else if let Some(new_uc_idx) = try_single_char_token(self, &mut tokens, uc_idx, c) {
                 // single-char tokens
                 uc_idx = new_uc_idx;
-            } else if let Some(new_uc_idx) = try_string(self, &mut diag_ctx, &mut tokens, uc_idx, c)
-            {
+            } else if let Some(new_uc_idx) = try_string(self, &mut tokens, uc_idx, c) {
                 // string
                 uc_idx = new_uc_idx;
             } else if let Some(new_uc_idx) = try_multi_byte_tokens(self, &mut tokens, uc_idx, c) {
@@ -288,12 +487,32 @@ impl CompilationUnit {
             }
         }
 
+        let diag_ctx = {
+            let mut diag_ctx = DiagCtx::with_capacity(tokens.len() / 25);
+            let mut byte_idx = 0;
+            for line in self.raw_content.lines() {
+                let line_end_byte_idx = byte_idx + line.as_bytes().len();
+                diag_ctx.push(ByteIdx::new(byte_idx), line);
+                byte_idx = line_end_byte_idx + 1;
+            }
+            diag_ctx
+        };
+
         (tokens, diag_ctx)
     }
 }
 
 trait Span {
     fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> Option<&'cu str>;
+}
+
+impl Span for (ByteIdx, Option<ByteIdx>) {
+    fn get_str<'cu>(&self, cu: &'cu CompilationUnit) -> Option<&'cu str> {
+        match self.1 {
+            Some(e) => cu.get_str(ByteSpan::new(self.0, e)),
+            None => cu.raw_content.get(self.0.get()..),
+        }
+    }
 }
 
 impl Span for ByteSpan {
