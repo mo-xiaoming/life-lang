@@ -239,27 +239,16 @@ pub(crate) fn try_multi_byte_tokens(
         '0' => must_be_single_zero(cu, tokens, uc_idx),
         '1'..='9' => must_be_integer(cu, tokens, uc_idx),
         ' ' => must_be_spaces(cu, tokens, uc_idx),
+        '#' => must_be_comment(cu, tokens, uc_idx),
         'a'..='z' | 'A'..='Z' | '_' => must_be_name(cu, tokens, uc_idx, c),
         _ => invalid_stuff(cu, tokens, uc_idx, c),
     })
 }
 
-pub(crate) fn try_comment(
-    cu: &CompilationUnit,
-    tokens: &mut Tokens,
-    uc_idx: UcIdx,
-    c: char,
-) -> Option<UcIdx> {
-    if c != '/' {
-        return None;
-    }
-    let Some("/") = cu.get_str(uc_idx + 1) else {
-        return None;
-    };
-
-    let new_uc_idx = take_while(cu, uc_idx + 2, |s| !s.is_new_line());
+pub(crate) fn must_be_comment(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
+    let new_uc_idx = take_while(cu, uc_idx + 1, |s| !s.is_new_line());
     tokens.push(TokenKind::Comment, uc_idx, new_uc_idx);
-    Some(new_uc_idx + 1)
+    new_uc_idx + 1
 }
 
 fn must_be_single_zero(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {

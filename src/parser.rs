@@ -318,8 +318,8 @@ mod test_parser {
         let _color_off = ColorOff::new();
 
         let input = r#"
-// following line should not have two `-`
-// it is not supported
+# following line should not have two `-`
+# it is not supported
 
 let x = - - 4;
 "#;

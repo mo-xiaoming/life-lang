@@ -2,8 +2,7 @@ mod get_tokens_utils;
 mod indices;
 
 use get_tokens_utils::{
-    try_comment, try_multi_byte_char, try_multi_byte_tokens, try_new_line, try_single_char_token,
-    try_string,
+    try_multi_byte_char, try_multi_byte_tokens, try_new_line, try_single_char_token, try_string,
 };
 use indices::{ByteIdx, ByteSpan, UcIdx, UcSpan};
 use unicode_segmentation::UnicodeSegmentation;
@@ -471,9 +470,6 @@ impl CompilationUnit {
             let c = s.chars().next().unwrap();
             if let Some(new_uc_idx) = try_new_line(self, &mut tokens, uc_idx, c) {
                 // new linesrc_loc, &mut
-                uc_idx = new_uc_idx;
-            } else if let Some(new_uc_idx) = try_comment(self, &mut tokens, uc_idx, c) {
-                // comments
                 uc_idx = new_uc_idx;
             } else if let Some(new_uc_idx) = try_single_char_token(self, &mut tokens, uc_idx, c) {
                 // single-char tokens
