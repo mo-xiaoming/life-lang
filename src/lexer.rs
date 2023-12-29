@@ -50,13 +50,17 @@ impl std::ops::SubAssign<usize> for TokenIdx {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(super) enum TokenKind {
-    Spaces { count: usize },
+    Spaces {
+        count: usize,
+    },
     NewLine,
     SemiColon,
 
     I64,
 
-    StringLiteral { content: String },
+    StringLiteral {
+        content: String,
+    },
     Comment,
 
     Plus,
@@ -70,12 +74,19 @@ pub(super) enum TokenKind {
 
     Equal,
 
-    Identifier { name: String },
+    Identifier {
+        name: String,
+    },
 
     KwLet,
     KwVar,
 
-    Invalid { msg: String },
+    Invalid {
+        msg: String,
+        error_fake_token_idx: TokenIdx,
+    },
+
+    FakeTokenForInvalid,
 }
 
 impl std::fmt::Display for TokenKind {
@@ -98,7 +109,8 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Identifier { .. } => write!(f, "Identifier"),
             TokenKind::KwLet => write!(f, "KwLet"),
             TokenKind::KwVar => write!(f, "KwVar"),
-            TokenKind::Invalid { msg } => write!(f, "{}", msg),
+            TokenKind::Invalid { msg, .. } => write!(f, "{}", msg),
+            TokenKind::FakeTokenForInvalid => write!(f, "FakeTokenForInvalid"),
         }
     }
 }
@@ -126,7 +138,6 @@ impl TokenKindRepr for TokenKind {
             TokenKind::Identifier { name } => name.clone(),
             TokenKind::KwLet => String::from("let"),
             TokenKind::KwVar => String::from("var"),
-            TokenKind::Invalid { msg } => msg.to_owned(),
             _ => self.to_string(),
         }
     }
@@ -158,7 +169,7 @@ pub(super) struct TokenContext<'cu> {
     line: &'cu str,
     line_nr: LineNr,
     _col_nr: ColNr,
-    leading_str_width: usize,
+    leading_width: usize,
     ctx_width: usize,
     error_width: usize,
 }
@@ -173,7 +184,7 @@ impl std::fmt::Display for TokenContext<'_> {
             "",
             "",
             "",
-            leading_str_width = self.leading_str_width,
+            leading_str_width = self.leading_width,
             ctx_width = self.ctx_width,
             error_width = self.error_width
         )?;
@@ -196,97 +207,109 @@ impl<'cu> DiagCtx<'cu> {
         self.line_starts.push((line_starts_byte_idx, line));
     }
 
-    fn get_location(
+    fn get_diag(
         &self,
-        ctx_start_byte_idx: ByteIdx,
+        ctx_start_byte_idx: Option<ByteIdx>,
         error_byte_span: Option<ByteSpan>,
         cu: &'cu CompilationUnit,
     ) -> TokenContext {
+        let start_byte_idx = match (ctx_start_byte_idx, error_byte_span) {
+            (Some(ctx_start_byte_idx), _) => ctx_start_byte_idx,
+            (None, Some(error_byte_span)) => error_byte_span.get_start(),
+            (None, None) => panic!("BUG: no ctx_start_byte_idx or error_byte_span"),
+        };
         let (line_nr, line) = self
             .line_starts
             .iter()
-            .enumerate()
-            .find(|(_, (byte_idx, _))| *byte_idx >= ctx_start_byte_idx)
-            .map(|(line_nr, &(_, s))| (LineNr::new(line_nr + 1), s))
-            .unwrap_or((
-                LineNr::new(self.line_starts.len()),
+            .zip(
                 self.line_starts
-                    .last()
-                    .unwrap_or_else(|| panic!("BUG: no line found"))
-                    .1,
-            ));
+                    .iter()
+                    .skip(1)
+                    .chain(std::iter::repeat(&(ByteIdx::MAX, ""))),
+            )
+            .enumerate()
+            .find(|(_, ((idx1, _), (idx2, _)))| *idx1 <= start_byte_idx && start_byte_idx < *idx2)
+            .map(|(line_nr, ((_, line), _))| (LineNr::new(line_nr + 1), line))
+            .unwrap_or_else(|| panic!("BUG: no line found"));
+
         let line_start_idx = line.as_ptr() as usize - cu.raw_content.as_ptr() as usize;
-        let leading_str = &line[..(ctx_start_byte_idx.get() - line_start_idx)];
-        let leading_str_width = UnicodeWidthStr::width(leading_str);
-        let (ctx_width, error_width) = if let Some(error_byte_span) = error_byte_span {
-            let error_start_idx = error_byte_span.get_start().get() - line_start_idx;
-            let error_inclusive_end_idx =
-                error_byte_span.get_inclusive_end().get() - line_start_idx;
-            let error_width =
-                UnicodeWidthStr::width(&line[error_start_idx..=error_inclusive_end_idx]);
-            let ctx_width = UnicodeWidthStr::width(&line[leading_str_width..error_start_idx]);
-            (ctx_width, error_width)
-        } else {
-            let ctx_str = &line[leading_str.len()..];
-            let ctx_width = UnicodeWidthStr::width(ctx_str);
-            let error_width = 0;
-            (ctx_width, error_width)
+        let (leading_str, ctx_str, error_str) = match ctx_start_byte_idx {
+            Some(ctx_start_byte_idx) => {
+                let leading_str = &line[..(ctx_start_byte_idx.get() - line_start_idx)];
+                let (ctx_str, error_str) = if let Some(error_byte_span) = error_byte_span {
+                    let error_start_idx = error_byte_span.get_start().get() - line_start_idx;
+                    let error_inclusive_end_idx =
+                        error_byte_span.get_inclusive_end().get() - line_start_idx;
+                    let error_str = &line[error_start_idx..=error_inclusive_end_idx];
+                    let ctx_str = &line[leading_str.len()..error_start_idx];
+                    (ctx_str, error_str)
+                } else {
+                    let ctx_str = &line[leading_str.len()..];
+                    (ctx_str, "")
+                };
+                (leading_str, ctx_str, error_str)
+            }
+            None => {
+                let error_byte_span = error_byte_span
+                    .unwrap_or_else(|| panic!("BUG: no ctx_start_byte_idx or error_byte_span",));
+                let error_start_idx = error_byte_span.get_start().get() - line_start_idx;
+                let error_inclusive_end_idx =
+                    error_byte_span.get_inclusive_end().get() - line_start_idx;
+                let leading_str = &line[..error_start_idx];
+                let error_str = &line[error_start_idx..=error_inclusive_end_idx];
+                (leading_str, "", error_str)
+            }
         };
+        let leading_width = UnicodeWidthStr::width(leading_str);
+        let error_width = UnicodeWidthStr::width(error_str);
+        let ctx_width = UnicodeWidthStr::width(ctx_str);
         let col_nr = ColNr::new(leading_str.grapheme_indices(true).count() + 1);
 
         TokenContext {
             line,
             line_nr,
             _col_nr: col_nr,
-            leading_str_width,
+            leading_width,
             ctx_width,
             error_width,
         }
     }
 
-    pub(super) fn get_context(
+    pub(super) fn get_diag_with_error_token(
         &self,
-        start_token_idx: TokenIdx,
-        tokens: &'cu Tokens,
-        cu: &'cu CompilationUnit,
-    ) -> TokenContext {
-        let token = &tokens[start_token_idx];
-        let token_start_byte_idx = token
-            .uc_span
-            .get_byte_span(cu)
-            .unwrap_or_else(|| {
-                panic!(
-                    "BUG: failed to get byte span for token {:?}",
-                    start_token_idx
-                )
-            })
-            .get_start();
-
-        self.get_location(token_start_byte_idx, None, cu)
-    }
-    pub(super) fn get_context_with_error_token(
-        &self,
-        start_token_idx: TokenIdx,
         error_token_idx: TokenIdx,
         tokens: &'cu Tokens,
         cu: &'cu CompilationUnit,
     ) -> TokenContext {
-        let start_token = &tokens[start_token_idx];
-        let token_start_byte_idx = start_token
-            .uc_span
-            .get_byte_span(cu)
-            .unwrap_or_else(|| {
-                panic!(
-                    "BUG: failed to get byte span for token {:?}",
-                    start_token_idx
-                )
-            })
-            .get_start();
+        let error_token = &tokens[error_token_idx];
+
+        self.get_diag(None, error_token.uc_span.get_byte_span(cu), cu)
+    }
+    pub(super) fn get_diag_with_ctx_token(
+        &self,
+        ctx_token_idx: TokenIdx,
+        tokens: &'cu Tokens,
+        cu: &'cu CompilationUnit,
+    ) -> TokenContext {
+        let ctx_token = &tokens[ctx_token_idx];
+        let ctx_token_start_byte_idx = ctx_token.uc_span.get_start_byte_idx_unchecked(cu);
+
+        self.get_diag(Some(ctx_token_start_byte_idx), None, cu)
+    }
+    pub(super) fn get_diag_with_ctx_and_error_tokens(
+        &self,
+        ctx_token_idx: TokenIdx,
+        error_token_idx: TokenIdx,
+        tokens: &'cu Tokens,
+        cu: &'cu CompilationUnit,
+    ) -> TokenContext {
+        let ctx_token = &tokens[ctx_token_idx];
+        let ctx_start_byte_idx = ctx_token.uc_span.get_start_byte_idx_unchecked(cu);
 
         let error_token = &tokens[error_token_idx];
 
-        self.get_location(
-            token_start_byte_idx,
+        self.get_diag(
+            Some(ctx_start_byte_idx),
             error_token.uc_span.get_byte_span(cu),
             cu,
         )

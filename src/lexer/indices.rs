@@ -4,6 +4,8 @@
 pub(super) struct ByteIdx(usize);
 
 impl ByteIdx {
+    pub(super) const MAX: Self = Self(usize::MAX);
+
     pub(super) fn new(i: usize) -> Self {
         Self(i)
     }
@@ -51,7 +53,7 @@ impl ByteSpan {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct UcIdx(usize);
 
 impl UcIdx {
@@ -103,7 +105,7 @@ impl std::ops::Sub<UcIdx> for UcIdx {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct UcSpan {
     start: UcIdx,
     inclusive_end: UcIdx,
@@ -129,5 +131,15 @@ impl UcSpan {
         let start = self.get_start().get_byte_span(cu)?;
         let inclusive_end = self.get_inclusive_end().get_byte_span(cu)?;
         Some(start.merge(&inclusive_end))
+    }
+    pub(super) fn get_start_byte_idx_unchecked(&self, cu: &super::CompilationUnit) -> ByteIdx {
+        self.get_byte_span(cu)
+            .map(|span| span.get_start())
+            .unwrap_or_else(|| {
+                panic!(
+                    "BUG: get_start_byte_idx_unchecked called on invalid UcSpan: {:?}",
+                    self
+                )
+            })
     }
 }

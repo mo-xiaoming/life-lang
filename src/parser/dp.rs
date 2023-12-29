@@ -500,9 +500,11 @@ fn must_be_paren_expression(
 pub(super) fn get_lex_errors(tokens: &lexer::Tokens) -> Option<SingleParseError> {
     let invalid_errors = tokens
         .iter()
-        .enumerate()
-        .filter_map(|(token_idx, token)| match token.get_kind() {
-            lexer::TokenKind::Invalid { msg } => Some((TokenIdx::new(token_idx), msg.clone())),
+        .filter_map(|token| match token.get_kind() {
+            lexer::TokenKind::Invalid {
+                msg,
+                error_fake_token_idx,
+            } => Some((*error_fake_token_idx, msg.clone())),
             _ => None,
         })
         .collect::<Vec<_>>();

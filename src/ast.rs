@@ -67,18 +67,28 @@ impl<'cu, E: AstError> Ast<'cu, E> {
             )
         })
     }
-    pub fn get_diagnostics(&self, start_token_idx: TokenIdx) -> String {
+    pub fn get_diag_with_error_token(&self, error_token_idx: TokenIdx) -> String {
         self.get_diag_ctx()
-            .get_context(start_token_idx, &self.tokens, self.cu)
+            .get_diag_with_error_token(error_token_idx, &self.tokens, self.cu)
             .to_string()
     }
-    pub fn get_diagnostics_with_error_token(
+    pub fn get_diag_with_ctx_token(&self, ctx_start_token_idx: TokenIdx) -> String {
+        self.get_diag_ctx()
+            .get_diag_with_ctx_token(ctx_start_token_idx, &self.tokens, self.cu)
+            .to_string()
+    }
+    pub fn get_diag_with_ctx_and_error_tokens(
         &self,
-        start_token_idx: TokenIdx,
+        ctx_start_token_idx: TokenIdx,
         error_token_idx: TokenIdx,
     ) -> String {
         self.get_diag_ctx()
-            .get_context_with_error_token(start_token_idx, error_token_idx, &self.tokens, self.cu)
+            .get_diag_with_ctx_and_error_tokens(
+                ctx_start_token_idx,
+                error_token_idx,
+                &self.tokens,
+                self.cu,
+            )
             .to_string()
     }
     pub(crate) fn push_node(&mut self, node: AstNode) -> AstNodeIdx {

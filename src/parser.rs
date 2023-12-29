@@ -105,9 +105,6 @@ impl ParseError {
     fn new_single_error(error: SingleParseError) -> Self {
         Self::SingleParseError(error)
     }
-    // B calls A
-    // before [A, ...]
-    // after [A, B, ...]
     fn add_error_context(self, msg: impl Into<String>) -> Self {
         let context = ParseError::new_single_error(SingleParseError::Context { msg: msg.into() });
         match self {
@@ -191,7 +188,7 @@ impl SingleParseError {
                 format!(
                     "{}: integer overflow `{}`",
                     Self::error_str(),
-                    ast.get_diagnostics(*token_idx)
+                    ast.get_diag_with_ctx_token(*token_idx)
                 )
             }
             Self::MismatchedParentheses {
@@ -200,8 +197,8 @@ impl SingleParseError {
             } => format!(
                 "{}: mismatched parentheses `{}`, at `{}`",
                 Self::error_str(),
-                ast.get_diagnostics(*lparen),
-                ast.get_diagnostics(*start_token_idx),
+                ast.get_diag_with_ctx_token(*lparen),
+                ast.get_diag_with_ctx_token(*start_token_idx),
             ),
             Self::UnexpectedToken {
                 msg,
@@ -212,37 +209,25 @@ impl SingleParseError {
                     "{}: {}\n{}",
                     Self::error_str(),
                     msg.red(),
-                    ast.get_diagnostics_with_error_token(*start_token_idx, *error_token_idx),
+                    ast.get_diag_with_ctx_and_error_tokens(*start_token_idx, *error_token_idx),
                 )
             }
-            Self::LexErrors(errors) => format!(
-                "{}: {}",
-                Self::error_str(),
-                errors
-                    .iter()
-                    .map(|(token_idx, msg)| {
-                        format!("`{}`: {}\n", ast.get_diagnostics(*token_idx), msg)
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            Self::LexErrors(errors) => {
+                let mut result = String::with_capacity(errors.len() * 80);
+                for (error_token_idx, msg) in errors {
+                    let formatted = format!(
+                        "{}: {}\n{}",
+                        Self::error_str(),
+                        msg.red(),
+                        ast.get_diag_with_error_token(*error_token_idx)
+                    );
+                    result.push_str(&formatted);
+                }
+                result
+            }
         }
     }
 }
-
-//impl Extend<(lexer::TokenIdx, lexer::Token)> for Tokens {
-//    fn extend<T: IntoIterator<Item = (lexer::TokenIdx, lexer::Token)>>(&mut self, iter: T) {
-//        let iter = iter.into_iter();
-//        let (lower_bound, _) = iter.size_hint();
-//        self.0.reserve(lower_bound);
-//        for (index, token) in iter {
-//            self.0.push(PackedToken {
-//                token_idx: index,
-//                token,
-//            });
-//        }
-//    }
-//}
 
 pub fn parse(cu: &lexer::CompilationUnit) -> ast::Ast<ParseError> {
     let mut ast = ast::Ast::new(cu);
@@ -260,19 +245,6 @@ pub fn parse(cu: &lexer::CompilationUnit) -> ast::Ast<ParseError> {
 #[cfg(test)]
 mod test_parser {
     use super::*;
-
-    struct ColorOff;
-    impl ColorOff {
-        fn new() -> Self {
-            colored::control::set_override(false);
-            Self
-        }
-    }
-    impl Drop for ColorOff {
-        fn drop(&mut self) {
-            colored::control::unset_override();
-        }
-    }
 
     #[test]
     fn test_empty_ast() {
@@ -315,8 +287,6 @@ mod test_parser {
 
     #[test]
     fn test_negative_number_error() {
-        let _color_off = ColorOff::new();
-
         let input = r#"
 # following line should not have two `-`
 # it is not supported
@@ -327,7 +297,6 @@ let x = - - 4;
         let ast = parse(&cu);
         assert!(ast.get_error().is_some(), "ast: {}", ast);
         let got = ast.get_error().unwrap().get_string(&ast);
-        println!("{}", got);
         let expected = r#"error: `-` cannot be chained
     5|let x = - - 4;
      |        ~~^
@@ -370,7 +339,7 @@ context: expect an expression after `=` for a definition
     }
 
     #[test]
-    fn test_parsing_string() {
+    fn test_string() {
         let cu = lexer::CompilationUnit::from_string(
             "stdin",
             r#"" \u{41} x\u{4f60}xy{}\u{597d}a\u{1f316}";"#,
@@ -379,6 +348,86 @@ context: expect an expression after `=` for a definition
         assert!(ast.get_error().is_none(), "ast: {}", ast);
         let printer = &mut ast::AstPrinter::new(&ast);
         assert_eq!(ast.accept(printer), " A x你xy{}好a🌖;\n");
+    }
+
+    #[test]
+    fn test_lex_errors() {
+        let input = r#"
+# what's the meaning of using unicode as identifier?
+
+let 常量 = 42;
+
+# `042` is not supported
+
+let x = 042;
+
+2^4;
+
+# \z is not a valid escape char
+
+let s = "abc\zdef";
+
+let s = "abc\udef";
+
+let s = "abc\u";
+
+let s = "abc\u{}";
+
+let s = "abc\u{";
+
+let s = "abc\u{deadxy}def";
+
+let s = "abc\u{deadbeef}def";
+
+let s = "abc\u{ffffffffff}def";
+
+let end = "abc;
+
+# no \" after this line
+"#;
+        let cu = lexer::CompilationUnit::from_string("stdin", input);
+        let ast = parse(&cu);
+        assert!(ast.get_error().is_some(), "ast: {}", ast);
+        let got = ast.get_error().unwrap().get_string(&ast);
+        let expected = r#"error: multi-char unicode like `常` only supported in strings and comments
+    4|let 常量 = 42;
+     |    ^^^^
+error: leading zero is not allowed
+    8|let x = 042;
+     |        ^^^
+error: unsupported `^`
+   10|2^4;
+     | ^
+error: invalid escape char `z`
+   14|let s = "abc\zdef";
+     |             ^
+error: unicode should be in the format of \u{...}
+   16|let s = "abc\udef";
+     |              ^
+error: unicode should be in the format of \u{...}
+   18|let s = "abc\u";
+     |              ^
+error: unicode should be in the format of \u{...}, cannot be empty between `{}`
+   20|let s = "abc\u{}";
+     |               ^
+error: only hex numbers are allowed in unicode sequence, `"` is not allowed
+   22|let s = "abc\u{";
+     |               ^
+error: only hex numbers are allowed in unicode sequence, `x` is not allowed
+   24|let s = "abc\u{deadxy}def";
+     |                   ^
+error: `deadbeef` is not a valid unicode code point
+   26|let s = "abc\u{deadbeef}def";
+     |               ^
+error: `ffffffffff` is not a valid unicode code point
+   28|let s = "abc\u{ffffffffff}def";
+     |               ^
+error: unterminated string literal
+   30|let end = "abc;
+     |          ^
+"#;
+        use pretty_assertions::assert_eq;
+        assert_eq!(got, expected);
     }
 
     #[test]
