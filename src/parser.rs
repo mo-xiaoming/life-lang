@@ -307,8 +307,27 @@ context: expect an expression after `=` for a definition
     }
 
     #[test]
+    fn test_definitions() {
+        let cu = lexer::CompilationUnit::from_string("stdin", "let x = 3; var y = x - 42;");
+        let ast = parse(&cu);
+        assert!(ast.get_error().is_none(), "ast: {}", ast);
+        let printer = &mut ast::AstPrinter::new(&ast);
+        assert_eq!(
+            ast.accept(printer),
+            "let x = 3;\nvar y = (x - 42);\n",
+            "ast: {}",
+            ast
+        );
+    }
+
+    #[test]
     fn test_eval() {
-        for (s, expected) in [("1;", 1i64), ("1+1;", 2), ("1-1;", 0)] {
+        for (s, expected) in [
+            ("1;", 1i64),
+            ("1+1;", 2),
+            ("1-1;", 0),
+            ("7%2 + 3 * (12 / ( 15 / - 3+1 - - 1) ) - 2 - 1 + 1;", -13),
+        ] {
             let cu = lexer::CompilationUnit::from_string("stdin", s);
             let ast = parse(&cu);
             assert!(ast.get_error().is_none(), "ast: {}", ast);
@@ -320,22 +339,6 @@ context: expect an expression after `=` for a definition
                 result
             );
         }
-    }
-
-    #[test]
-    fn test_parser() {
-        let cu = lexer::CompilationUnit::from_string(
-            "stdin",
-            "7%2 + 3 * (12 / ( 15 / - 3+1 - - 1) ) - 2 - 1 + 1;",
-        );
-        let ast = parse(&cu);
-        assert!(ast.get_error().is_none(), "ast: {}", ast);
-        let result = ast.accept(&mut ast::AstEvaluator::new(&ast));
-        assert!(
-            matches!(result, Ok(Some(got)) if got == -13),
-            "expected: -13, got: {:?}",
-            result
-        );
     }
 
     #[test]
@@ -431,16 +434,22 @@ error: unterminated string literal
     }
 
     #[test]
-    fn test_definitions() {
-        let cu = lexer::CompilationUnit::from_string("stdin", "let x = 3; var y = x - 42;");
+    fn test_lex_errors_across_multi_lines() {
+        let input = r#"
+let s = "abc
+def
+(\z)
+xyz";
+"#;
+        let cu = lexer::CompilationUnit::from_string("stdin", input);
         let ast = parse(&cu);
-        assert!(ast.get_error().is_none(), "ast: {}", ast);
-        let printer = &mut ast::AstPrinter::new(&ast);
-        assert_eq!(
-            ast.accept(printer),
-            "let x = 3;\nvar y = (x - 42);\n",
-            "ast: {}",
-            ast
-        );
+        assert!(ast.get_error().is_some(), "ast: {}", ast);
+        let got = ast.get_error().unwrap().get_string(&ast);
+        let expected = r#"error: invalid escape char `z`
+    4|(\z)
+     |  ^
+"#;
+        use pretty_assertions::assert_eq;
+        assert_eq!(got, expected);
     }
 }
