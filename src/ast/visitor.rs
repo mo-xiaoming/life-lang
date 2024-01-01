@@ -1,4 +1,4 @@
-use super::{Ast, AstError, AstNode, Expr, Stat};
+use super::{Ast, AstErrors, AstNode, Expr, Stat};
 use crate::lexer;
 
 pub trait AstNodeVisitor<R> {
@@ -6,17 +6,17 @@ pub trait AstNodeVisitor<R> {
 }
 
 #[derive(Debug)]
-pub struct AstPrinter<'cu, E: AstError> {
-    ast: &'cu Ast<'cu, E>,
+pub struct AstPrinter<'cu, Errors: AstErrors> {
+    ast: &'cu Ast<'cu, Errors>,
 }
 
-impl<'cu, E: AstError> AstPrinter<'cu, E> {
-    pub fn new(ast: &'cu Ast<'cu, E>) -> Self {
+impl<'cu, Errors: AstErrors> AstPrinter<'cu, Errors> {
+    pub fn new(ast: &'cu Ast<'cu, Errors>) -> Self {
         Self { ast }
     }
 }
 
-impl<'cu, E: AstError> AstNodeVisitor<String> for AstPrinter<'cu, E> {
+impl<'cu, Errors: AstErrors> AstNodeVisitor<String> for AstPrinter<'cu, Errors> {
     fn visit(&mut self, node: &AstNode) -> String {
         match node {
             AstNode::Module {
@@ -74,17 +74,19 @@ impl<'cu, E: AstError> AstNodeVisitor<String> for AstPrinter<'cu, E> {
 }
 
 #[derive(Debug)]
-pub struct AstEvaluator<'cu, E: AstError> {
-    ast: &'cu Ast<'cu, E>,
+pub struct AstEvaluator<'cu, Errors: AstErrors> {
+    ast: &'cu Ast<'cu, Errors>,
 }
 
-impl<'cu, E: AstError> AstEvaluator<'cu, E> {
-    pub fn new(ast: &'cu Ast<'cu, E>) -> Self {
+impl<'cu, Errors: AstErrors> AstEvaluator<'cu, Errors> {
+    pub fn new(ast: &'cu Ast<'cu, Errors>) -> Self {
         Self { ast }
     }
 }
 
-impl<'cu, E: AstError> AstNodeVisitor<Result<Option<i64>, String>> for AstEvaluator<'cu, E> {
+impl<'cu, Errors: AstErrors> AstNodeVisitor<Result<Option<i64>, String>>
+    for AstEvaluator<'cu, Errors>
+{
     fn visit(&mut self, node: &AstNode) -> Result<Option<i64>, String> {
         match node {
             AstNode::Module {

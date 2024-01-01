@@ -55,10 +55,10 @@ assert_eq!(ast.accept(printer), "let x = 3;\nvar y = (x - 42);\n");
 
 [ ] better error messages
 
-```javascript
+```text
 
-// following line should not have two `-`
-// it is not supported
+# following line should not have two `-`
+# it is not supported
 
 let x = - - 4;
 ```

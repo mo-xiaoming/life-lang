@@ -1,4 +1,4 @@
-use super::{indices::UcIdx, indices::UcSpan, CompilationUnit, TokenKind, Tokens};
+use super::{indices::UcIdx, indices::UcSpan, CompilationUnit, TokenIdx, TokenKind, Tokens};
 
 pub(super) trait StringLike {
     fn is_new_line(&self) -> bool;
@@ -30,70 +30,100 @@ fn take_while(cu: &CompilationUnit, mut start: UcIdx, f: impl Fn(&str) -> bool) 
     start - 1
 }
 
+fn find_string_end(cu: &CompilationUnit, mut start: UcIdx) -> Option<UcIdx> {
+    let mut possible_new_line = None;
+    while let Some(s) = cu.get_str(start) {
+        if s == "\n" {
+            possible_new_line = Some(start);
+        } else if s == r#"""# && !matches!(cu.get_str(start - 1), Some("\\")) {
+            return Some(start);
+        }
+        start += 1;
+    }
+    possible_new_line
+}
+
 fn take_unicode(
     cu: &CompilationUnit,
-    mut start: UcIdx,
-) -> Result<(UcIdx, String), (UcIdx, String)> {
-    let origin_start = start;
+    after_rquote_uc_idx: UcIdx,
+    lbrace_uc_idx: UcIdx,
+) -> Result<(UcIdx, String), TakeStringError> {
+    // start with {
+    if cu.get_str(lbrace_uc_idx).map_or(true, |s| s != "{") {
+        return Err(TakeStringError {
+            error_uc_idx: lbrace_uc_idx,
+            msg: "unicode should be in the format of \\u{...}".to_owned(),
+            next_uc_idx: after_rquote_uc_idx,
+        });
+    }
+    let mut hex_num_uc_idx = lbrace_uc_idx + 1;
 
-    if let Some(s) = cu.get_str(start) {
-        if s != "{" {
-            return Err((
-                start,
-                "unicode should be in the format of \\u{{...}}".to_owned(),
-            ));
-        }
-    } else {
-        return Err((
-            start,
-            "unicode should be in the format of \\u{abcdef}".to_owned(),
-        ));
-    };
-    start += 1;
-
-    while let Some(s) = cu.get_str(start) {
+    // take hex numbers
+    while let Some(s) = cu.get_str(hex_num_uc_idx) {
         if s == "}" {
             break;
         }
         if s.len() != 1 || !s.chars().next().unwrap().is_ascii_hexdigit() {
-            return Err((
-                start,
-                format!(
+            return Err(TakeStringError {
+                error_uc_idx: hex_num_uc_idx,
+                msg: format!(
                     "only hex numbers are allowed in unicode sequence, `{}` is not allowed",
                     s
                 ),
-            ));
+                next_uc_idx: after_rquote_uc_idx,
+            });
         }
-        start += 1;
+        hex_num_uc_idx += 1;
+    }
+    let rbrace_uc_idx = hex_num_uc_idx;
+
+    // empty {}?
+    if rbrace_uc_idx == lbrace_uc_idx + 1 {
+        return Err(TakeStringError {
+            error_uc_idx: rbrace_uc_idx,
+            msg: "unicode should be in the format of \\u{...}, cannot be empty between `{}`"
+                .to_owned(),
+            next_uc_idx: after_rquote_uc_idx,
+        });
     }
 
-    if start == origin_start + 1 {
-        return Err((
-            start,
-            "unicode should be in the format of \\u{...}, cannot be empty between `{}`".to_owned(),
-        ));
-    }
+    // convert hex to char
     let mut s = cu
-        .get_str(UcSpan::new(origin_start + 1, start - 1))
+        .get_str(UcSpan::new(lbrace_uc_idx + 1, rbrace_uc_idx - 1))
         .unwrap()
         .to_owned();
     if s.len() % 2 != 0 {
         s = format!("0{}", s);
     }
-    let c = std::char::from_u32(
-        u32::from_str_radix(&s, 16)
-            .unwrap_or_else(|e| panic!("BUG: failed to parse `{}` as hex number: {}", s, e)),
-    )
-    .ok_or_else(|| {
-        (
-            start,
-            format!("failed to convert `{}` to unicode character", s),
-        )
-    })?;
-    Ok((start, c.to_string()))
+    let unicode_err_fn = || TakeStringError {
+        error_uc_idx: lbrace_uc_idx + 1,
+        msg: format!("`{}` is not a valid unicode code point", s),
+        next_uc_idx: after_rquote_uc_idx,
+    };
+    let n = u32::from_str_radix(&s, 16).map_err(|_| unicode_err_fn())?;
+    let c = char::from_u32(n).ok_or_else(unicode_err_fn)?;
+
+    Ok((rbrace_uc_idx, c.to_string()))
 }
 
-fn take_string(cu: &CompilationUnit, mut start: UcIdx) -> Result<(UcIdx, String), (UcIdx, String)> {
+struct TakeStringError {
+    error_uc_idx: UcIdx,
+    msg: String,
+    next_uc_idx: UcIdx,
+}
+
+fn take_string(cu: &CompilationUnit, mut start: UcIdx) -> Result<(UcIdx, String), TakeStringError> {
+    let lquote_uc_idx = start - 1;
+    let unterminated_err_fn = || TakeStringError {
+        error_uc_idx: lquote_uc_idx,
+        msg: "unterminated string literal".to_owned(),
+        next_uc_idx: UcIdx::new(cu.ucs.len()),
+    };
+    let Some(rquote_uc_idx) = find_string_end(cu, start) else {
+        return Err(unterminated_err_fn());
+    };
+    let after_rquote_uc_idx = rquote_uc_idx + 1;
+
     let mut content = String::with_capacity(50);
 
     let escaped_chars: std::collections::HashMap<&str, &str> = [
@@ -110,14 +140,18 @@ fn take_string(cu: &CompilationUnit, mut start: UcIdx) -> Result<(UcIdx, String)
     while let Some(s) = cu.get_str(start) {
         if in_escape {
             if s == "u" {
-                let (new_start, chunk) = take_unicode(cu, start + 1)?;
+                let (new_start, chunk) = take_unicode(cu, after_rquote_uc_idx, start + 1)?;
                 start = new_start + 1;
                 content.push_str(&chunk);
             } else if escaped_chars.contains_key(&s) {
                 start += 1;
                 content.push_str(escaped_chars[&s]);
             } else {
-                return Err((start - 1, format!("unrecogonized escape `{}`", s)));
+                return Err(TakeStringError {
+                    error_uc_idx: start,
+                    msg: format!("invalid escape char `{}`", s),
+                    next_uc_idx: after_rquote_uc_idx,
+                });
             }
             in_escape = false;
             continue;
@@ -132,7 +166,7 @@ fn take_string(cu: &CompilationUnit, mut start: UcIdx) -> Result<(UcIdx, String)
         start += 1;
     }
 
-    Err((start - 1, "unfinished string".to_owned()))
+    Err(unterminated_err_fn())
 }
 
 fn get_single_char_token_kind(c: char) -> Option<TokenKind> {
@@ -180,12 +214,14 @@ pub(crate) fn try_multi_byte_char(
 ) -> Option<UcIdx> {
     if s.len() != 1 {
         let new_uc_idx = take_while(cu, uc_idx + 1, |s| s.len() != 1);
+        tokens.push(TokenKind::FakeTokenForInvalid, uc_idx, new_uc_idx);
         tokens.push(
             TokenKind::Invalid {
                 msg: format!(
                     "multi-char unicode like `{}` only supported in strings and comments",
                     s
                 ),
+                error_fake_token_idx: TokenIdx::new(tokens.len() - 1),
             },
             uc_idx,
             new_uc_idx,
@@ -221,12 +257,28 @@ pub(crate) fn try_string(
     }
 
     let new_uc_idx = take_string(cu, uc_idx + 1);
-    let (kind, new_uc_idx) = match new_uc_idx {
-        Ok((new_uc_idx, content)) => (TokenKind::StringLiteral { content }, new_uc_idx),
-        Err((new_uc_idx, msg)) => (TokenKind::Invalid { msg }, new_uc_idx),
-    };
-    tokens.push(kind, uc_idx, new_uc_idx);
-    Some(new_uc_idx + 1)
+    match new_uc_idx {
+        Ok((new_uc_idx, content)) => {
+            tokens.push(TokenKind::StringLiteral { content }, uc_idx, new_uc_idx);
+            Some(new_uc_idx + 1)
+        }
+        Err(TakeStringError {
+            error_uc_idx,
+            msg,
+            next_uc_idx,
+        }) => {
+            tokens.push(TokenKind::FakeTokenForInvalid, error_uc_idx, error_uc_idx);
+            tokens.push(
+                TokenKind::Invalid {
+                    msg,
+                    error_fake_token_idx: TokenIdx::new(tokens.len() - 1),
+                },
+                uc_idx,
+                error_uc_idx,
+            );
+            Some(next_uc_idx)
+        }
+    }
 }
 
 pub(crate) fn try_multi_byte_tokens(
@@ -239,27 +291,16 @@ pub(crate) fn try_multi_byte_tokens(
         '0' => must_be_single_zero(cu, tokens, uc_idx),
         '1'..='9' => must_be_integer(cu, tokens, uc_idx),
         ' ' => must_be_spaces(cu, tokens, uc_idx),
+        '#' => must_be_comment(cu, tokens, uc_idx),
         'a'..='z' | 'A'..='Z' | '_' => must_be_name(cu, tokens, uc_idx, c),
         _ => invalid_stuff(cu, tokens, uc_idx, c),
     })
 }
 
-pub(crate) fn try_comment(
-    cu: &CompilationUnit,
-    tokens: &mut Tokens,
-    uc_idx: UcIdx,
-    c: char,
-) -> Option<UcIdx> {
-    if c != '/' {
-        return None;
-    }
-    let Some("/") = cu.get_str(uc_idx + 1) else {
-        return None;
-    };
-
-    let new_uc_idx = take_while(cu, uc_idx + 2, |s| !s.is_new_line());
+pub(crate) fn must_be_comment(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
+    let new_uc_idx = take_while(cu, uc_idx + 1, |s| !s.is_new_line());
     tokens.push(TokenKind::Comment, uc_idx, new_uc_idx);
-    Some(new_uc_idx + 1)
+    new_uc_idx + 1
 }
 
 fn must_be_single_zero(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
@@ -267,8 +308,10 @@ fn must_be_single_zero(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx)
     let kind = if new_uc_idx == uc_idx {
         TokenKind::I64
     } else {
+        tokens.push(TokenKind::FakeTokenForInvalid, uc_idx, new_uc_idx);
         TokenKind::Invalid {
             msg: "leading zero is not allowed".to_owned(),
+            error_fake_token_idx: TokenIdx::new(tokens.len() - 1),
         }
     };
     tokens.push(kind, uc_idx, new_uc_idx);
@@ -320,9 +363,11 @@ fn must_be_name(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx, c: cha
 }
 
 fn invalid_stuff(_cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx, c: char) -> UcIdx {
+    tokens.push(TokenKind::FakeTokenForInvalid, uc_idx, uc_idx);
     tokens.push(
         TokenKind::Invalid {
             msg: format!("unsupported `{}`", c),
+            error_fake_token_idx: TokenIdx::new(tokens.len() - 1),
         },
         uc_idx,
         uc_idx,

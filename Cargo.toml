@@ -11,6 +11,7 @@ unicode-width = "0.1"
 colored = "2"
 
 [dev-dependencies]
+pretty_assertions = "1"
 
 [profile.dev.build-override]
 #debug = true
