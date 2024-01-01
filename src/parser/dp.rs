@@ -2,7 +2,7 @@ use super::{
     ast, lexer,
     lexer::TokenKindRepr,
     lexer::{Token, TokenIdx, Tokens},
-    IntermediateResult, ParseError, ParseResult, ParseResultExt, SingleParseError,
+    IntermediateResult, ParseErrors, ParseResult, ParseResultExt, SingleParseError,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -40,7 +40,7 @@ struct TokenTrait {
 
 // either returns error or UnaryOp node
 fn must_be_i64_after_dash_sign(
-    ast: &mut ast::Ast<ParseError>,
+    ast: &mut ast::Ast<ParseErrors>,
     next_token_idx: TokenIdx,
     dash_token_idx: TokenIdx,
 ) -> ParseResult {
@@ -64,7 +64,7 @@ fn must_be_i64_after_dash_sign(
             }),
             num_token_idx + 1,
         ),
-        _ => ParseResult::new_error_unexpected_token(
+        lexer::TokenKind::Dash => ParseResult::new_error_unexpected_token(
             format!(
                 "`{}` cannot be chained",
                 lexer::TokenKind::Dash.get_string_repr(),
@@ -72,12 +72,20 @@ fn must_be_i64_after_dash_sign(
             dash_token_idx,
             num_token_idx,
         ),
+        _ => ParseResult::new_error_unexpected_token(
+            format!(
+                "expected a number after `{}`",
+                lexer::TokenKind::Dash.get_string_repr()
+            ),
+            dash_token_idx,
+            num_token_idx,
+        ),
     }
 }
 
-pub(super) fn parse_module(ast: &mut ast::Ast<ParseError>, mut next_token_idx: TokenIdx) {
-    let mut module_node = ast::AstNode::new_module(50);
-    // TODO: should continue when encounter error, find `;` and parse as many statements as possible
+pub(super) fn parse_module(ast: &mut ast::Ast<ParseErrors>, mut next_token_idx: TokenIdx) {
+    let mut module_node = ast::AstNode::new_module_with_capacity(50);
+    let mut errors = ParseErrors::with_capacity(10);
     loop {
         match parse_statement(ast, next_token_idx) {
             Ok(IntermediateResult::Node {
@@ -92,20 +100,40 @@ pub(super) fn parse_module(ast: &mut ast::Ast<ParseError>, mut next_token_idx: T
                 break;
             }
             Err(e) => {
-                ast.set_error(e);
-                break;
+                errors.add(e);
+                match find_next_statement(ast.get_tokens(), next_token_idx) {
+                    Some(token_idx) => {
+                        next_token_idx = token_idx;
+                    }
+                    None => break,
+                }
             }
         }
     }
 
+    if !errors.is_empty() {
+        ast.set_errors(errors);
+    }
     ast.set_module(module_node);
+}
+
+fn find_next_statement(get_tokens: &Tokens, mut next_token_idx: TokenIdx) -> Option<TokenIdx> {
+    while let Some((token_idx, token)) = get_tokens.find_next_non_blank_token(next_token_idx) {
+        match token.get_kind() {
+            lexer::TokenKind::SemiColon => {
+                return Some(token_idx + 1);
+            }
+            _ => next_token_idx = token_idx + 1,
+        }
+    }
+    None
 }
 
 // either returns a definiton statement or an error, never returns `IntermediateResult::Finished`
 //
 // first token is `let` or `var`
 fn parse_definition_statement(
-    ast: &mut ast::Ast<ParseError>,
+    ast: &mut ast::Ast<ParseErrors>,
     kw_token_idx: TokenIdx,
     kw_token: &Token,
 ) -> ParseResult {
@@ -113,69 +141,57 @@ fn parse_definition_statement(
 
     // lhs is an expression.
     // TODO: must be something can be assigned to, like identifier, or `a[3]`
+    let no_lhs_expr_err_fn = || {
+        format!(
+            "expect an expression after `{}` for a definition",
+            kw_kind.get_string_repr()
+        )
+    };
     let IntermediateResult::Node {
         node: lhs_expr,
         next_token_idx: after_lhs_token_idx,
-    } = parse_expression(ast, kw_token_idx + 1, Precedence::new(0)).map_err(|e| {
-        e.add_error_context(format!(
-            "expect an expression after `{}`",
-            kw_kind.get_string_repr()
-        ))
-    })?
+    } = parse_expression(ast, kw_token_idx + 1, Precedence::new(0))
+        .map_err(|e| e.add_error_context(no_lhs_expr_err_fn()))?
     else {
-        return ParseResult::new_error_unexpected_eof(
-            format!(
-                "there must be some kinds of expressions after `{}`",
-                kw_kind.get_string_repr()
-            ),
-            kw_token_idx,
-        );
+        return ParseResult::new_error_unexpected_eof(no_lhs_expr_err_fn(), kw_token_idx);
     };
 
     // must be `=`
+    let no_eq_err_msg_fn = || {
+        format!(
+            "expected definition format `{kw} ... {eq} ...`, but could not find `{eq}`",
+            kw = kw_kind.get_string_repr(),
+            eq = lexer::TokenKind::Equal.get_string_repr()
+        )
+    };
     let Some((eq_token_idx, eq_token)) = ast
         .get_tokens()
         .find_next_non_blank_token(after_lhs_token_idx)
     else {
-        return ParseResult::new_error_unexpected_eof(
-            format!(
-                "expected definition format `{kw} ... {eq} ...`, but could not find `{eq}`",
-                kw = kw_kind.get_string_repr(),
-                eq = lexer::TokenKind::Equal.get_string_repr()
-            ),
-            kw_token_idx,
-        );
+        return ParseResult::new_error_unexpected_eof(no_eq_err_msg_fn(), kw_token_idx);
     };
     if eq_token.get_kind() != &lexer::TokenKind::Equal {
         return ParseResult::new_error_unexpected_token(
-            format!(
-                "expected definition format `{kw} ... {eq} ...`, but could not find `{eq}`",
-                kw = kw_kind.get_string_repr(),
-                eq = lexer::TokenKind::Equal.get_string_repr()
-            ),
+            no_eq_err_msg_fn(),
             kw_token_idx,
             eq_token_idx,
         );
     }
 
     // rhs is an expression
+    let no_rhs_expr_err_fn = || {
+        format!(
+            "expect an expression after `{}` for a definition",
+            lexer::TokenKind::Equal.get_string_repr()
+        )
+    };
     let IntermediateResult::Node {
         node: rhs_expr,
         next_token_idx: after_rhs_token_idx,
-    } = parse_expression(ast, eq_token_idx + 1, Precedence::new(0)).map_err(|e| {
-        e.add_error_context(format!(
-            "expect an expression after `{}` for a definition",
-            lexer::TokenKind::Equal.get_string_repr()
-        ))
-    })?
+    } = parse_expression(ast, eq_token_idx + 1, Precedence::new(0))
+        .map_err(|e| e.add_error_context(no_rhs_expr_err_fn()))?
     else {
-        return ParseResult::new_error_unexpected_eof(
-            format!(
-                "expect an expression after `{}`, but got eof",
-                lexer::TokenKind::Equal.get_string_repr()
-            ),
-            kw_token_idx,
-        );
+        return ParseResult::new_error_unexpected_eof(no_rhs_expr_err_fn(), kw_token_idx);
     };
 
     // ;
@@ -197,7 +213,7 @@ fn parse_definition_statement(
 // precondition: no eof
 // TODO: is only expression statement that makes sense a function call?
 fn try_parse_expression_statement(
-    ast: &mut ast::Ast<ParseError>,
+    ast: &mut ast::Ast<ParseErrors>,
     next_token_idx: TokenIdx,
 ) -> ParseResult {
     let IntermediateResult::Node {
@@ -220,7 +236,7 @@ fn try_parse_expression_statement(
 }
 
 fn find_start_of_non_empty_statement<'cu>(
-    ast: &'cu ast::Ast<ParseError>,
+    ast: &'cu ast::Ast<ParseErrors>,
     mut next_token_idx: TokenIdx,
 ) -> Option<(TokenIdx, &'cu Token)> {
     while let Some((token_idx, token)) = ast.get_tokens().find_next_non_blank_token(next_token_idx)
@@ -240,12 +256,16 @@ fn must_be_semicolon_ends_statement(
     stat_start_token_idx: TokenIdx,
     next_token_idx: TokenIdx,
 ) -> Result<TokenIdx, SingleParseError> {
+    let no_eol_err_fn = || {
+        format!(
+            "statement must end with `{}`",
+            lexer::TokenKind::SemiColon.get_string_repr()
+        )
+    };
+
     let Some((token_idx, token)) = tokens.find_next_non_blank_token(next_token_idx) else {
         return Err(SingleParseError::UnexpectedEof {
-            msg: format!(
-                "statement must end with `{}`",
-                lexer::TokenKind::SemiColon.get_string_repr()
-            ),
+            msg: no_eol_err_fn(),
             start_token_idx: stat_start_token_idx,
         });
     };
@@ -254,17 +274,14 @@ fn must_be_semicolon_ends_statement(
         Ok(token_idx + 1)
     } else {
         Err(SingleParseError::UnexpectedToken {
-            msg: format!(
-                "statement must end with `{}`",
-                lexer::TokenKind::SemiColon.get_string_repr()
-            ),
-            start_token_idx: stat_start_token_idx,
+            msg: no_eol_err_fn(),
+            ctx_start_token_idx: stat_start_token_idx,
             error_token_idx: token_idx,
         })
     }
 }
 
-fn parse_statement(ast: &mut ast::Ast<ParseError>, next_token_idx: TokenIdx) -> ParseResult {
+fn parse_statement(ast: &mut ast::Ast<ParseErrors>, next_token_idx: TokenIdx) -> ParseResult {
     // filter out spaces and comments
     let Some((next_token_idx, next_token)) = find_start_of_non_empty_statement(ast, next_token_idx)
     else {
@@ -352,7 +369,7 @@ fn can_shift_with_op(
 /// - returns `IntermediateResult::Finished` if eof
 /// - otherwise must return an expression or an error
 fn parse_expression(
-    ast: &mut ast::Ast<ParseError>,
+    ast: &mut ast::Ast<ParseErrors>,
     next_token_idx: TokenIdx,
     min_precedence: Precedence,
 ) -> ParseResult {
@@ -367,8 +384,9 @@ fn parse_expression(
     let IntermediateResult::Node {
         node: mut lhs,
         next_token_idx: after_lhs_token_idx,
-    } = parse_primary(ast, expr_start_token_idx, &expr_start_token.clone())
-        .map_err(|e| e.add_error_context("an expression must start with an expression"))?
+    } = parse_primary(ast, expr_start_token_idx, &expr_start_token.clone())?
+    // following doens't seem to be a very useful error context
+    //.map_err(|e| e.add_error_context("an expression must start with an expression"))?
     else {
         panic!("BUG: parse_primary should always return a node")
     };
@@ -381,20 +399,19 @@ fn parse_expression(
     {
         let op_token = op_token.clone();
         // if it is binary op, then there must be an expression after op sign
+        let no_rhs_expr_err_fn = || {
+            format!(
+                "operator `{}` must be followed by an expression",
+                op_token.get_kind().get_string_repr()
+            )
+        };
         let IntermediateResult::Node {
             node: rhs,
             next_token_idx: after_rhs_token_idx,
-        } = parse_expression(ast, op_token_idx + 1, min_precedence).map_err(|e| {
-            e.add_error_context(format!(
-                "operator `{}` must be followed by an expression",
-                op_token.get_kind().get_string_repr()
-            ))
-        })?
+        } = parse_expression(ast, op_token_idx + 1, min_precedence)
+            .map_err(|e| e.add_error_context(no_rhs_expr_err_fn()))?
         else {
-            return ParseResult::new_error_unexpected_eof(
-                format!("nothing after `{}`", op_token.get_kind().get_string_repr()),
-                op_token_idx,
-            );
+            return ParseResult::new_error_unexpected_eof(no_rhs_expr_err_fn(), op_token_idx);
         };
 
         let lhs_node_idx = ast.push_node(lhs);
@@ -421,7 +438,7 @@ fn parse_expression(
 /// # Note
 /// it never returns `IntermediateResult::Finished`, cannot be eof
 fn parse_primary(
-    ast: &mut ast::Ast<ParseError>,
+    ast: &mut ast::Ast<ParseErrors>,
     start_token_idx: TokenIdx,
     start_token: &Token,
 ) -> ParseResult {
@@ -449,7 +466,7 @@ fn parse_primary(
             start_token_idx + 1,
         ),
         _ => ParseResult::new_error_unexpected_token(
-            "expected an expression, but got".to_owned(),
+            "expected an expression",
             start_token_idx,
             start_token_idx,
         ),
@@ -458,7 +475,7 @@ fn parse_primary(
 
 // either returns an expresion or an error
 fn must_be_paren_expression(
-    ast: &mut ast::Ast<ParseError>,
+    ast: &mut ast::Ast<ParseErrors>,
     next_token_idx: TokenIdx,
     lparen_token_idx: TokenIdx,
 ) -> ParseResult {
@@ -483,7 +500,7 @@ fn must_be_paren_expression(
     else {
         return ParseResult::new_error_unexpected_eof(
             format!(
-                "expected `{}`, but got eof",
+                "no matching `{}`",
                 lexer::TokenKind::RParen.get_string_repr()
             ),
             lparen_token_idx,

@@ -1,25 +1,27 @@
 #![allow(dead_code)]
 mod visitor;
 
-use crate::lexer::TokenIdx;
-
 use super::lexer;
 pub use visitor::{AstEvaluator, AstNodeVisitor, AstPrinter};
 
-pub trait AstError: std::marker::Sized + std::fmt::Debug {
+pub trait AstErrors: std::marker::Sized + std::fmt::Debug {
+    type Error;
+
+    fn with_capacity(capacity: usize) -> Self;
+    fn add(&mut self, error: Self::Error);
     fn get_string<'cu>(&self, ast: &'cu Ast<'cu, Self>) -> String;
 }
 
 #[derive(Debug)]
-pub struct Ast<'cu, E: AstError> {
+pub struct Ast<'cu, Errors: AstErrors> {
     cu: &'cu lexer::CompilationUnit,
     nodes: AstNodes, // last node is always a module
     tokens: lexer::Tokens,
     diag_ctx: lexer::DiagCtx<'cu>,
-    error: Option<E>,
+    errors: Option<Errors>,
 }
 
-impl<'cu, E: AstError> Ast<'cu, E> {
+impl<'cu, Errors: AstErrors> Ast<'cu, Errors> {
     pub(crate) fn new(cu: &'cu lexer::CompilationUnit) -> Self {
         let (tokens, diag_ctx) = cu.get_tokens();
         let tokens_len = tokens.len();
@@ -28,7 +30,7 @@ impl<'cu, E: AstError> Ast<'cu, E> {
             nodes: AstNodes::with_capacity(tokens_len),
             tokens,
             diag_ctx,
-            error: None,
+            errors: None,
         }
     }
     pub(crate) fn get_tokens(&self) -> &lexer::Tokens {
@@ -67,20 +69,20 @@ impl<'cu, E: AstError> Ast<'cu, E> {
             )
         })
     }
-    pub fn get_diag_with_error_token(&self, error_token_idx: TokenIdx) -> String {
+    pub fn get_diag_with_error_token(&self, error_token_idx: lexer::TokenIdx) -> String {
         self.get_diag_ctx()
             .get_diag_with_error_token(error_token_idx, &self.tokens, self.cu)
             .to_string()
     }
-    pub fn get_diag_with_ctx_token(&self, ctx_start_token_idx: TokenIdx) -> String {
+    pub fn get_diag_with_ctx_token(&self, ctx_start_token_idx: lexer::TokenIdx) -> String {
         self.get_diag_ctx()
             .get_diag_with_ctx_token(ctx_start_token_idx, &self.tokens, self.cu)
             .to_string()
     }
     pub fn get_diag_with_ctx_and_error_tokens(
         &self,
-        ctx_start_token_idx: TokenIdx,
-        error_token_idx: TokenIdx,
+        ctx_start_token_idx: lexer::TokenIdx,
+        error_token_idx: lexer::TokenIdx,
     ) -> String {
         self.get_diag_ctx()
             .get_diag_with_ctx_and_error_tokens(
@@ -102,15 +104,15 @@ impl<'cu, E: AstError> Ast<'cu, E> {
             _ => panic!("BUG: expected Module, but got `{:?}`", module),
         }
     }
-    pub(crate) fn set_error(&mut self, error: E) {
-        self.error = Some(error);
+    pub(crate) fn set_errors(&mut self, errors: Errors) {
+        self.errors = Some(errors);
     }
-    pub(crate) fn get_error(&self) -> Option<&E> {
-        self.error.as_ref()
+    pub(crate) fn get_error(&self) -> Option<&Errors> {
+        self.errors.as_ref()
     }
 }
 
-impl<'cu, E: AstError> std::fmt::Display for Ast<'cu, E> {
+impl<'cu, Errors: AstErrors> std::fmt::Display for Ast<'cu, Errors> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -134,27 +136,26 @@ impl<'cu, E: AstError> std::fmt::Display for Ast<'cu, E> {
                 }
             )
         )?;
-        if let Some(e) = self.get_error() {
-            let s = e.get_string(self);
-            write!(f, "\nerror:\n{}", s)?;
+        if let Some(errors) = self.get_error() {
+            write!(f, "\nerror:\n{}", errors.get_string(self))?;
         }
         Ok(())
     }
 }
 
 pub(crate) trait Indexable {
-    fn get_string<'cu, E: AstError>(&self, ast: &'cu Ast<'cu, E>) -> Option<String>;
+    fn get_string<'cu, Errors: AstErrors>(&self, ast: &'cu Ast<'cu, Errors>) -> Option<String>;
 }
 
 impl Indexable for lexer::TokenIdx {
-    fn get_string<'cu, E: AstError>(&self, ast: &'cu Ast<'cu, E>) -> Option<String> {
+    fn get_string<'cu, Errors: AstErrors>(&self, ast: &'cu Ast<'cu, Errors>) -> Option<String> {
         ast.get_token(*self)
             .map(|token| token.get_str(ast.cu).to_owned())
     }
 }
 
 impl Indexable for AstNodeIdx {
-    fn get_string<'cu, E: AstError>(&self, ast: &'cu Ast<'cu, E>) -> Option<String> {
+    fn get_string<'cu, Errors: AstErrors>(&self, ast: &'cu Ast<'cu, Errors>) -> Option<String> {
         let mut printer = AstPrinter::new(ast);
         ast.get_node(*self).map(|node| printer.visit(node))
     }
@@ -170,14 +171,14 @@ pub enum AstNode {
 }
 
 impl AstNode {
-    pub(crate) fn new_module(n: usize) -> Self {
+    pub(crate) fn new_module_with_capacity(n: usize) -> Self {
         Self::Module {
             statements_node_indices: Vec::with_capacity(n),
         }
     }
-    pub(crate) fn add_statement_to_module<'cu, E: AstError>(
+    pub(crate) fn add_statement_to_module<'cu, Errors: AstErrors>(
         &mut self,
-        ast: &'cu Ast<'cu, E>,
+        ast: &'cu Ast<'cu, Errors>,
         statement_node_idx: AstNodeIdx,
     ) {
         let printer = &mut AstPrinter::new(ast);
