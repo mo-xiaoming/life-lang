@@ -145,7 +145,7 @@ impl ast::AstErrors for ParseErrors {
     fn with_capacity(capacity: usize) -> Self {
         Self::with_capacity(capacity)
     }
-    fn add(&mut self, error: Self::Error) {
+    fn push(&mut self, error: Self::Error) {
         self.0.push(error);
     }
     fn get_string<'cu>(&self, ast: &'cu ast::Ast<'cu, Self>) -> String {
@@ -286,8 +286,13 @@ pub fn parse(cu: &lexer::CompilationUnit) -> ast::Ast<ParseErrors> {
 mod test_parser {
     use super::*;
 
+    fn no_color() {
+        colored::control::set_override(false);
+    }
+
     #[test]
     fn test_empty_ast() {
+        no_color();
         for s in ["", " ", ";", "\r\n\n;", "  ;", "\r\n\n", ";;"] {
             let cu = lexer::CompilationUnit::from_string("stdin", s);
             let ast = parse(&cu);
@@ -298,6 +303,7 @@ mod test_parser {
 
     #[test]
     fn test_negative_numbers() {
+        no_color();
         for (expected, test_data) in [
             ("-42;\n", vec!["-42;", "- 42;", " - 42 ;", " -42 ;"]),
             (
@@ -327,6 +333,7 @@ mod test_parser {
 
     #[test]
     fn test_definitions() {
+        no_color();
         let cu = lexer::CompilationUnit::from_string("stdin", "let x = 3; var y = x - 42;");
         let ast = parse(&cu);
         assert!(ast.get_error().is_none(), "ast: {}", ast);
@@ -341,6 +348,7 @@ mod test_parser {
 
     #[test]
     fn test_eval() {
+        no_color();
         for (s, expected) in [
             ("1;", 1i64),
             ("1+1;", 2),
@@ -362,6 +370,7 @@ mod test_parser {
 
     #[test]
     fn test_string() {
+        no_color();
         let cu = lexer::CompilationUnit::from_string(
             "stdin",
             r#"" \u{41} x\u{4f60}xy{}\u{597d}a\u{1f316}";"#,
@@ -374,6 +383,7 @@ mod test_parser {
 
     #[test]
     fn test_lex_errors() {
+        no_color();
         let input = r#"
 # what's the meaning of using unicode as identifier?
 
@@ -454,6 +464,7 @@ error: unterminated string literal
 
     #[test]
     fn test_lex_errors_across_multi_lines() {
+        no_color();
         let input = r#"
 let s = "abc
 def
@@ -474,6 +485,7 @@ xyz";
 
     #[test]
     fn test_parse_error() {
+        no_color();
         for (input, expected) in [
             (
                 r#"
@@ -496,7 +508,9 @@ let a = ;
 
 let a = (2 + );
 
-#let a = 2 + 3 multi line error, currently not supported
+let a = 2 + 3
+
+let a = 3;
 "#,
                 r#"error: `-` cannot be chained
     5|let x = - - 4;
@@ -532,6 +546,12 @@ error: expected an expression
 context: operator `+` must be followed by an expression
 context: not a valid expression between `()`
 context: expect an expression after `=` for a definition
+error: statement must end with `;`
+   21|let a = 2 + 3
+     |~~~~~~~~~~~~~
+   22|
+   23|let a = 3;
+     |^^^
 "#,
             ),
             (

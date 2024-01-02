@@ -8,7 +8,7 @@ pub trait AstErrors: std::marker::Sized + std::fmt::Debug {
     type Error;
 
     fn with_capacity(capacity: usize) -> Self;
-    fn add(&mut self, error: Self::Error);
+    fn push(&mut self, error: Self::Error);
     fn get_string<'cu>(&self, ast: &'cu Ast<'cu, Self>) -> String;
 }
 
