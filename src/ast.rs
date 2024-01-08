@@ -4,24 +4,23 @@ mod visitor;
 use super::lexer;
 pub use visitor::{AstEvaluator, AstNodeVisitor, AstPrinter};
 
-pub trait AstErrors: std::marker::Sized + std::fmt::Debug {
-    type Error;
+pub trait AstError: std::marker::Sized + std::fmt::Debug {
+    type E;
 
-    fn with_capacity(capacity: usize) -> Self;
-    fn push(&mut self, error: Self::Error);
+    fn is_empty(&self) -> bool;
     fn get_string<'cu>(&self, ast: &'cu Ast<'cu, Self>) -> String;
 }
 
 #[derive(Debug)]
-pub struct Ast<'cu, Errors: AstErrors> {
+pub struct Ast<'cu, Error: AstError> {
     cu: &'cu lexer::CompilationUnit,
     nodes: AstNodes, // last node is always a module
     tokens: lexer::Tokens,
     diag_ctx: lexer::DiagCtx<'cu>,
-    errors: Option<Errors>,
+    error: Option<Error>,
 }
 
-impl<'cu, Errors: AstErrors> Ast<'cu, Errors> {
+impl<'cu, E: AstError> Ast<'cu, E> {
     pub(crate) fn new(cu: &'cu lexer::CompilationUnit) -> Self {
         let (tokens, diag_ctx) = cu.get_tokens();
         let tokens_len = tokens.len();
@@ -30,7 +29,7 @@ impl<'cu, Errors: AstErrors> Ast<'cu, Errors> {
             nodes: AstNodes::with_capacity(tokens_len),
             tokens,
             diag_ctx,
-            errors: None,
+            error: None,
         }
     }
     pub(crate) fn get_tokens(&self) -> &lexer::Tokens {
@@ -104,15 +103,17 @@ impl<'cu, Errors: AstErrors> Ast<'cu, Errors> {
             _ => panic!("BUG: expected Module, but got `{:?}`", module),
         }
     }
-    pub(crate) fn set_errors(&mut self, errors: Errors) {
-        self.errors = Some(errors);
+    pub(crate) fn set_error(&mut self, error: E) {
+        if !error.is_empty() {
+            self.error = Some(error);
+        }
     }
-    pub(crate) fn get_error(&self) -> Option<&Errors> {
-        self.errors.as_ref()
+    pub(crate) fn get_error(&self) -> Option<&E> {
+        self.error.as_ref()
     }
 }
 
-impl<'cu, Errors: AstErrors> std::fmt::Display for Ast<'cu, Errors> {
+impl<'cu, Error: AstError> std::fmt::Display for Ast<'cu, Error> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -136,26 +137,26 @@ impl<'cu, Errors: AstErrors> std::fmt::Display for Ast<'cu, Errors> {
                 }
             )
         )?;
-        if let Some(errors) = self.get_error() {
-            write!(f, "\nerror:\n{}", errors.get_string(self))?;
+        if let Some(error) = self.get_error() {
+            write!(f, "\nerror:\n{}", error.get_string(self))?;
         }
         Ok(())
     }
 }
 
 pub(crate) trait Indexable {
-    fn get_string<'cu, Errors: AstErrors>(&self, ast: &'cu Ast<'cu, Errors>) -> Option<String>;
+    fn get_string<'cu, Error: AstError>(&self, ast: &'cu Ast<'cu, Error>) -> Option<String>;
 }
 
 impl Indexable for lexer::TokenIdx {
-    fn get_string<'cu, Errors: AstErrors>(&self, ast: &'cu Ast<'cu, Errors>) -> Option<String> {
+    fn get_string<'cu, Error: AstError>(&self, ast: &'cu Ast<'cu, Error>) -> Option<String> {
         ast.get_token(*self)
             .map(|token| token.get_str(ast.cu).to_owned())
     }
 }
 
 impl Indexable for AstNodeIdx {
-    fn get_string<'cu, Errors: AstErrors>(&self, ast: &'cu Ast<'cu, Errors>) -> Option<String> {
+    fn get_string<'cu, Error: AstError>(&self, ast: &'cu Ast<'cu, Error>) -> Option<String> {
         let mut printer = AstPrinter::new(ast);
         ast.get_node(*self).map(|node| printer.visit(node))
     }
@@ -176,9 +177,9 @@ impl AstNode {
             statements_node_indices: Vec::with_capacity(n),
         }
     }
-    pub(crate) fn add_statement_to_module<'cu, Errors: AstErrors>(
+    pub(crate) fn add_statement_to_module<'cu, Error: AstError>(
         &mut self,
-        ast: &'cu Ast<'cu, Errors>,
+        ast: &'cu Ast<'cu, Error>,
         statement_node_idx: AstNodeIdx,
     ) {
         let printer = &mut AstPrinter::new(ast);
@@ -205,18 +206,40 @@ impl AstNode {
 pub enum Expr {
     I64(lexer::TokenIdx),
     Identifier(lexer::TokenIdx),
+    If {
+        if_kw: lexer::TokenIdx,
+        condition_node_idx: AstNodeIdx,
+        then_block_node_idx: AstNodeIdx,
+        else_kw: Option<lexer::TokenIdx>,
+        else_block_node_idx: Option<AstNodeIdx>,
+        if_node_idx: Option<AstNodeIdx>,
+    },
     StringLiteral {
         token_idx: lexer::TokenIdx,
         content: String,
     },
-    BinaryOp {
+    ArithmeticOrLogical {
         operator: lexer::TokenIdx,
         lhs: AstNodeIdx,
         rhs: AstNodeIdx,
     },
-    UnaryOp {
+    Negation {
         operator: lexer::TokenIdx,
         operand: AstNodeIdx,
+    },
+    Grouped {
+        lparen: lexer::TokenIdx,
+        expression_node_idx: AstNodeIdx,
+        rparen: lexer::TokenIdx,
+    },
+    Block {
+        lcurlybracket: lexer::TokenIdx,
+        statements_node_indices: Vec<AstNodeIdx>,
+        rcurlybracket: lexer::TokenIdx,
+    },
+    Return {
+        return_kw: lexer::TokenIdx,
+        expression_node_idx: Option<AstNodeIdx>,
     },
 }
 

@@ -50,10 +50,10 @@ let cu = lexer::CompilationUnit::from_string(
 );
 let ast = parser::parse(&cu);
 let printer = &mut ast::AstPrinter::new(&ast);
-assert_eq!(ast.accept(printer), "let x = 3;\nvar y = (x - 42);\n");
+assert_eq!(ast.accept(printer), "let x = 3;\nvar y = x - 42;\n");
 ```
 
-[ ] better error messages
+[x] better error messages
 
 ```text
 
@@ -69,4 +69,34 @@ error: `-` cannot be chained
      |        ~~^
 context: an expression must start with an expression
 context: expect an expression after `=` for a definition
+```
+
+[x] `if .. else ..`
+
+```rust
+use life_lang::{lexer, parser, ast};
+
+let cu = lexer::CompilationUnit::from_string(
+    "stdin",
+    r#"
+let x = if 3 > y {
+    return 9;
+} else if 3 == y {
+    return 42;
+} else {
+    return 0;
+};
+"#
+);
+let ast = parser::parse(&cu);
+let printer = &mut ast::AstPrinter::new(&ast);
+assert_eq!(ast.accept(printer), 
+    r#"let x = if 3 > y {
+return 9;
+} else if 3 == y {
+return 42;
+} else {
+return 0;
+};
+"#);
 ```

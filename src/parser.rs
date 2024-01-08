@@ -4,7 +4,7 @@ use crate::{ast, lexer};
 use colored::*;
 
 #[derive(Debug)]
-enum IntermediateResult {
+enum HappyPath {
     Finished,
     Node {
         node: ast::AstNode,
@@ -12,7 +12,7 @@ enum IntermediateResult {
     },
 }
 
-type ParseResult = Result<IntermediateResult, ParseError>;
+type ParseResult = Result<HappyPath, ParseError>;
 
 trait ParseResultExt {
     fn is_finished(&self) -> bool;
@@ -35,16 +35,16 @@ trait ParseResultExt {
 
 impl ParseResultExt for ParseResult {
     fn is_finished(&self) -> bool {
-        matches!(self, Ok(IntermediateResult::Finished))
+        matches!(self, Ok(HappyPath::Finished))
     }
     fn new_node(node: ast::AstNode, next_token_idx: lexer::TokenIdx) -> Self {
-        Ok(IntermediateResult::Node {
+        Ok(HappyPath::Node {
             node,
             next_token_idx,
         })
     }
     fn new_finished() -> Self {
-        Ok(IntermediateResult::Finished)
+        Ok(HappyPath::Finished)
     }
     fn new_single_error(error: SingleParseError) -> Self {
         Err(ParseError::new_single_error(error))
@@ -71,7 +71,7 @@ impl ParseResultExt for ParseResult {
         Err(ParseError::new_single_error(
             SingleParseError::UnexpectedEof {
                 msg: msg.into(),
-                start_token_idx,
+                ctx_token_idx: start_token_idx,
             },
         ))
     }
@@ -82,7 +82,7 @@ impl ParseResultExt for ParseResult {
         Err(ParseError::new_single_error(
             SingleParseError::MismatchedParentheses {
                 lparen,
-                start_token_idx,
+                error_token_idx: start_token_idx,
             },
         ))
     }
@@ -93,15 +93,16 @@ impl ParseResultExt for ParseResult {
 
 #[derive(Debug, Clone)]
 pub enum ParseError {
-    SingleParseError(SingleParseError),
-    ErrorWithContext(Vec<ParseError>),
-    AlternativeError {
-        error: SingleParseError,
-        children: Vec<ParseError>,
-    },
+    Empty,
+    MutilParseError(Vec<ParseError>),
+    SingleParseError(SingleParseError), // bare error
+    ErrorWithContext(Vec<ParseError>),  // error with context [e, ctx1, ctx2, ...]
 }
 
 impl ParseError {
+    fn no_error() -> Self {
+        Self::Empty
+    }
     fn new_single_error(error: SingleParseError) -> Self {
         Self::SingleParseError(error)
     }
@@ -112,13 +113,25 @@ impl ParseError {
                 errors.push(context);
                 Self::ErrorWithContext(errors)
             }
+            Self::Empty => panic!("BUG: cannot add context to empty error"),
             e => Self::ErrorWithContext(vec![e, context]),
         }
     }
+    fn add_new_error(self, error: ParseError) -> Self {
+        match self {
+            Self::MutilParseError(mut errors) => {
+                errors.push(error);
+                Self::MutilParseError(errors)
+            }
+            Self::Empty => error,
+            e => Self::MutilParseError(vec![e, error]),
+        }
+    }
 
-    fn get_string<'cu>(&self, ast: &'cu ast::Ast<'cu, ParseErrors>) -> String {
+    fn get_string<'cu>(&self, ast: &'cu ast::Ast<'cu, ParseError>) -> String {
         const LEN_PER_ERROR: usize = 100;
         match self {
+            Self::Empty => panic!("BUG: cannot get string from empty error"),
             Self::SingleParseError(error) => error.get_string(ast),
             Self::ErrorWithContext(errors) => {
                 let mut s = String::with_capacity(errors.len() * LEN_PER_ERROR);
@@ -127,10 +140,9 @@ impl ParseError {
                 }
                 s
             }
-            Self::AlternativeError { error, children } => {
-                let mut s = String::with_capacity((children.len() + 1) * LEN_PER_ERROR);
-                s.push_str(&error.get_string(ast));
-                for e in children {
+            Self::MutilParseError(errors) => {
+                let mut s = String::with_capacity(errors.len() * LEN_PER_ERROR);
+                for e in errors {
                     s.push_str(&e.get_string(ast));
                 }
                 s
@@ -139,39 +151,14 @@ impl ParseError {
     }
 }
 
-impl ast::AstErrors for ParseErrors {
-    type Error = ParseError;
+impl ast::AstError for ParseError {
+    type E = ParseError;
 
-    fn with_capacity(capacity: usize) -> Self {
-        Self::with_capacity(capacity)
-    }
-    fn push(&mut self, error: Self::Error) {
-        self.0.push(error);
+    fn is_empty(&self) -> bool {
+        matches!(self, Self::Empty)
     }
     fn get_string<'cu>(&self, ast: &'cu ast::Ast<'cu, Self>) -> String {
         self.get_string(ast)
-    }
-}
-
-#[derive(Debug)]
-pub struct ParseErrors(Vec<ParseError>);
-
-impl ParseErrors {
-    fn with_capacity(capacity: usize) -> Self {
-        Self(Vec::with_capacity(capacity))
-    }
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-    fn add(&mut self, error: ParseError) {
-        self.0.push(error);
-    }
-    fn get_string(&self, ast: &ast::Ast<ParseErrors>) -> String {
-        let mut s = String::with_capacity(self.0.len() * 100);
-        for e in &self.0 {
-            s.push_str(&e.get_string(ast));
-        }
-        s
     }
 }
 
@@ -182,14 +169,14 @@ pub enum SingleParseError {
     },
     UnexpectedEof {
         msg: String,
-        start_token_idx: lexer::TokenIdx,
+        ctx_token_idx: lexer::TokenIdx,
     },
     IntegerOverflow {
         token: lexer::TokenIdx,
     },
     MismatchedParentheses {
         lparen: lexer::TokenIdx,
-        start_token_idx: lexer::TokenIdx,
+        error_token_idx: lexer::TokenIdx,
     },
     UnexpectedToken {
         msg: String,
@@ -206,14 +193,14 @@ impl SingleParseError {
     fn error_str() -> ColoredString {
         "error".red()
     }
-    fn get_string<'cu>(&self, ast: &'cu ast::Ast<'cu, ParseErrors>) -> String {
+    fn get_string<'cu>(&self, ast: &'cu ast::Ast<'cu, ParseError>) -> String {
         match self {
             Self::Context { msg } => {
                 format!("{}: {}\n", Self::context_str(), msg.blue(),)
             }
             Self::UnexpectedEof {
                 msg,
-                start_token_idx,
+                ctx_token_idx: start_token_idx,
             } => {
                 format!(
                     "{}: unexpected end of file, {}\n{}",
@@ -231,7 +218,7 @@ impl SingleParseError {
             }
             Self::MismatchedParentheses {
                 lparen,
-                start_token_idx,
+                error_token_idx: start_token_idx,
             } => format!(
                 "{}: mismatched parentheses `{}`, at `{}`",
                 Self::error_str(),
@@ -267,15 +254,13 @@ impl SingleParseError {
     }
 }
 
-pub fn parse(cu: &lexer::CompilationUnit) -> ast::Ast<ParseErrors> {
+pub fn parse(cu: &lexer::CompilationUnit) -> ast::Ast<ParseError> {
     let mut ast = ast::Ast::new(cu);
 
     let tokens = ast.get_tokens();
     match dp::get_lex_errors(tokens) {
         Some(lex_errors) => {
-            let mut errors = ParseErrors::with_capacity(1);
-            errors.add(ParseError::SingleParseError(lex_errors));
-            ast.set_errors(errors);
+            ast.set_error(ParseError::new_single_error(lex_errors));
         }
         None => dp::parse_module(&mut ast, lexer::TokenIdx::new(0)),
     }
@@ -307,11 +292,11 @@ mod test_parser {
         for (expected, test_data) in [
             ("-42;\n", vec!["-42;", "- 42;", " - 42 ;", " -42 ;"]),
             (
-                "(3 - -2);\n",
+                "3 - -2;\n",
                 vec!["3--2;", "3- -2;", " 3  - - 2 ;", "3 - -2 ;", " 3 --2 ;"],
             ),
             (
-                "(-3 - -2);\n",
+                "-3 - -2;\n",
                 vec![
                     "-3--2;",
                     "-3- -2;",
@@ -340,7 +325,7 @@ mod test_parser {
         let printer = &mut ast::AstPrinter::new(&ast);
         assert_eq!(
             ast.accept(printer),
-            "let x = 3;\nvar y = (x - 42);\n",
+            "let x = 3;\nvar y = x - 42;\n",
             "ast: {}",
             ast
         );
@@ -621,6 +606,95 @@ context: expect an expression after `=` for a definition
     1|let a = (2 + 3
      |        ~~~~~~
 context: expect an expression after `=` for a definition
+"#,
+            ),
+        ] {
+            let cu = lexer::CompilationUnit::from_string("stdin", input);
+            let ast = parse(&cu);
+            assert!(ast.get_error().is_some(), "ast: {}", ast);
+            let got = ast.get_error().unwrap().get_string(&ast);
+            use pretty_assertions::assert_eq;
+            assert_eq!(got, expected);
+        }
+    }
+
+    #[test]
+    fn test_if_else() {
+        no_color();
+
+        let cu = lexer::CompilationUnit::from_string(
+            "stdin",
+            r#"
+let x = if 3 > y {
+    return 9;
+} else if 3 == y {
+    return 42;
+} else {
+    return 0;
+};
+"#,
+        );
+        let ast = parse(&cu);
+        assert!(ast.get_error().is_none(), "ast: {}", ast);
+        let printer = &mut ast::AstPrinter::new(&ast);
+        use pretty_assertions::assert_eq;
+        assert_eq!(
+            ast.accept(printer),
+            r#"let x = if 3 > y {
+return 9;
+} else if 3 == y {
+return 42;
+} else {
+return 0;
+};
+"#
+        );
+    }
+
+    #[test]
+    fn test_error_if_else() {
+        no_color();
+        for (input, expected) in [
+            (
+                r#"if {}"#,
+                r#"error: expected an expression
+    1|if {}
+     |   ^
+context: expected a logical expression after `if`
+context: this must be an expression
+"#,
+            ),
+            (
+                r#"if 3 > 4 return 7;"#,
+                r#"error: expected a `{` after `if`
+    1|if 3 > 4 return 7;
+     |~~~~~~~~~^^^^^^
+context: this must be an expression
+"#,
+            ),
+            (
+                r#"if 3 > 4 {return 7; } else"#,
+                r#"error: unexpected end of file, expected `{ .. }` or `if` after `else`
+    1|if 3 > 4 {return 7; } else
+     |                      ~~~~
+context: this must be an expression
+"#,
+            ),
+            (
+                r#"if 3 > 4 {return 7; } else x"#,
+                r#"error: expected `{ .. }` or `if` after `else`
+    1|if 3 > 4 {return 7; } else x
+     |                      ~~~~~^
+context: this must be an expression
+"#,
+            ),
+            (
+                r#"if 3 > 4 {return 7; } else if x"#,
+                r#"error: unexpected end of file, expected a `{` after `if`
+    1|if 3 > 4 {return 7; } else if x
+     |                           ~~~~
+context: not a valid `else if` expression
+context: this must be an expression
 "#,
             ),
         ] {
