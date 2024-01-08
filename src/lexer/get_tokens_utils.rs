@@ -172,14 +172,15 @@ fn take_string(cu: &CompilationUnit, mut start: UcIdx) -> Result<(UcIdx, String)
 fn get_single_char_token_kind(c: char) -> Option<TokenKind> {
     match c {
         '+' => Some(TokenKind::Plus),
-        '-' => Some(TokenKind::Dash),
+        '-' => Some(TokenKind::Minus),
         '*' => Some(TokenKind::Star),
         '/' => Some(TokenKind::Slash),
-        '%' => Some(TokenKind::Percentage),
+        '%' => Some(TokenKind::Percent),
         '(' => Some(TokenKind::LParen),
         ')' => Some(TokenKind::RParen),
         ';' => Some(TokenKind::SemiColon),
-        '=' => Some(TokenKind::Equal),
+        '{' => Some(TokenKind::LCurlyBrace),
+        '}' => Some(TokenKind::RCurlyBrace),
         _ => None,
     }
 }
@@ -188,6 +189,9 @@ fn get_keyword(s: &str) -> Option<TokenKind> {
     match s {
         "let" => Some(TokenKind::KwLet),
         "var" => Some(TokenKind::KwVar),
+        "if" => Some(TokenKind::KwIf),
+        "else" => Some(TokenKind::KwElse),
+        "return" => Some(TokenKind::KwReturn),
         _ => None,
     }
 }
@@ -232,7 +236,7 @@ pub(crate) fn try_multi_byte_char(
     }
 }
 
-pub(crate) fn try_single_char_token(
+pub(crate) fn try_single_byte_token(
     _cu: &CompilationUnit,
     tokens: &mut Tokens,
     uc_idx: UcIdx,
@@ -287,14 +291,62 @@ pub(crate) fn try_multi_byte_tokens(
     uc_idx: UcIdx,
     c: char,
 ) -> Option<UcIdx> {
-    Some(match c {
-        '0' => must_be_single_zero(cu, tokens, uc_idx),
-        '1'..='9' => must_be_integer(cu, tokens, uc_idx),
-        ' ' => must_be_spaces(cu, tokens, uc_idx),
-        '#' => must_be_comment(cu, tokens, uc_idx),
-        'a'..='z' | 'A'..='Z' | '_' => must_be_name(cu, tokens, uc_idx, c),
-        _ => invalid_stuff(cu, tokens, uc_idx, c),
-    })
+    match c {
+        '0' => Some(must_be_single_zero(cu, tokens, uc_idx)),
+        '1'..='9' => Some(must_be_integer(cu, tokens, uc_idx)),
+        ' ' => Some(must_be_spaces(cu, tokens, uc_idx)),
+        '#' => Some(must_be_comment(cu, tokens, uc_idx)),
+        'a'..='z' | 'A'..='Z' | '_' => Some(must_be_name(cu, tokens, uc_idx, c)),
+        '>' => Some(must_be_gt_or_gteq(cu, tokens, uc_idx)),
+        '<' => Some(must_be_lt_or_lteq(cu, tokens, uc_idx)),
+        '=' => Some(must_be_eq_or_assign(cu, tokens, uc_idx)),
+        '!' => Some(must_be_not_eq_or_bitwise_not(cu, tokens, uc_idx)),
+        _ => None,
+    }
+}
+
+fn must_be_not_eq_or_bitwise_not(
+    cu: &CompilationUnit,
+    tokens: &mut Tokens,
+    uc_idx: UcIdx,
+) -> UcIdx {
+    let (new_uc_idx, kind) = if cu.get_str(uc_idx + 1) == Some("=") {
+        (uc_idx + 1, TokenKind::Ne)
+    } else {
+        (uc_idx, TokenKind::Not)
+    };
+    tokens.push(kind, uc_idx, new_uc_idx);
+    new_uc_idx + 1
+}
+
+fn must_be_gt_or_gteq(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
+    let (new_uc_idx, kind) = if cu.get_str(uc_idx + 1) == Some("=") {
+        (uc_idx + 1, TokenKind::Ge)
+    } else {
+        (uc_idx, TokenKind::Gt)
+    };
+    tokens.push(kind, uc_idx, new_uc_idx);
+    new_uc_idx + 1
+}
+
+fn must_be_lt_or_lteq(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
+    let (new_uc_idx, kind) = if cu.get_str(uc_idx + 1) == Some("=") {
+        (uc_idx + 1, TokenKind::Le)
+    } else {
+        (uc_idx, TokenKind::Lt)
+    };
+    tokens.push(kind, uc_idx, new_uc_idx);
+    new_uc_idx + 1
+}
+
+fn must_be_eq_or_assign(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
+    let (new_uc_idx, kind) = if cu.get_str(uc_idx + 1) == Some("=") {
+        (uc_idx + 1, TokenKind::EqEq)
+    } else {
+        (uc_idx, TokenKind::Eq)
+    };
+    tokens.push(kind, uc_idx, new_uc_idx);
+    new_uc_idx + 1
 }
 
 pub(crate) fn must_be_comment(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx) -> UcIdx {
@@ -362,7 +414,12 @@ fn must_be_name(cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx, c: cha
     new_uc_idx + 1
 }
 
-fn invalid_stuff(_cu: &CompilationUnit, tokens: &mut Tokens, uc_idx: UcIdx, c: char) -> UcIdx {
+pub(super) fn must_be_invalid_stuff(
+    _cu: &CompilationUnit,
+    tokens: &mut Tokens,
+    uc_idx: UcIdx,
+    c: char,
+) -> UcIdx {
     tokens.push(TokenKind::FakeTokenForInvalid, uc_idx, uc_idx);
     tokens.push(
         TokenKind::Invalid {

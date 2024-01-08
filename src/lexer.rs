@@ -1,12 +1,14 @@
+mod diags;
 mod get_tokens_utils;
 mod indices;
 
+pub(crate) use diags::DiagCtx;
 use get_tokens_utils::{
-    try_multi_byte_char, try_multi_byte_tokens, try_new_line, try_single_char_token, try_string,
+    must_be_invalid_stuff, try_multi_byte_char, try_multi_byte_tokens, try_new_line,
+    try_single_byte_token, try_string,
 };
 use indices::{ByteIdx, ByteSpan, UcIdx, UcSpan};
 use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenIdx(usize);
@@ -64,15 +66,26 @@ pub(super) enum TokenKind {
     Comment,
 
     Plus,
-    Dash,
+    Minus,
     Star,
     Slash,
-    Percentage,
+    Percent,
 
     LParen,
     RParen,
+    LCurlyBrace,
+    RCurlyBrace,
 
-    Equal,
+    Eq,
+
+    Gt,
+    Lt,
+    Ge,
+    Le,
+    EqEq,
+    Ne,
+
+    Not,
 
     Identifier {
         name: String,
@@ -80,6 +93,9 @@ pub(super) enum TokenKind {
 
     KwLet,
     KwVar,
+    KwIf,
+    KwElse,
+    KwReturn,
 
     Invalid {
         msg: String,
@@ -99,16 +115,28 @@ impl std::fmt::Display for TokenKind {
             TokenKind::StringLiteral { content } => write!(f, "\"{}\"", content),
             TokenKind::Comment => write!(f, "//"),
             TokenKind::Plus => write!(f, "Plus"),
-            TokenKind::Dash => write!(f, "Dash"),
+            TokenKind::Minus => write!(f, "Minus"),
             TokenKind::Star => write!(f, "Star"),
             TokenKind::Slash => write!(f, "Slash"),
-            TokenKind::Percentage => write!(f, "Percentage"),
-            TokenKind::Equal => write!(f, "Equal"),
+            TokenKind::Percent => write!(f, "Percentage"),
+            TokenKind::Eq => write!(f, "Eq"),
+            TokenKind::Gt => write!(f, "Gt"),
+            TokenKind::Ge => write!(f, "Ge"),
+            TokenKind::Lt => write!(f, "Lt"),
+            TokenKind::Le => write!(f, "Le"),
+            TokenKind::EqEq => write!(f, "EqEq"),
+            TokenKind::Ne => write!(f, "Ne"),
+            TokenKind::Not => write!(f, "Not"),
             TokenKind::LParen => write!(f, "LParen"),
             TokenKind::RParen => write!(f, "RParen"),
+            TokenKind::LCurlyBrace => write!(f, "LCurlyBrace"),
+            TokenKind::RCurlyBrace => write!(f, "RCurlyBrace"),
             TokenKind::Identifier { .. } => write!(f, "Identifier"),
             TokenKind::KwLet => write!(f, "KwLet"),
             TokenKind::KwVar => write!(f, "KwVar"),
+            TokenKind::KwIf => write!(f, "KwIf"),
+            TokenKind::KwElse => write!(f, "KwElse"),
+            TokenKind::KwReturn => write!(f, "KwReturn"),
             TokenKind::Invalid { msg, .. } => write!(f, "{}", msg),
             TokenKind::FakeTokenForInvalid => write!(f, "FakeTokenForInvalid"),
         }
@@ -128,291 +156,29 @@ impl TokenKindRepr for TokenKind {
             TokenKind::StringLiteral { content } => format!("\"{}\"", content),
             TokenKind::Comment => String::from("//"),
             TokenKind::Plus => String::from("+"),
-            TokenKind::Dash => String::from("-"),
+            TokenKind::Minus => String::from("-"),
             TokenKind::Star => String::from("*"),
             TokenKind::Slash => String::from("/"),
-            TokenKind::Percentage => String::from("%"),
-            TokenKind::Equal => String::from("="),
+            TokenKind::Percent => String::from("%"),
+            TokenKind::Eq => String::from("="),
+            TokenKind::Gt => String::from(">"),
+            TokenKind::Ge => String::from(">="),
+            TokenKind::Lt => String::from("<"),
+            TokenKind::Le => String::from("<="),
+            TokenKind::EqEq => String::from("=="),
+            TokenKind::Ne => String::from("!="),
             TokenKind::LParen => String::from("("),
             TokenKind::RParen => String::from(")"),
+            TokenKind::LCurlyBrace => String::from("{"),
+            TokenKind::RCurlyBrace => String::from("}"),
             TokenKind::Identifier { name } => name.clone(),
             TokenKind::KwLet => String::from("let"),
             TokenKind::KwVar => String::from("var"),
+            TokenKind::KwIf => String::from("if"),
+            TokenKind::KwElse => String::from("else"),
+            TokenKind::KwReturn => String::from("return"),
             _ => self.to_string(),
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct LineNr(usize);
-
-impl LineNr {
-    fn new(i: usize) -> Self {
-        Self(i)
-    }
-    fn get(&self) -> usize {
-        self.0
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ColNr(usize);
-
-impl ColNr {
-    fn new(i: usize) -> Self {
-        Self(i)
-    }
-}
-
-#[derive(Debug)]
-pub(super) struct SingleLineDiagnostic<'cu> {
-    line: &'cu str,
-    line_nr: LineNr,
-    _col_nr: ColNr,
-    leading_width: usize,
-    ctx_width: usize,
-    error_width: usize,
-}
-
-impl std::fmt::Display for SingleLineDiagnostic<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{: >5}|{}", self.line_nr.get(), self.line)?;
-        if !self.line.ends_with('\n') {
-            writeln!(f)?;
-        }
-        if self.line != "\n" {
-            writeln!(
-                f,
-                "{: >5}|{: >leading_str_width$}{:~>ctx_width$}{:^>error_width$}",
-                "",
-                "",
-                "",
-                "",
-                leading_str_width = self.leading_width,
-                ctx_width = self.ctx_width,
-                error_width = self.error_width
-            )?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub(super) struct Diagnostics<'cu>(Vec<SingleLineDiagnostic<'cu>>);
-
-impl<'cu> Diagnostics<'cu> {
-    fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    fn push(&mut self, diag: SingleLineDiagnostic<'cu>) {
-        self.0.push(diag);
-    }
-
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
-
-impl std::fmt::Display for Diagnostics<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        for diag in &self.0 {
-            write!(f, "{}", diag)?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub(super) struct DiagCtx<'cu> {
-    line_starts: Vec<(ByteIdx, &'cu str)>,
-}
-
-impl<'cu> DiagCtx<'cu> {
-    fn with_capacity(n: usize) -> Self {
-        Self {
-            line_starts: Vec::with_capacity(n),
-        }
-    }
-    fn push(&mut self, line_starts_byte_idx: ByteIdx, line: &'cu str) {
-        self.line_starts.push((line_starts_byte_idx, line));
-    }
-
-    fn get_line(&self, start_byte_idx: ByteIdx) -> (LineNr, &'cu str) {
-        self.line_starts
-            .iter()
-            .zip(
-                self.line_starts
-                    .iter()
-                    .skip(1)
-                    .chain(std::iter::repeat(&(ByteIdx::MAX, ""))),
-            )
-            .enumerate()
-            .find(|(_, ((idx1, _), (idx2, _)))| *idx1 <= start_byte_idx && start_byte_idx < *idx2)
-            .map(|(line_nr, ((_, line), _))| (LineNr::new(line_nr + 1), *line))
-            .unwrap_or_else(|| panic!("BUG: no line found"))
-    }
-
-    fn get_diags(
-        &self,
-        mut ctx_start_byte_idx: Option<ByteIdx>,
-        mut error_byte_span: Option<ByteSpan>,
-        cu: &'cu CompilationUnit,
-    ) -> Diagnostics<'cu> {
-        let mut diags = Diagnostics::new();
-
-        loop {
-            let start_byte_idx = match (ctx_start_byte_idx, error_byte_span) {
-                (Some(real_ctx_start_byte_idx), Some(real_error_byte_span))
-                    if real_ctx_start_byte_idx == real_error_byte_span.get_start() =>
-                {
-                    // ctx and error are the same
-                    ctx_start_byte_idx = None;
-                    real_error_byte_span.get_start()
-                }
-                (Some(ctx_start_byte_idx), _) => ctx_start_byte_idx,
-                (None, Some(error_byte_span)) => error_byte_span.get_start(),
-                (None, None) => break,
-            };
-            if start_byte_idx.get() == cu.bytes_len() {
-                break;
-            }
-            let (line_nr, line) = self.get_line(start_byte_idx);
-            let line_start_byte_idx = cu.bytes_offset(line);
-
-            let (leading_str, ctx_str, error_str) = match ctx_start_byte_idx {
-                // has ctx
-                Some(real_ctx_start_byte_idx) => {
-                    let leading_str =
-                        &line[..(real_ctx_start_byte_idx.get() - line_start_byte_idx)];
-                    // has error
-                    let (ctx_str, error_str) = if let Some(real_error_byte_span) = error_byte_span {
-                        let error_start_idx =
-                            real_error_byte_span.get_start().get() - line_start_byte_idx;
-                        let error_inclusive_end_idx =
-                            real_error_byte_span.get_inclusive_end().get() - line_start_byte_idx;
-                        let line_byte_len = line.as_bytes().len();
-                        if line_byte_len > error_start_idx + 1 {
-                            // enough space for ctx, might not for error
-                            let ctx_str = &line[leading_str.len()..error_start_idx];
-                            ctx_start_byte_idx = None;
-                            let error_str = if line_byte_len > error_inclusive_end_idx {
-                                // enough space for error
-                                error_byte_span = None;
-                                &line[error_start_idx..=error_inclusive_end_idx]
-                            } else {
-                                // not enough space for error
-                                let error_str = &line[error_start_idx..];
-                                error_byte_span = Some(ByteSpan::new(
-                                    real_error_byte_span.get_start() + error_str.as_bytes().len(),
-                                    real_error_byte_span.get_inclusive_end(),
-                                ));
-                                error_str
-                            };
-                            (ctx_str, error_str)
-                        } else {
-                            // not enough space for ctx
-                            let ctx_str = &line[leading_str.len()..];
-                            ctx_start_byte_idx =
-                                Some(real_ctx_start_byte_idx + ctx_str.as_bytes().len());
-                            (ctx_str, "")
-                        }
-                    } else {
-                        // no error
-                        let ctx_str = &line[leading_str.len()..];
-                        ctx_start_byte_idx =
-                            Some(real_ctx_start_byte_idx + ctx_str.as_bytes().len());
-                        (ctx_str, "")
-                    };
-                    (leading_str, ctx_str, error_str)
-                }
-                None => {
-                    // no ctx
-                    let real_error_byte_span = error_byte_span.unwrap_or_else(|| {
-                        panic!("BUG: no ctx_start_byte_idx or error_byte_span",)
-                    });
-                    let error_start_idx =
-                        real_error_byte_span.get_start().get() - line_start_byte_idx;
-                    let error_inclusive_end_idx =
-                        real_error_byte_span.get_inclusive_end().get() - line_start_byte_idx;
-                    let line_byte_len = line.as_bytes().len();
-                    let leading_str = &line[..error_start_idx];
-                    let error_str = if line_byte_len > error_inclusive_end_idx {
-                        // enough for error
-                        error_byte_span = None;
-                        &line[error_start_idx..=error_inclusive_end_idx]
-                    } else {
-                        // not enough for error
-                        let error_str = &line[error_start_idx..];
-                        error_byte_span = Some(ByteSpan::new(
-                            real_error_byte_span.get_start() + error_str.as_bytes().len(),
-                            real_error_byte_span.get_inclusive_end(),
-                        ));
-                        error_str
-                    };
-                    (leading_str, "", error_str)
-                }
-            };
-            let leading_width = UnicodeWidthStr::width(leading_str);
-            let error_width = UnicodeWidthStr::width(error_str);
-            let ctx_width = UnicodeWidthStr::width(ctx_str);
-            let col_nr = ColNr::new(leading_str.grapheme_indices(true).count() + 1);
-
-            diags.push(SingleLineDiagnostic {
-                line,
-                line_nr,
-                _col_nr: col_nr,
-                leading_width,
-                ctx_width,
-                error_width,
-            });
-        }
-
-        if diags.is_empty() {
-            panic!("BUG: no diags");
-        }
-
-        diags
-    }
-
-    pub(super) fn get_diag_with_error_token(
-        &self,
-        error_token_idx: TokenIdx,
-        tokens: &'cu Tokens,
-        cu: &'cu CompilationUnit,
-    ) -> Diagnostics<'cu> {
-        let error_token = &tokens[error_token_idx];
-
-        self.get_diags(None, error_token.uc_span.get_byte_span(cu), cu)
-    }
-    pub(super) fn get_diag_with_ctx_token(
-        &self,
-        ctx_token_idx: TokenIdx,
-        tokens: &'cu Tokens,
-        cu: &'cu CompilationUnit,
-    ) -> Diagnostics<'cu> {
-        let ctx_token = &tokens[ctx_token_idx];
-        let ctx_token_start_byte_idx = ctx_token.uc_span.get_start_byte_idx_unchecked(cu);
-
-        self.get_diags(Some(ctx_token_start_byte_idx), None, cu)
-    }
-    pub(super) fn get_diag_with_ctx_and_error_tokens(
-        &self,
-        ctx_token_idx: TokenIdx,
-        error_token_idx: TokenIdx,
-        tokens: &'cu Tokens,
-        cu: &'cu CompilationUnit,
-    ) -> Diagnostics<'cu> {
-        let ctx_token = &tokens[ctx_token_idx];
-        let ctx_start_byte_idx = ctx_token.uc_span.get_start_byte_idx_unchecked(cu);
-
-        let error_token = &tokens[error_token_idx];
-
-        self.get_diags(
-            Some(ctx_start_byte_idx),
-            error_token.uc_span.get_byte_span(cu),
-            cu,
-        )
     }
 }
 
@@ -464,6 +230,10 @@ impl Tokens {
 
     pub(super) fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub(super) fn invalid_token_idx(&self) -> TokenIdx {
+        TokenIdx::new(self.len())
     }
 
     pub(super) fn iter(&self) -> impl Iterator<Item = &Token> {
@@ -600,17 +370,19 @@ impl CompilationUnit {
 
             let c = s.chars().next().unwrap();
             if let Some(new_uc_idx) = try_new_line(self, &mut tokens, uc_idx, c) {
-                // new linesrc_loc, &mut
-                uc_idx = new_uc_idx;
-            } else if let Some(new_uc_idx) = try_single_char_token(self, &mut tokens, uc_idx, c) {
-                // single-char tokens
-                uc_idx = new_uc_idx;
-            } else if let Some(new_uc_idx) = try_string(self, &mut tokens, uc_idx, c) {
-                // string
+                // new line
                 uc_idx = new_uc_idx;
             } else if let Some(new_uc_idx) = try_multi_byte_tokens(self, &mut tokens, uc_idx, c) {
                 // multi-char tokens
                 uc_idx = new_uc_idx;
+            } else if let Some(new_uc_idx) = try_string(self, &mut tokens, uc_idx, c) {
+                // string
+                uc_idx = new_uc_idx;
+            } else if let Some(new_uc_idx) = try_single_byte_token(self, &mut tokens, uc_idx, c) {
+                // single-char tokens
+                uc_idx = new_uc_idx;
+            } else {
+                uc_idx = must_be_invalid_stuff(self, &mut tokens, uc_idx, c);
             }
         }
 
