@@ -1,0 +1,5 @@
+tests/file_test/testdata/else_follows_not_if_or_lbrace.llang: error: expected `{ .. }` or `if` after `else`
+    1|if 3 > 4 {return 7; } else x
+     |                      ~~~~~^
+context: this must be an expression
+

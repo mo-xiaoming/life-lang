@@ -1,0 +1,5 @@
+tests/file_test/testdata/var_missing_lhs.llang: error: expected an expression
+    1|var;
+     |   ^
+context: expect an expression after `var` for a definition
+

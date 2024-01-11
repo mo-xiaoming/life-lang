@@ -1,0 +1,4 @@
+tests/file_test/testdata/unicode_escape_without_braces.llang: error: unicode should be in the format of \u{...}
+    1|let s = "abc\udef";
+     |              ^
+

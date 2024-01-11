@@ -1,0 +1,7 @@
+tests/file_test/testdata/let_missing_comma.llang: error: statement must end with `;`
+    1|let a = 2 + 3
+     |~~~~~~~~~~~~~
+    2|
+    3|let a = 3;
+     |^^^
+

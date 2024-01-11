@@ -1,0 +1,5 @@
+tests/file_test/testdata/let_rhs_only_rparen.llang: error: unexpected end of file, nothing after `(`
+    1|let a = (
+     |        ~
+context: expect an expression after `=` for a definition
+

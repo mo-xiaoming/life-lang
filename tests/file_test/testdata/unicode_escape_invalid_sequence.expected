@@ -1,0 +1,4 @@
+tests/file_test/testdata/unicode_escape_invalid_sequence.llang: error: only hex numbers are allowed in unicode sequence, `x` is not allowed
+    1|let s = "abc\u{deadxy}def";
+     |                   ^
+

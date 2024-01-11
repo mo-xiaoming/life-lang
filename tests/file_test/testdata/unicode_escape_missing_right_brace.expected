@@ -1,0 +1,4 @@
+tests/file_test/testdata/unicode_escape_missing_right_brace.llang: error: only hex numbers are allowed in unicode sequence, `"` is not allowed
+    1|let s = "abc\u{";
+     |               ^
+

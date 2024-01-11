@@ -1,0 +1,4 @@
+tests/file_test/testdata/unicode_escape_value_overflows.llang: error: `ffffffffff` is not a valid unicode code point
+    1|let s = "abc\u{ffffffffff}def";
+     |               ^
+

@@ -1,0 +1,5 @@
+tests/file_test/testdata/let_missing_lhs.llang: error: expected an expression
+    1|let +;
+     |    ^
+context: expect an expression after `let` for a definition
+

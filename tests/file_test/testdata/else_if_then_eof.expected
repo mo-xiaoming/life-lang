@@ -1,0 +1,6 @@
+tests/file_test/testdata/else_if_then_eof.llang: error: unexpected end of file, expected a `{` after `if`
+    1|if 3 > 4 {return 7; } else if x
+     |                           ~~~~
+context: not a valid `else if` expression
+context: this must be an expression
+

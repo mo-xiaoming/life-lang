@@ -68,6 +68,12 @@ impl<'cu, E: AstError> Ast<'cu, E> {
             )
         })
     }
+    pub(crate) fn get_input_origin(&self) -> String {
+        self.cu.get_origin()
+    }
+    pub fn get_diagnostics(&self) -> Option<String> {
+        self.get_error().map(|error| error.get_string(self))
+    }
     pub fn get_diag_with_error_token(&self, error_token_idx: lexer::TokenIdx) -> String {
         self.get_diag_ctx()
             .get_diag_with_error_token(error_token_idx, &self.tokens, self.cu)

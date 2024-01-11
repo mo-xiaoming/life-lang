@@ -1,0 +1,5 @@
+tests/file_test/testdata/chained_minus_number.llang: error: `-` cannot be chained
+    4|let x = - - 4;
+     |        ~~^
+context: expect an expression after `=` for a definition
+

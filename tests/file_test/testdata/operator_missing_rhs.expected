@@ -1,0 +1,6 @@
+tests/file_test/testdata/operator_missing_rhs.llang: error: expected an expression
+    1|let x = x + ;
+     |            ^
+context: operator `+` must be followed by an expression
+context: expect an expression after `=` for a definition
+

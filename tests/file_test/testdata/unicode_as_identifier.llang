@@ -1,0 +1,3 @@
+# what's the meaning of using unicode as identifier?
+
+let 常量 = 42;
