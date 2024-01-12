@@ -1,0 +1,4 @@
+tests/file_test/testdata/string_missing_right_quote.llang: error: unterminated string literal
+    1|let end = "abc;
+     |          ^
+

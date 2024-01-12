@@ -1,0 +1,5 @@
+tests/file_test/testdata/let_imcomplete_rhs.llang: error: unexpected end of file, operator `+` must be followed by an expression
+    1|let a = 2 + 
+     |          ~~
+context: expect an expression after `=` for a definition
+

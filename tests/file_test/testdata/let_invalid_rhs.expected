@@ -1,0 +1,7 @@
+tests/file_test/testdata/let_invalid_rhs.llang: error: expected an expression
+    1|let a = (2 + );
+     |             ^
+context: operator `+` must be followed by an expression
+context: not a valid expression between `()`
+context: expect an expression after `=` for a definition
+

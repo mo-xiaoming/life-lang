@@ -1,0 +1,6 @@
+tests/file_test/testdata/if_missing_condition.llang: error: expected an expression
+    1|if {}
+     |   ^
+context: expected a logical expression after `if`
+context: this must be an expression
+

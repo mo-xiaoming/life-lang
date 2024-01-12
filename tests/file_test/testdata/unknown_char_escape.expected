@@ -1,0 +1,4 @@
+tests/file_test/testdata/unknown_char_escape.llang: error: invalid escape char `z`
+    3|let s = "abc\zdef";
+     |             ^
+

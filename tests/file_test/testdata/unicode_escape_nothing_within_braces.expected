@@ -1,0 +1,4 @@
+tests/file_test/testdata/unicode_escape_nothing_within_braces.llang: error: unicode should be in the format of \u{...}, cannot be empty between `{}`
+    1|let s = "abc\u{}";
+     |               ^
+

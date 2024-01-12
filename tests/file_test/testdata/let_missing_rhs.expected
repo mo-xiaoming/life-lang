@@ -1,0 +1,5 @@
+tests/file_test/testdata/let_missing_rhs.llang: error: expected an expression
+    1|let a = ;
+     |        ^
+context: expect an expression after `=` for a definition
+

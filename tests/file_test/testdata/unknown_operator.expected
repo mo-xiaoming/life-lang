@@ -1,0 +1,4 @@
+tests/file_test/testdata/unknown_operator.llang: error: unsupported `^`
+    1|2^4;
+     | ^
+

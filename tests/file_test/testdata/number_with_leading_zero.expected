@@ -1,0 +1,4 @@
+tests/file_test/testdata/number_with_leading_zero.llang: error: leading zero is not allowed
+    3|let x = 042;
+     |        ^^^
+

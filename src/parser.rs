@@ -187,64 +187,70 @@ pub enum SingleParseError {
 }
 
 impl SingleParseError {
-    fn context_str() -> ColoredString {
-        "context".blue()
+    fn get_context_msg(&self, msg: &str) -> String {
+        format!("context: {}\n", msg).blue().bold().to_string()
     }
-    fn error_str() -> ColoredString {
-        "error".red()
+    fn get_error_msg<'cu>(
+        &self,
+        ast: &'cu ast::Ast<'cu, ParseError>,
+        msg: &str,
+        diag: &str,
+    ) -> String {
+        format!(
+            "{filename}: {cate}: {msg}\n{diag}",
+            filename = ast.get_input_origin().bold(),
+            cate = "error".red().bold(),
+            msg = msg.red().bold(),
+            diag = diag,
+        )
     }
     fn get_string<'cu>(&self, ast: &'cu ast::Ast<'cu, ParseError>) -> String {
         match self {
-            Self::Context { msg } => {
-                format!("{}: {}\n", Self::context_str(), msg.blue(),)
-            }
-            Self::UnexpectedEof {
-                msg,
-                ctx_token_idx: start_token_idx,
-            } => {
-                format!(
-                    "{}: unexpected end of file, {}\n{}",
-                    Self::error_str(),
-                    msg.red(),
-                    ast.get_diag_with_ctx_token(*start_token_idx)
-                )
-            }
-            Self::IntegerOverflow { token: token_idx } => {
-                format!(
-                    "{}: integer overflow `{}`",
-                    Self::error_str(),
-                    ast.get_diag_with_ctx_token(*token_idx)
-                )
-            }
+            Self::Context { msg } => self.get_context_msg(msg),
+            Self::UnexpectedEof { msg, ctx_token_idx } => self.get_error_msg(
+                ast,
+                &format!("unexpected end of file, {}", msg),
+                &ast.get_diag_with_ctx_token(*ctx_token_idx),
+            ),
+            Self::IntegerOverflow { token: token_idx } => self.get_error_msg(
+                ast,
+                &format!(
+                    "integer overflow `{}`",
+                    ast.get_string_unchecked(*token_idx)
+                ),
+                &ast.get_diag_with_ctx_token(*token_idx),
+            ),
             Self::MismatchedParentheses {
                 lparen,
-                error_token_idx: start_token_idx,
-            } => format!(
-                "{}: mismatched parentheses `{}`, at `{}`",
-                Self::error_str(),
-                ast.get_diag_with_ctx_token(*lparen),
-                ast.get_diag_with_ctx_token(*start_token_idx),
+                error_token_idx,
+            } => self.get_error_msg(
+                ast,
+                &format!(
+                    "mismatched parentheses `{}`",
+                    ast.get_string_unchecked(*lparen)
+                ),
+                &[
+                    ast.get_diag_with_ctx_token(*lparen),
+                    ast.get_diag_with_ctx_token(*error_token_idx),
+                ]
+                .join(""),
             ),
             Self::UnexpectedToken {
                 msg,
                 ctx_start_token_idx: start_token_idx,
                 error_token_idx,
-            } => {
-                format!(
-                    "{}: {}\n{}",
-                    Self::error_str(),
-                    msg.red(),
-                    ast.get_diag_with_ctx_and_error_tokens(*start_token_idx, *error_token_idx),
-                )
-            }
+            } => self.get_error_msg(
+                ast,
+                msg,
+                &ast.get_diag_with_ctx_and_error_tokens(*start_token_idx, *error_token_idx),
+            ),
             Self::LexErrors(errors) => {
                 let mut result = String::with_capacity(errors.len() * 80);
                 for (error_token_idx, msg) in errors {
-                    let formatted = format!(
-                        "{}: {}\n{}",
-                        Self::error_str(),
-                        msg.red(),
-                        ast.get_diag_with_error_token(*error_token_idx)
+                    let formatted = self.get_error_msg(
+                        ast,
+                        msg,
+                        &ast.get_diag_with_error_token(*error_token_idx),
                     );
                     result.push_str(&formatted);
                 }
@@ -271,13 +277,8 @@ pub fn parse(cu: &lexer::CompilationUnit) -> ast::Ast<ParseError> {
 mod test_parser {
     use super::*;
 
-    fn no_color() {
-        colored::control::set_override(false);
-    }
-
     #[test]
     fn test_empty_ast() {
-        no_color();
         for s in ["", " ", ";", "\r\n\n;", "  ;", "\r\n\n", ";;"] {
             let cu = lexer::CompilationUnit::from_string("stdin", s);
             let ast = parse(&cu);
@@ -288,7 +289,6 @@ mod test_parser {
 
     #[test]
     fn test_negative_numbers() {
-        no_color();
         for (expected, test_data) in [
             ("-42;\n", vec!["-42;", "- 42;", " - 42 ;", " -42 ;"]),
             (
@@ -318,7 +318,6 @@ mod test_parser {
 
     #[test]
     fn test_definitions() {
-        no_color();
         let cu = lexer::CompilationUnit::from_string("stdin", "let x = 3; var y = x - 42;");
         let ast = parse(&cu);
         assert!(ast.get_error().is_none(), "ast: {}", ast);
@@ -333,7 +332,6 @@ mod test_parser {
 
     #[test]
     fn test_eval() {
-        no_color();
         for (s, expected) in [
             ("1;", 1i64),
             ("1+1;", 2),
@@ -355,7 +353,6 @@ mod test_parser {
 
     #[test]
     fn test_string() {
-        no_color();
         let cu = lexer::CompilationUnit::from_string(
             "stdin",
             r#"" \u{41} x\u{4f60}xy{}\u{597d}a\u{1f316}";"#,
@@ -367,261 +364,7 @@ mod test_parser {
     }
 
     #[test]
-    fn test_lex_errors() {
-        no_color();
-        let input = r#"
-# what's the meaning of using unicode as identifier?
-
-let 常量 = 42;
-
-# `042` is not supported
-
-let x = 042;
-
-2^4;
-
-# \z is not a valid escape char
-
-let s = "abc\zdef";
-
-let s = "abc\udef";
-
-let s = "abc\u";
-
-let s = "abc\u{}";
-
-let s = "abc\u{";
-
-let s = "abc\u{deadxy}def";
-
-let s = "abc\u{deadbeef}def";
-
-let s = "abc\u{ffffffffff}def";
-
-let end = "abc;
-
-# no \" after this line
-"#;
-        let cu = lexer::CompilationUnit::from_string("stdin", input);
-        let ast = parse(&cu);
-        assert!(ast.get_error().is_some(), "ast: {}", ast);
-        let got = ast.get_error().unwrap().get_string(&ast);
-        let expected = r#"error: multi-char unicode like `常` only supported in strings and comments
-    4|let 常量 = 42;
-     |    ^^^^
-error: leading zero is not allowed
-    8|let x = 042;
-     |        ^^^
-error: unsupported `^`
-   10|2^4;
-     | ^
-error: invalid escape char `z`
-   14|let s = "abc\zdef";
-     |             ^
-error: unicode should be in the format of \u{...}
-   16|let s = "abc\udef";
-     |              ^
-error: unicode should be in the format of \u{...}
-   18|let s = "abc\u";
-     |              ^
-error: unicode should be in the format of \u{...}, cannot be empty between `{}`
-   20|let s = "abc\u{}";
-     |               ^
-error: only hex numbers are allowed in unicode sequence, `"` is not allowed
-   22|let s = "abc\u{";
-     |               ^
-error: only hex numbers are allowed in unicode sequence, `x` is not allowed
-   24|let s = "abc\u{deadxy}def";
-     |                   ^
-error: `deadbeef` is not a valid unicode code point
-   26|let s = "abc\u{deadbeef}def";
-     |               ^
-error: `ffffffffff` is not a valid unicode code point
-   28|let s = "abc\u{ffffffffff}def";
-     |               ^
-error: unterminated string literal
-   30|let end = "abc;
-     |          ^
-"#;
-        use pretty_assertions::assert_eq;
-        assert_eq!(got, expected);
-    }
-
-    #[test]
-    fn test_lex_errors_across_multi_lines() {
-        no_color();
-        let input = r#"
-let s = "abc
-def
-(\z)
-xyz";
-"#;
-        let cu = lexer::CompilationUnit::from_string("stdin", input);
-        let ast = parse(&cu);
-        assert!(ast.get_error().is_some(), "ast: {}", ast);
-        let got = ast.get_error().unwrap().get_string(&ast);
-        let expected = r#"error: invalid escape char `z`
-    4|(\z)
-     |  ^
-"#;
-        use pretty_assertions::assert_eq;
-        assert_eq!(got, expected);
-    }
-
-    #[test]
-    fn test_parse_error() {
-        no_color();
-        for (input, expected) in [
-            (
-                r#"
-# following line should not have two `-`
-# it is not supported
-
-let x = - - 4;
-
-let x = -a;
-
-let x = x + ;
-
-let +;
-
-var;
-
-let a xyz;
-
-let a = ;
-
-let a = (2 + );
-
-let a = 2 + 3
-
-let a = 3;
-"#,
-                r#"error: `-` cannot be chained
-    5|let x = - - 4;
-     |        ~~^
-context: expect an expression after `=` for a definition
-error: expected a number after `-`
-    7|let x = -a;
-     |        ~^
-context: expect an expression after `=` for a definition
-error: expected an expression
-    9|let x = x + ;
-     |            ^
-context: operator `+` must be followed by an expression
-context: expect an expression after `=` for a definition
-error: expected an expression
-   11|let +;
-     |    ^
-context: expect an expression after `let` for a definition
-error: expected an expression
-   13|var;
-     |   ^
-context: expect an expression after `var` for a definition
-error: expected definition format `let ... = ...`, but could not find `=`
-   15|let a xyz;
-     |~~~~~~^^^
-error: expected an expression
-   17|let a = ;
-     |        ^
-context: expect an expression after `=` for a definition
-error: expected an expression
-   19|let a = (2 + );
-     |             ^
-context: operator `+` must be followed by an expression
-context: not a valid expression between `()`
-context: expect an expression after `=` for a definition
-error: statement must end with `;`
-   21|let a = 2 + 3
-     |~~~~~~~~~~~~~
-   22|
-   23|let a = 3;
-     |^^^
-"#,
-            ),
-            (
-                r#"let x = - "#,
-                r#"error: unexpected end of file, expected a number after `-`
-    1|let x = - 
-     |        ~~
-context: expect an expression after `=` for a definition
-"#,
-            ),
-            (
-                r#"let"#,
-                r#"error: unexpected end of file, expect an expression after `let` for a definition
-    1|let
-     |~~~
-"#,
-            ),
-            (
-                r"let a ",
-                r#"error: unexpected end of file, expected definition format `let ... = ...`, but could not find `=`
-    1|let a 
-     |~~~~~~
-"#,
-            ),
-            (
-                r#"let a = "#,
-                r#"error: unexpected end of file, expect an expression after `=` for a definition
-    1|let a = 
-     |~~~~~~~~
-"#,
-            ),
-            (
-                r#"let a = 2 + "#,
-                r#"error: unexpected end of file, operator `+` must be followed by an expression
-    1|let a = 2 + 
-     |          ~~
-context: expect an expression after `=` for a definition
-"#,
-            ),
-            (
-                r#"let a = 2 + 3"#,
-                r#"error: unexpected end of file, statement must end with `;`
-    1|let a = 2 + 3
-     |~~~~~~~~~~~~~
-"#,
-            ),
-            (
-                r#"let a = (2 + "#,
-                r#"error: unexpected end of file, operator `+` must be followed by an expression
-    1|let a = (2 + 
-     |           ~~
-context: not a valid expression between `()`
-context: expect an expression after `=` for a definition
-"#,
-            ),
-            (
-                r#"let a = ("#,
-                r#"error: unexpected end of file, nothing after `(`
-    1|let a = (
-     |        ~
-context: expect an expression after `=` for a definition
-"#,
-            ),
-            (
-                r#"let a = (2 + 3"#,
-                r#"error: unexpected end of file, no matching `)`
-    1|let a = (2 + 3
-     |        ~~~~~~
-context: expect an expression after `=` for a definition
-"#,
-            ),
-        ] {
-            let cu = lexer::CompilationUnit::from_string("stdin", input);
-            let ast = parse(&cu);
-            assert!(ast.get_error().is_some(), "ast: {}", ast);
-            let got = ast.get_error().unwrap().get_string(&ast);
-            use pretty_assertions::assert_eq;
-            assert_eq!(got, expected);
-        }
-    }
-
-    #[test]
     fn test_if_else() {
-        no_color();
-
         let cu = lexer::CompilationUnit::from_string(
             "stdin",
             r#"
@@ -649,61 +392,5 @@ return 0;
 };
 "#
         );
-    }
-
-    #[test]
-    fn test_error_if_else() {
-        no_color();
-        for (input, expected) in [
-            (
-                r#"if {}"#,
-                r#"error: expected an expression
-    1|if {}
-     |   ^
-context: expected a logical expression after `if`
-context: this must be an expression
-"#,
-            ),
-            (
-                r#"if 3 > 4 return 7;"#,
-                r#"error: expected a `{` after `if`
-    1|if 3 > 4 return 7;
-     |~~~~~~~~~^^^^^^
-context: this must be an expression
-"#,
-            ),
-            (
-                r#"if 3 > 4 {return 7; } else"#,
-                r#"error: unexpected end of file, expected `{ .. }` or `if` after `else`
-    1|if 3 > 4 {return 7; } else
-     |                      ~~~~
-context: this must be an expression
-"#,
-            ),
-            (
-                r#"if 3 > 4 {return 7; } else x"#,
-                r#"error: expected `{ .. }` or `if` after `else`
-    1|if 3 > 4 {return 7; } else x
-     |                      ~~~~~^
-context: this must be an expression
-"#,
-            ),
-            (
-                r#"if 3 > 4 {return 7; } else if x"#,
-                r#"error: unexpected end of file, expected a `{` after `if`
-    1|if 3 > 4 {return 7; } else if x
-     |                           ~~~~
-context: not a valid `else if` expression
-context: this must be an expression
-"#,
-            ),
-        ] {
-            let cu = lexer::CompilationUnit::from_string("stdin", input);
-            let ast = parse(&cu);
-            assert!(ast.get_error().is_some(), "ast: {}", ast);
-            let got = ast.get_error().unwrap().get_string(&ast);
-            use pretty_assertions::assert_eq;
-            assert_eq!(got, expected);
-        }
     }
 }

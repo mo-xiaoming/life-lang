@@ -1,0 +1,4 @@
+tests/file_test/testdata/let_missing_operator_rhs_inside_parens.llang: error: unexpected end of file, statement must end with `;`
+    1|let a = 2 + 3
+     |~~~~~~~~~~~~~
+

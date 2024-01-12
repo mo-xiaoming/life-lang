@@ -1,0 +1,4 @@
+tests/file_test/testdata/unicode_escape_value_too_large.llang: error: `deadbeef` is not a valid unicode code point
+    1|let s = "abc\u{deadbeef}def";
+     |               ^
+

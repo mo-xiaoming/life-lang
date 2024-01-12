@@ -1,0 +1,5 @@
+tests/file_test/testdata/if_then_missing_braces.llang: error: expected a `{` after `if`
+    1|if 3 > 4 return 7;
+     |~~~~~~~~~^^^^^^
+context: this must be an expression
+

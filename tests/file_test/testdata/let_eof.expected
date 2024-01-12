@@ -1,0 +1,4 @@
+tests/file_test/testdata/let_eof.llang: error: unexpected end of file, expect an expression after `let` for a definition
+    1|let
+     |~~~
+

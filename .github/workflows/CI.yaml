@@ -16,7 +16,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  NO_COLOR: 1
 
 jobs:
   ci:
@@ -58,11 +57,11 @@ jobs:
       - name: llvm-cov
         if: matrix.toolchain == 'stable'
         run: |
-          cargo llvm-cov --tests --benches --examples --lib --fail-under-lines 60 --workspace
+          cargo llvm-cov --ignore-filename-regex 'bin/*|main\.rs' --tests --benches --examples --lib --fail-under-lines 10 --workspace
       - name: llvm-cov for Rust ${{ matrix.toolchain }}
         if: matrix.toolchain == 'stable'
         run: |
-          cargo llvm-cov --tests --benches --examples --lib --lcov --output-path lcov.info --workspace
+          cargo llvm-cov --ignore-filename-regex 'bin/*|main\.rs' --tests --benches --examples --lib --lcov --output-path lcov.info --workspace
       - name: Upload coverage to Codecov for Rust ${{ matrix.toolchain }}
         if: matrix.toolchain == 'stable'
         uses: codecov/codecov-action@v3

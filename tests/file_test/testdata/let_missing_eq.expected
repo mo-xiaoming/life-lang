@@ -1,0 +1,4 @@
+tests/file_test/testdata/let_missing_eq.llang: error: expected definition format `let ... = ...`, but could not find `=`
+    1|let a xyz;
+     |~~~~~~^^^
+

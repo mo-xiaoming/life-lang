@@ -1,0 +1,4 @@
+tests/file_test/testdata/let_lhs_eof.llang: error: unexpected end of file, expected definition format `let ... = ...`, but could not find `=`
+    1|let a 
+     |~~~~~~
+

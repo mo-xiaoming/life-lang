@@ -1,0 +1,4 @@
+# following line should not have two `-`
+# it is not supported
+
+let x = - - 4;

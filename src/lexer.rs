@@ -338,7 +338,7 @@ impl CompilationUnit {
         }
     }
 
-    fn get_origin(&self) -> String {
+    pub(crate) fn get_origin(&self) -> String {
         match &self.kind {
             CompilationUnitKind::FromFile { path } => format!("{}", path.display()),
             CompilationUnitKind::FromString { mark } => String::from(mark),

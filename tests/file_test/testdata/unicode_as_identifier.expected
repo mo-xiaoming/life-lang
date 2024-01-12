@@ -1,0 +1,4 @@
+tests/file_test/testdata/unicode_as_identifier.llang: error: multi-char unicode like `常` only supported in strings and comments
+    3|let 常量 = 42;
+     |    ^^^^
+

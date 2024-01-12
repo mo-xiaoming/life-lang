@@ -1,0 +1,4 @@
+tests/file_test/testdata/lex_error_across_multi_lines.llang: error: invalid escape char `z`
+    3|(\z)
+     |  ^
+

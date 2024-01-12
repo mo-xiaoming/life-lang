@@ -1,0 +1,5 @@
+tests/file_test/testdata/let_rhs_missing_rparen_eof.llang: error: unexpected end of file, no matching `)`
+    1|let a = (2+3
+     |        ~~~~
+context: expect an expression after `=` for a definition
+

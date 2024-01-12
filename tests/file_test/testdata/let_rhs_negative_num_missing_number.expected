@@ -1,0 +1,5 @@
+tests/file_test/testdata/let_rhs_negative_num_missing_number.llang: error: unexpected end of file, expected a number after `-`
+    1|let x = - 
+     |        ~~
+context: expect an expression after `=` for a definition
+

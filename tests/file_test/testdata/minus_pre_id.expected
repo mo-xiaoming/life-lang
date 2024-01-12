@@ -1,0 +1,5 @@
+tests/file_test/testdata/minus_pre_id.llang: error: expected a number after `-`
+    1|let x = -a;
+     |        ~^
+context: expect an expression after `=` for a definition
+
