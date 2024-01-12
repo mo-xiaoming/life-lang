@@ -384,11 +384,11 @@ let x = if 3 > y {
         assert_eq!(
             ast.accept(printer),
             r#"let x = if 3 > y {
-return 9;
+    return 9;
 } else if 3 == y {
-return 42;
+    return 42;
 } else {
-return 0;
+    return 0;
 };
 "#
         );

@@ -18,12 +18,22 @@ impl<'cu, E: AstError> AstPrinter<'cu, E> {
 
 impl<'cu, E: AstError> AstNodeVisitor<String> for AstPrinter<'cu, E> {
     fn visit(&mut self, node: &AstNode) -> String {
+        self.print_with_indent(node, 0)
+    }
+}
+
+impl<'cu, E: AstError> AstPrinter<'cu, E> {
+    fn get_leading_indent(indent: usize) -> String {
+        const INDENT_WIDTH: usize = 4;
+        " ".repeat(indent * INDENT_WIDTH)
+    }
+    fn print_with_indent(&mut self, node: &AstNode, indent: usize) -> String {
         match node {
             AstNode::Module {
                 statements_node_indices,
             } => statements_node_indices
                 .iter()
-                .map(|idx| self.visit(self.ast.get_node_unchecked(*idx)))
+                .map(|idx| self.print_with_indent(self.ast.get_node_unchecked(*idx), indent))
                 .collect(),
             AstNode::Statement(Stat::Definition {
                 kw,
@@ -32,7 +42,8 @@ impl<'cu, E: AstError> AstNodeVisitor<String> for AstPrinter<'cu, E> {
                 rhs_expression_node_idx,
             }) => {
                 format!(
-                    "{} {} {} {};\n",
+                    "{}{} {} {} {};\n",
+                    Self::get_leading_indent(indent),
                     self.ast.get_string_unchecked(*kw),
                     self.ast.get_string_unchecked(*lhs_expression_node_idx),
                     self.ast.get_string_unchecked(*eq),
@@ -41,8 +52,12 @@ impl<'cu, E: AstError> AstNodeVisitor<String> for AstPrinter<'cu, E> {
             }
             AstNode::Statement(Stat::Expression(expression_node_idx)) => {
                 format!(
-                    "{};\n",
-                    self.visit(self.ast.get_node_unchecked(*expression_node_idx))
+                    "{}{};\n",
+                    Self::get_leading_indent(indent),
+                    self.print_with_indent(
+                        self.ast.get_node_unchecked(*expression_node_idx),
+                        indent + 1
+                    )
                 )
             }
             AstNode::Expression(Expr::If {
@@ -121,7 +136,8 @@ impl<'cu, E: AstError> AstNodeVisitor<String> for AstPrinter<'cu, E> {
                     self.ast.get_string_unchecked(*lcurlybracket),
                     statements_node_indices
                         .iter()
-                        .map(|idx| self.visit(self.ast.get_node_unchecked(*idx)))
+                        .map(|idx| self
+                            .print_with_indent(self.ast.get_node_unchecked(*idx), indent + 1))
                         .collect::<Vec<_>>()
                         .join(""),
                     self.ast.get_string_unchecked(*rcurlybracket)
