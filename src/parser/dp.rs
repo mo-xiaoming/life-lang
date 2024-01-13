@@ -175,6 +175,31 @@ pub(super) fn parse_module(ast: &mut ast::Ast<ParseError>, mut next_token_idx: T
     ast.set_module(module_node);
 }
 
+fn parse_type_from_colon(ast: &mut ast::Ast<ParseError>, colon_token_idx: TokenIdx) -> ParseResult {
+    let no_type_err_fn = || "expected a type expression";
+
+    let Some((type_start_token_idx, type_start_token)) = ast
+        .get_tokens()
+        .find_next_non_blank_token(colon_token_idx + 1)
+    else {
+        return ParseResult::new_error_unexpected_eof(no_type_err_fn(), colon_token_idx + 1);
+    };
+
+    match type_start_token.get_kind() {
+        lexer::TokenKind::Identifier { .. } => ParseResult::new_node(
+            ast::AstNode::Annotation(ast::Anno::Type {
+                token_idx: type_start_token_idx,
+            }),
+            type_start_token_idx + 1,
+        ),
+        _ => ParseResult::new_error_unexpected_token(
+            no_type_err_fn(),
+            colon_token_idx,
+            type_start_token_idx,
+        ),
+    }
+}
+
 // either returns a definiton statement or an error, never returns `IntermediateResult::Finished`
 //
 // first token is `let` or `var`
@@ -202,27 +227,49 @@ fn parse_definition_statement(
         return ParseResult::new_error_unexpected_eof(no_lhs_expr_err_fn(), kw_token_idx);
     };
 
-    // must be `=`
-    let no_eq_err_msg_fn = || {
-        format!(
-            "expected definition format `{kw} ... {eq} ...`, but could not find `{eq}`",
-            kw = kw_kind.get_string_repr(),
-            eq = lexer::TokenKind::Eq.get_string_repr()
-        )
-    };
-    let Some((eq_token_idx, eq_token)) = ast
+    // is there an type annotation?
+    let mut colon_token_idx = None;
+    let mut type_token_idx = None;
+    let mut next_token_idx_before_eq = after_lhs_token_idx;
+    if let Some((colon_token_idx_, colon_token)) = ast
         .get_tokens()
         .find_next_non_blank_token(after_lhs_token_idx)
-    else {
-        return ParseResult::new_error_unexpected_eof(no_eq_err_msg_fn(), kw_token_idx);
-    };
-    if eq_token.get_kind() != &lexer::TokenKind::Eq {
-        return ParseResult::new_error_unexpected_token(
-            no_eq_err_msg_fn(),
-            kw_token_idx,
-            eq_token_idx,
-        );
+    {
+        if colon_token.get_kind() == &lexer::TokenKind::Colon {
+            let no_type_error_fn = || {
+                format!(
+                    "expected a type expression after `{}`",
+                    lexer::TokenKind::Colon.get_string_repr()
+                )
+            };
+            let HappyPath::Node {
+                node: type_expr,
+                next_token_idx: after_type_token_idx,
+            } = parse_type_from_colon(ast, colon_token_idx_)
+                .map_err(|e| e.add_error_context(no_type_error_fn()))?
+            else {
+                return ParseResult::new_error_unexpected_eof(no_type_error_fn(), colon_token_idx_);
+            };
+            colon_token_idx = Some(colon_token_idx_);
+            type_token_idx = Some(ast.push_node(type_expr));
+            next_token_idx_before_eq = after_type_token_idx;
+        }
     }
+
+    // must be `=`
+    let eq_token_idx = must_find(
+        ast.get_tokens(),
+        kw_token_idx,
+        next_token_idx_before_eq,
+        || {
+            format!(
+                "expected definition format `{kw} ... {eq} ...`, but could not find `{eq}`",
+                kw = kw_kind.get_string_repr(),
+                eq = lexer::TokenKind::Eq.get_string_repr()
+            )
+        },
+        |token_kind| token_kind == &lexer::TokenKind::Eq,
+    )?;
 
     // rhs is an expression
     let no_rhs_expr_err_fn = || {
@@ -241,18 +288,29 @@ fn parse_definition_statement(
     };
 
     // ;
-    match must_be_semicolon_ends_statement(ast.get_tokens(), kw_token_idx, after_rhs_token_idx) {
-        Ok(after_semicolon_token_idx) => ParseResult::new_node(
-            ast::AstNode::Statement(ast::Stat::Definition {
-                kw: kw_token_idx,
-                lhs_expression_node_idx: ast.push_node(lhs_expr),
-                eq: eq_token_idx,
-                rhs_expression_node_idx: ast.push_node(rhs_expr),
-            }),
-            after_semicolon_token_idx,
-        ),
-        Err(e) => ParseResult::new_single_error(e),
-    }
+    let semicolon_token_idx = must_find(
+        ast.get_tokens(),
+        kw_token_idx,
+        after_rhs_token_idx,
+        || {
+            format!(
+                "statement must end with `{}`",
+                lexer::TokenKind::SemiColon.get_string_repr()
+            )
+        },
+        |token_kind| token_kind == &lexer::TokenKind::SemiColon,
+    )?;
+    ParseResult::new_node(
+        ast::AstNode::Statement(ast::Stat::Definition {
+            kw: kw_token_idx,
+            lhs_expression_node_idx: ast.push_node(lhs_expr),
+            colon: colon_token_idx,
+            type_node_idx: type_token_idx,
+            eq: eq_token_idx,
+            rhs_expression_node_idx: ast.push_node(rhs_expr),
+        }),
+        semicolon_token_idx + 1,
+    )
 }
 
 // either returns an expression or an error, never returns `IntermediateResult::Finished`
@@ -272,13 +330,22 @@ fn try_parse_expression_statement(
     };
 
     // ;
-    match must_be_semicolon_ends_statement(ast.get_tokens(), next_token_idx, after_expr_token_idx) {
-        Ok(after_semicolon_token_idx) => ParseResult::new_node(
-            ast::AstNode::Statement(ast::Stat::Expression(ast.push_node(node))),
-            after_semicolon_token_idx,
-        ),
-        Err(e) => ParseResult::new_single_error(e),
-    }
+    let semicolon_token_idx = must_find(
+        ast.get_tokens(),
+        next_token_idx,
+        after_expr_token_idx,
+        || {
+            format!(
+                "statement must end with `{}`",
+                lexer::TokenKind::SemiColon.get_string_repr()
+            )
+        },
+        |token_kind| token_kind == &lexer::TokenKind::SemiColon,
+    )?;
+    ParseResult::new_node(
+        ast::AstNode::Statement(ast::Stat::Expression(ast.push_node(node))),
+        semicolon_token_idx + 1,
+    )
 }
 
 fn find_start_of_non_empty_statement<'cu>(
@@ -297,31 +364,26 @@ fn find_start_of_non_empty_statement<'cu>(
     None
 }
 
-fn must_be_semicolon_ends_statement(
+fn must_find(
     tokens: &Tokens,
-    stat_start_token_idx: TokenIdx,
+    ctx_start_token_idx: TokenIdx,
     next_token_idx: TokenIdx,
+    err_msg_fn: impl FnOnce() -> String,
+    match_token_kind_fn: impl FnOnce(&lexer::TokenKind) -> bool,
 ) -> Result<TokenIdx, SingleParseError> {
-    let no_eol_err_fn = || {
-        format!(
-            "statement must end with `{}`",
-            lexer::TokenKind::SemiColon.get_string_repr()
-        )
-    };
-
     let Some((token_idx, token)) = tokens.find_next_non_blank_token(next_token_idx) else {
         return Err(SingleParseError::UnexpectedEof {
-            msg: no_eol_err_fn(),
-            ctx_token_idx: stat_start_token_idx,
+            msg: err_msg_fn(),
+            ctx_token_idx: ctx_start_token_idx,
         });
     };
 
-    if token.get_kind() == &lexer::TokenKind::SemiColon {
-        Ok(token_idx + 1)
+    if match_token_kind_fn(token.get_kind()) {
+        Ok(token_idx)
     } else {
         Err(SingleParseError::UnexpectedToken {
-            msg: no_eol_err_fn(),
-            ctx_start_token_idx: stat_start_token_idx,
+            msg: err_msg_fn(),
+            ctx_start_token_idx,
             error_token_idx: token_idx,
         })
     }
@@ -607,41 +669,29 @@ fn parse_if_expression(ast: &mut ast::Ast<ParseError>, if_kw_token_idx: TokenIdx
         return ParseResult::new_error_unexpected_eof(no_cond_expr_err_fn(), if_kw_token_idx);
     };
 
-    // then expression
-    let no_curly_block_err_fn = || {
-        format!(
-            "expected a `{}` after `{}`",
-            lexer::TokenKind::LCurlyBrace.get_string_repr(),
-            lexer::TokenKind::KwIf.get_string_repr()
-        )
-    };
+    // then {
+    let then_lcurlybrace_token_idx = must_find(
+        ast.get_tokens(),
+        if_kw_token_idx,
+        after_cond_expr_token_idx,
+        || {
+            format!(
+                "expected a `{}` after `{}`",
+                lexer::TokenKind::LCurlyBrace.get_string_repr(),
+                lexer::TokenKind::KwIf.get_string_repr()
+            )
+        },
+        |token_kind| token_kind == &lexer::TokenKind::LCurlyBrace,
+    )?;
 
-    let (then_lcurlybrace_token_idx, _) = match ast
-        .get_tokens()
-        .find_next_non_blank_token(after_cond_expr_token_idx)
-    {
-        Some((token_idx, token)) if token.get_kind() == &lexer::TokenKind::LCurlyBrace => {
-            (token_idx, token)
-        }
-        Some((token_idx, _)) => {
-            return ParseResult::new_error_unexpected_token(
-                no_curly_block_err_fn(),
-                if_kw_token_idx,
-                token_idx,
-            );
-        }
-        None => {
-            return ParseResult::new_error_unexpected_eof(no_curly_block_err_fn(), if_kw_token_idx)
-        }
-    };
-
+    let no_valid_block_err_fn = || "not a valid block";
     let HappyPath::Node {
         node: curly_block,
         next_token_idx: after_curly_block_token_idx,
     } = parse_block_expression(ast, then_lcurlybrace_token_idx)
-        .map_err(|e| e.add_error_context(no_curly_block_err_fn()))?
+        .map_err(|e| e.add_error_context(no_valid_block_err_fn()))?
     else {
-        return ParseResult::new_error_unexpected_eof(no_curly_block_err_fn(), if_kw_token_idx);
+        return ParseResult::new_error_unexpected_eof(no_valid_block_err_fn(), if_kw_token_idx);
     };
 
     // else

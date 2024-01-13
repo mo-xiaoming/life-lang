@@ -79,7 +79,7 @@ use life_lang::{lexer, parser, ast};
 let cu = lexer::CompilationUnit::from_string(
     "stdin",
     r#"
-let x = if 3 > y {
+let x: u64 = if 3 > y {
     return 9;
 } else if 3 == y {
     return 42;
@@ -91,12 +91,12 @@ let x = if 3 > y {
 let ast = parser::parse(&cu);
 let printer = &mut ast::AstPrinter::new(&ast);
 assert_eq!(ast.accept(printer), 
-    r#"let x = if 3 > y {
-return 9;
+    r#"let x: u64 = if 3 > y {
+    return 9;
 } else if 3 == y {
-return 42;
+    return 42;
 } else {
-return 0;
+    return 0;
 };
 "#);
 ```

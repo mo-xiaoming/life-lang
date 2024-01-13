@@ -1,0 +1,5 @@
+tests/file_test/testdata/let_no_type_after_colon_eof.llang: error: unexpected end of file, expected a type expression
+    1|let a : 
+     |       ~
+context: expected a type expression after `:`
+

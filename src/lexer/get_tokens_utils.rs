@@ -181,6 +181,7 @@ fn get_single_char_token_kind(c: char) -> Option<TokenKind> {
         ';' => Some(TokenKind::SemiColon),
         '{' => Some(TokenKind::LCurlyBrace),
         '}' => Some(TokenKind::RCurlyBrace),
+        ':' => Some(TokenKind::Colon),
         _ => None,
     }
 }

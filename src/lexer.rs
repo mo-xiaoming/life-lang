@@ -70,6 +70,7 @@ pub(super) enum TokenKind {
     Star,
     Slash,
     Percent,
+    Colon,
 
     LParen,
     RParen,
@@ -119,6 +120,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Star => write!(f, "Star"),
             TokenKind::Slash => write!(f, "Slash"),
             TokenKind::Percent => write!(f, "Percentage"),
+            TokenKind::Colon => write!(f, "Colon"),
             TokenKind::Eq => write!(f, "Eq"),
             TokenKind::Gt => write!(f, "Gt"),
             TokenKind::Ge => write!(f, "Ge"),
@@ -160,6 +162,7 @@ impl TokenKindRepr for TokenKind {
             TokenKind::Star => String::from("*"),
             TokenKind::Slash => String::from("/"),
             TokenKind::Percent => String::from("%"),
+            TokenKind::Colon => String::from(":"),
             TokenKind::Eq => String::from("="),
             TokenKind::Gt => String::from(">"),
             TokenKind::Ge => String::from(">="),

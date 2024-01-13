@@ -14,6 +14,12 @@ enum HappyPath {
 
 type ParseResult = Result<HappyPath, ParseError>;
 
+impl From<SingleParseError> for ParseError {
+    fn from(error: SingleParseError) -> Self {
+        Self::new_single_error(error)
+    }
+}
+
 trait ParseResultExt {
     fn is_finished(&self) -> bool;
     fn new_node(node: ast::AstNode, next_token_idx: lexer::TokenIdx) -> Self;
@@ -318,13 +324,13 @@ mod test_parser {
 
     #[test]
     fn test_definitions() {
-        let cu = lexer::CompilationUnit::from_string("stdin", "let x = 3; var y = x - 42;");
+        let cu = lexer::CompilationUnit::from_string("stdin", "let x = 3; var y: u64 = x - 42;");
         let ast = parse(&cu);
         assert!(ast.get_error().is_none(), "ast: {}", ast);
         let printer = &mut ast::AstPrinter::new(&ast);
         assert_eq!(
             ast.accept(printer),
-            "let x = 3;\nvar y = x - 42;\n",
+            "let x = 3;\nvar y: u64 = x - 42;\n",
             "ast: {}",
             ast
         );
@@ -384,11 +390,11 @@ let x = if 3 > y {
         assert_eq!(
             ast.accept(printer),
             r#"let x = if 3 > y {
-return 9;
+    return 9;
 } else if 3 == y {
-return 42;
+    return 42;
 } else {
-return 0;
+    return 0;
 };
 "#
         );
