@@ -1,0 +1,5 @@
+tests/file_test/testdata/let_no_type_after_colon.llang: error: expected a type expression
+    1|let a: = 3;
+     |     ~~^
+context: expected a type expression after `:`
+

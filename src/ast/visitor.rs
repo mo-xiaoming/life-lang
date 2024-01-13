@@ -1,4 +1,4 @@
-use super::{Ast, AstError, AstNode, Expr, Stat};
+use super::{Anno, Ast, AstError, AstNode, Expr, Stat};
 use crate::lexer;
 
 pub trait AstNodeVisitor<R> {
@@ -38,16 +38,24 @@ impl<'cu, E: AstError> AstPrinter<'cu, E> {
             AstNode::Statement(Stat::Definition {
                 kw,
                 lhs_expression_node_idx,
+                colon,
+                type_node_idx,
                 eq,
                 rhs_expression_node_idx,
             }) => {
                 format!(
-                    "{}{} {} {} {};\n",
-                    Self::get_leading_indent(indent),
-                    self.ast.get_string_unchecked(*kw),
-                    self.ast.get_string_unchecked(*lhs_expression_node_idx),
-                    self.ast.get_string_unchecked(*eq),
-                    self.ast.get_string_unchecked(*rhs_expression_node_idx)
+                    "{indent}{kw} {lhs}{colon}{type_} {eq} {rhs};\n",
+                    indent = Self::get_leading_indent(indent),
+                    kw = self.ast.get_string_unchecked(*kw),
+                    lhs = self.ast.get_string_unchecked(*lhs_expression_node_idx),
+                    colon = colon
+                        .map(|idx| self.ast.get_string_unchecked(idx) + " ")
+                        .unwrap_or(String::new()),
+                    type_ = type_node_idx
+                        .map(|idx| self.ast.get_string_unchecked(idx))
+                        .unwrap_or(String::new()),
+                    eq = self.ast.get_string_unchecked(*eq),
+                    rhs = self.ast.get_string_unchecked(*rhs_expression_node_idx)
                 )
             }
             AstNode::Statement(Stat::Expression(expression_node_idx)) => {
@@ -154,6 +162,9 @@ impl<'cu, E: AstError> AstPrinter<'cu, E> {
                         .map(|idx| self.ast.get_string_unchecked(idx))
                         .unwrap_or_else(|| "".to_owned())
                 )
+            }
+            AstNode::Annotation(Anno::Type { token_idx }) => {
+                self.ast.get_string_unchecked(*token_idx)
             }
         }
     }
@@ -311,6 +322,9 @@ impl<'cu, E: AstError> AstNodeVisitor<Result<Option<i64>, String>> for AstEvalua
                 expression_node_idx,
                 ..
             }) => self.visit(self.ast.get_node_unchecked(expression_node_idx.unwrap())),
+            AstNode::Annotation(Anno::Type { .. }) => {
+                panic!("BUG: doesn't support eval an annotation")
+            }
         }
     }
 }

@@ -175,6 +175,31 @@ pub(super) fn parse_module(ast: &mut ast::Ast<ParseError>, mut next_token_idx: T
     ast.set_module(module_node);
 }
 
+fn parse_type_from_colon(ast: &mut ast::Ast<ParseError>, colon_token_idx: TokenIdx) -> ParseResult {
+    let no_type_err_fn = || "expected a type expression";
+
+    let Some((type_start_token_idx, type_start_token)) = ast
+        .get_tokens()
+        .find_next_non_blank_token(colon_token_idx + 1)
+    else {
+        return ParseResult::new_error_unexpected_eof(no_type_err_fn(), colon_token_idx + 1);
+    };
+
+    match type_start_token.get_kind() {
+        lexer::TokenKind::Identifier { .. } => ParseResult::new_node(
+            ast::AstNode::Annotation(ast::Anno::Type {
+                token_idx: type_start_token_idx,
+            }),
+            type_start_token_idx + 1,
+        ),
+        _ => ParseResult::new_error_unexpected_token(
+            no_type_err_fn(),
+            colon_token_idx,
+            type_start_token_idx,
+        ),
+    }
+}
+
 // either returns a definiton statement or an error, never returns `IntermediateResult::Finished`
 //
 // first token is `let` or `var`
@@ -202,6 +227,35 @@ fn parse_definition_statement(
         return ParseResult::new_error_unexpected_eof(no_lhs_expr_err_fn(), kw_token_idx);
     };
 
+    // is there an type annotation?
+    let mut colon_token_idx = None;
+    let mut type_token_idx = None;
+    let mut next_token_idx_before_eq = after_lhs_token_idx;
+    if let Some((colon_token_idx_, colon_token)) = ast
+        .get_tokens()
+        .find_next_non_blank_token(after_lhs_token_idx)
+    {
+        if colon_token.get_kind() == &lexer::TokenKind::Colon {
+            let no_type_error_fn = || {
+                format!(
+                    "expected a type expression after `{}`",
+                    lexer::TokenKind::Colon.get_string_repr()
+                )
+            };
+            let HappyPath::Node {
+                node: type_expr,
+                next_token_idx: after_type_token_idx,
+            } = parse_type_from_colon(ast, colon_token_idx_)
+                .map_err(|e| e.add_error_context(no_type_error_fn()))?
+            else {
+                return ParseResult::new_error_unexpected_eof(no_type_error_fn(), colon_token_idx_);
+            };
+            colon_token_idx = Some(colon_token_idx_);
+            type_token_idx = Some(ast.push_node(type_expr));
+            next_token_idx_before_eq = after_type_token_idx;
+        }
+    }
+
     // must be `=`
     let no_eq_err_msg_fn = || {
         format!(
@@ -212,7 +266,7 @@ fn parse_definition_statement(
     };
     let Some((eq_token_idx, eq_token)) = ast
         .get_tokens()
-        .find_next_non_blank_token(after_lhs_token_idx)
+        .find_next_non_blank_token(next_token_idx_before_eq)
     else {
         return ParseResult::new_error_unexpected_eof(no_eq_err_msg_fn(), kw_token_idx);
     };
@@ -246,6 +300,8 @@ fn parse_definition_statement(
             ast::AstNode::Statement(ast::Stat::Definition {
                 kw: kw_token_idx,
                 lhs_expression_node_idx: ast.push_node(lhs_expr),
+                colon: colon_token_idx,
+                type_node_idx: type_token_idx,
                 eq: eq_token_idx,
                 rhs_expression_node_idx: ast.push_node(rhs_expr),
             }),

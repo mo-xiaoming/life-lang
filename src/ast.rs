@@ -175,6 +175,7 @@ pub enum AstNode {
     },
     Statement(Stat),
     Expression(Expr),
+    Annotation(Anno),
 }
 
 impl AstNode {
@@ -255,9 +256,16 @@ pub enum Stat {
     Definition {
         kw: lexer::TokenIdx,
         lhs_expression_node_idx: AstNodeIdx,
+        colon: Option<lexer::TokenIdx>,
+        type_node_idx: Option<AstNodeIdx>,
         eq: lexer::TokenIdx,
         rhs_expression_node_idx: AstNodeIdx,
     },
+}
+
+#[derive(Debug)]
+pub enum Anno {
+    Type { token_idx: lexer::TokenIdx },
 }
 
 #[derive(Debug)]
