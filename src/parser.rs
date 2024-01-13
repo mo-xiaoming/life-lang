@@ -14,6 +14,12 @@ enum HappyPath {
 
 type ParseResult = Result<HappyPath, ParseError>;
 
+impl From<SingleParseError> for ParseError {
+    fn from(error: SingleParseError) -> Self {
+        Self::new_single_error(error)
+    }
+}
+
 trait ParseResultExt {
     fn is_finished(&self) -> bool;
     fn new_node(node: ast::AstNode, next_token_idx: lexer::TokenIdx) -> Self;
