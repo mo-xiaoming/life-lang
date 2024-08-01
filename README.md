@@ -1,1 +1,1 @@
-# cpp-nix-template
+# life-lang compiler

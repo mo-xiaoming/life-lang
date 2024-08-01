@@ -1,5 +1,9 @@
-#include "lib.hpp"
-
+#include <boost/algorithm/string.hpp>
 #include <iostream>
+#include <string>
 
-int main() { std::cout << lib::foo("hello") << '\n'; }
+int main() {
+  std::string s = "Hello, World!";
+  boost::to_upper(s);
+  std::cout << s << '\n';
+}
