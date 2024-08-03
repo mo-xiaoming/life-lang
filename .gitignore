@@ -4,8 +4,5 @@ compile_commands.json
 tags
 .vscode/
 vcpkg_installed/
-/bazel-bin/
-/bazel-life-lang/
-/bazel-out/
-/bazel-testlogs/
-/external/
+CMakeUserPresets.json
+
