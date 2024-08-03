@@ -36,10 +36,12 @@ jobs:
         sudo apt-get install -y gcc-${{ matrix.gcc-version }} g++-${{ matrix.gcc-version }}
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ matrix.gcc-version }} 10
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ matrix.gcc-version }} 10
+        gcc --version
+        g++ --version
 
-    - name: Install CMake
+    - name: Install CMake & Ninja
       run: |
-        sudo apt-get install -y cmake
+        sudo apt-get install -y cmake ninja-build
 
     - name: Setup vcpkg
       run: |
