@@ -1,0 +1,43 @@
+name: CI Build and Test
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-and-tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        preset: [ "debug", "release", "debug-asan-ubsan", "release-asan-ubsan" ]
+        gcc-version: [13, 14]
+        
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup GCC ${{ matrix.gcc-version }}
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        sudo apt-get update
+        sudo apt-get install -y ${{ matrix.gcc }} ${{ matrix.gxx }}
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/${{ matrix.gcc }} 10
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/${{ matrix.gxx }} 10
+
+    - name: Configure
+      run: cmake --preset ${{ matrix.preset }}
+
+    - name: Build
+      run: cmake --build --preset ${{ matrix.preset }}
+
+    - name: Test
+      run: ctest --preset ${{ matrix.preset }}
+
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: test-result-${{ matrix.gcc-version }}-${{ matrix.preset }}
+        path: build/${{ matrix.preset }}/Testing/Temporary/LastTest.log
