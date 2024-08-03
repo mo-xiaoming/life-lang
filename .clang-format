@@ -1,4 +1,3 @@
-BasedOnStyle: LLVM
+BasedOnStyle: Google
 QualifierAlignment: Right
-PointerAlignment: Left
 ColumnLimit: 120

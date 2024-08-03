@@ -67,33 +67,29 @@
   ],
   "buildPresets": [
     {
-      "name": "common",
-      "verbose": true
-    },
-    {
       "name": "debug",
       "configurePreset": "debug",
-      "inherits": "common"
+      "verbose": true
     },
     {
       "name": "release",
       "configurePreset": "release",
-      "inherits": "common"
+      "verbose": true
     },
     {
       "name": "debug-asan-ubsan",
       "configurePreset": "debug-asan-ubsan",
-      "inherits": "common"
+      "verbose": true
     },
     {
       "name": "release-asan-ubsan",
       "configurePreset": "release-asan-ubsan",
-      "inherits": "common"
+      "verbose": true
     },
     {
       "name": "default",
       "configurePreset": "default",
-      "inherits": "common"
+      "verbose": true
     }
   ],
   "testPresets": [

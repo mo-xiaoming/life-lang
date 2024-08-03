@@ -37,7 +37,9 @@ target_compile_features(default_compile_features INTERFACE cxx_std_20)
 
 # Define default compile options
 add_library(default_compile_options INTERFACE)
-target_compile_options(default_compile_options INTERFACE "$<$<NOT:$<CONFIG:Release>>:-U_FORTIFY_SOURCE;-D_GLIBCXX_DEBUG;-D_GLIBCXX_ASSERTIONS;-O0;-ggdb3;-fno-omit-frame-pointer;-fno-inline;-fno-sanitize-recover=all>")
+
+# remove -D_GLIBCXX_DEBUG, it causes other libraries, like gtest, built without these flags crash
+target_compile_options(default_compile_options INTERFACE "$<$<NOT:$<CONFIG:Release>>:-U_FORTIFY_SOURCE;-D_GLIBCXX_ASSERTIONS;-O0;-ggdb3;-fno-omit-frame-pointer;-fno-inline;-fno-sanitize-recover=all>")
 
 # target_compile_options(default_compile_options INTERFACE -fno-exceptions -fno-rtti)
 target_compile_options(default_compile_options INTERFACE "$<$<CONFIG:Release>:-march=native>")
@@ -58,8 +60,8 @@ if(ENABLE_ASAN_AND_UBSAN)
   message(STATUS "Enabling AddressSanitizer and UndefinedBehaviorSanitizer")
   add_library(default_sanitizer_compile_options INTERFACE)
   add_library(default_sanitizer_link_options INTERFACE)
-  target_compile_options(default_sanitizer_compile_options INTERFACE "$<$<CONFIG:ASanAndUBSan>:-fsanitize=address,undefined;-fno-optimize-sibling-calls;-fsanitize=float-divide-by-zero;-fsanitize=float-cast-overflow>")
-  target_link_options(default_sanitizer_link_options INTERFACE "$<$<CONFIG:ASanAndUBSan>:-fsanitize=address,undefined;-fno-optimize-sibling-calls;-fsanitize=float-divide-by-zero;-fsanitize=float-cast-overflow>")
+  target_compile_options(default_sanitizer_compile_options INTERFACE -fsanitize=address,undefined -fno-optimize-sibling-calls -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow)
+  target_link_options(default_sanitizer_link_options INTERFACE -fsanitize=address,undefined -fno-optimize-sibling-calls -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow)
   target_compile_options(default_sanitizer_compile_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
   target_link_options(default_sanitizer_link_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
 endif()
