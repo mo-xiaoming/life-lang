@@ -1,9 +1,17 @@
 # Enable export of compile commands for tools like clang-tidy
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Set default build type to asan/ubsan if not specified
+# Enable verbose build output
+option(ENABLE_VERBOSE_BUILD "Enable verbose build output" OFF)
+
+if(ENABLE_VERBOSE_BUILD)
+  set(CMAKE_VERBOSE_MAKEFILE ON)
+  set(CMAKE_RULE_MESSAGES OFF)
+endif()
+
+# Set default build type to asan/ubsan debug if not specified
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "ASanAndUBSan")
+  set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
 message(STATUS "build type: ${CMAKE_BUILD_TYPE}")
@@ -44,12 +52,17 @@ target_compile_options(default_compile_warnings INTERFACE -Wall -Wextra -Wshadow
 target_compile_options(default_compile_warnings INTERFACE "$<$<CXX_COMPILER_ID:GNU>:-Wmisleading-indentation;-Wduplicated-cond;-Wduplicated-branches;-Wlogical-op;-Wuseless-cast>")
 
 # Define default sanitizer compile options
-add_library(default_sanitizer_compile_options INTERFACE)
-add_library(default_sanitizer_link_options INTERFACE)
-target_compile_options(default_sanitizer_compile_options INTERFACE "$<$<CONFIG:ASanAndUBSan>:-fsanitize=address,undefined;-fno-optimize-sibling-calls;-fsanitize=float-divide-by-zero;-fsanitize=float-cast-overflow>")
-target_link_options(default_sanitizer_link_options INTERFACE "$<$<CONFIG:ASanAndUBSan>:-fsanitize=address,undefined;-fno-optimize-sibling-calls;-fsanitize=float-divide-by-zero;-fsanitize=float-cast-overflow>")
-target_compile_options(default_sanitizer_compile_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
-target_link_options(default_sanitizer_link_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+
+if(ENABLE_ASAN_AND_UBSAN)
+  message(STATUS "Enabling AddressSanitizer and UndefinedBehaviorSanitizer")
+  add_library(default_sanitizer_compile_options INTERFACE)
+  add_library(default_sanitizer_link_options INTERFACE)
+  target_compile_options(default_sanitizer_compile_options INTERFACE "$<$<CONFIG:ASanAndUBSan>:-fsanitize=address,undefined;-fno-optimize-sibling-calls;-fsanitize=float-divide-by-zero;-fsanitize=float-cast-overflow>")
+  target_link_options(default_sanitizer_link_options INTERFACE "$<$<CONFIG:ASanAndUBSan>:-fsanitize=address,undefined;-fno-optimize-sibling-calls;-fsanitize=float-divide-by-zero;-fsanitize=float-cast-overflow>")
+  target_compile_options(default_sanitizer_compile_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
+  target_link_options(default_sanitizer_link_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
+endif()
 
 # Define project defaults, it can be added to any target with target_link_libraries
 add_library(project_defaults INTERFACE)

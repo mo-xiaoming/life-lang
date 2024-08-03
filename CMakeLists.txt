@@ -4,17 +4,20 @@ project(life-lang LANGUAGES CXX)
 
 # Default C++ project settings
 include(cmake/ProjectDefaults.cmake)
-
-# Clang-Tidy
-find_program(CLANG_TIDY "clang-tidy")
-if(CLANG_TIDY)
-    set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY})
-endif()
+include(cmake/ProjectTools.cmake)
 
 # Find packages
 find_package(Boost CONFIG REQUIRED COMPONENTS algorithm spirit)
 find_package(fmt CONFIG REQUIRED)
 
-# Add executable
-add_executable(lifec src/main.cpp)
-target_link_libraries(lifec PRIVATE project_defaults Boost::algorithm Boost::spirit fmt::fmt)
+# lib and binaries
+add_subdirectory(src)
+
+# Enable testing
+enable_testing()
+
+# Enable gtest_discover_tests
+include(CTest)
+set(CTEST_NO_TESTS_ACTION "ERROR")
+set(CTEST_OUTPUT_ON_FAILURE TRUE)
+add_subdirectory(tests)
