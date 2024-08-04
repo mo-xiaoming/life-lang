@@ -55,7 +55,7 @@ jobs:
       run: cmake --preset ${{ inputs.preset }}
 
     - name: Build
-      run: cmake --build --preset ${{ inputs.preset }}
+      run: cmake --build --preset ${{ inputs.preset }} -j
 
     - name: Test
       run: ctest --preset ${{ inputs.preset }}

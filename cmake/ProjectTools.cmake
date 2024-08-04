@@ -7,11 +7,9 @@ if(ENABLE_CLANG_TIDY)
 
     set(CLANG_TIDY_OPTIONS
         -warnings-as-errors=*,-misc-include-cleaner
-        -extra-arg-before=-fno-modules-ts
         -extra-arg=-Wno-unknown-warning-option
         -extra-arg=-Wno-ignored-optimization-argument
         -extra-arg=-Wno-unknown-pragmas
-        -extra-arg=-Wno-unknown-argument
         -extra-arg=-Wno-unused-command-line-argument
     )
 
