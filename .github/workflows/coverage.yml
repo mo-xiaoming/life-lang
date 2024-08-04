@@ -16,11 +16,47 @@ jobs:
         gcc-version: [13]
 
     steps:
-    - name: Run common build and test
-      uses: ./.github/workflows/common.yml
-      with:
-        gcc-version: ${{ matrix.gcc-version }}
-        preset: ${{ matrix.preset }}
+    - uses: actions/checkout@v4
+
+    - name: Setup GCC ${{ matrix.gcc-version }}
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        sudo apt-get update
+        sudo apt-get install -y gcc-${{ matrix.gcc-version }} g++-${{ matrix.gcc-version }}
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ matrix.gcc-version }} 10
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ matrix.gcc-version }} 10
+        gcc --version
+        g++ --version
+
+    - name: Install CMake & Ninja
+      run: |
+        wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
+        sudo apt-get remove --purge --auto-remove cmake
+        sudo apt-get install -y cmake ninja-build
+        cmake --version
+
+    - name: Setup vcpkg
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git
+        ./vcpkg/bootstrap-vcpkg.sh 
+    
+    - name: Install LLVM
+      run: |
+        sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+        sudo apt-get update
+        sudo apt install -y clang-18 clang-tidy-18
+        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 10
+        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 10
+        sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 10
+
+    - name: Configure
+      run: cmake --preset ${{ matrix.preset }}
+
+    - name: Build
+      run: cmake --build --preset ${{ matrix.preset }}
+
+    - name: Test
+      run: ctest --preset ${{ matrix.preset }}
 
     - name: Generate coverage report
       run: |
