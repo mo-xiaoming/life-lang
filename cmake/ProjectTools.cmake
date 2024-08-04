@@ -5,8 +5,16 @@ if(ENABLE_CLANG_TIDY)
     message(STATUS "Enabling Clang-Tidy")
     find_program(CLANG_TIDY "clang-tidy")
 
+    set(CLANG_TIDY_OPTIONS
+        -warnings-as-errors=*,-misc-include-cleaner
+        -extra-arg=-Wno-unknown-warning-option
+        -extra-arg=-Wno-ignored-optimization-argument
+        -extra-arg=-Wno-unknown-pragmas
+        -extra-arg=-Wno-unused-command-line-argument
+    )
+
     if(CLANG_TIDY)
-        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY};-warnings-as-errors=*,-misc-include-cleaner;-extra-arg=-fcolor-diagnostics")
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY};${CLANG_TIDY_OPTIONS}")
     else()
         message(FATAL_ERROR "clang-tidy not found")
     endif()

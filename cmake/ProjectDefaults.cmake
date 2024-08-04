@@ -51,7 +51,7 @@ add_library(default_compile_warnings INTERFACE)
 set(CMAKE_CXX_FLAGS_DEBUG "")
 target_compile_options(default_compile_warnings INTERFACE "$<$<CONFIG:Release>:-Werror;-Wfatal-errors>")
 target_compile_options(default_compile_warnings INTERFACE -Wall -Wextra -Wshadow -Wold-style-cast -Wcast-align -Wcast-qual -Wunused -Wconversion -Wsign-conversion -Wnull-dereference -Wdouble-promotion -Wformat=2 -Wfloat-equal -Wmissing-declarations -Wmissing-include-dirs -Wredundant-decls -Wundef -Wzero-as-null-pointer-constant)
-target_compile_options(default_compile_warnings INTERFACE "$<$<CXX_COMPILER_ID:GNU>:-Wmisleading-indentation;-Wlogical-op;-Wuseless-cast>")
+target_compile_options(default_compile_warnings INTERFACE "$<$<CXX_COMPILER_ID:GNU>:-Wmisleading-indentation;-Wduplicated-cond;-Wduplicated-branches;-Wlogical-op;-Wuseless-cast>")
 
 # Define default sanitizer compile options
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
