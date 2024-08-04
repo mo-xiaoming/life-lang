@@ -1,7 +1,15 @@
 # Clang-Tidy
-find_program(CLANG_TIDY "clang-tidy")
-if(CLANG_TIDY)
-    set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY})
+option(ENABLE_CLANG_TIDY "Enable Clang-Tidy" ON)
+
+if(ENABLE_CLANG_TIDY)
+    message(STATUS "Enabling Clang-Tidy")
+    find_program(CLANG_TIDY "clang-tidy")
+
+    if(CLANG_TIDY)
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY};-warnings-as-errors=*,-misc-include-cleaner;-extra-arg=-fcolor-diagnostics")
+    else()
+        message(FATAL_ERROR "clang-tidy not found")
+    endif()
 endif()
 
 # Add coverage flags

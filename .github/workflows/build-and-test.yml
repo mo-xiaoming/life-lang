@@ -14,52 +14,27 @@ concurrency:
   group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
   cancel-in-progress: true
 
-env:
-  VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-
 jobs:
-  build-and-tests:
-    runs-on: ubuntu-24.04
+  build-and-tests-one:
+    strategy:
+      matrix:
+        preset: [ "debug-asan-ubsan" ]
+        gcc-version: [13]
+    uses: ./.github/workflows/common.yml
+    with:
+      gcc-version: ${{ matrix.gcc-version }}
+      preset: ${{ matrix.preset }}
 
+  build-and-tests:
+    needs: build-and-tests-one
     strategy:
       matrix:
         preset: [ "debug", "release", "debug-asan-ubsan", "release-asan-ubsan" ]
-        gcc-version: [13, 14]
-        
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup GCC ${{ matrix.gcc-version }}
-      run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-        sudo apt-get update
-        sudo apt-get install -y gcc-${{ matrix.gcc-version }} g++-${{ matrix.gcc-version }}
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ matrix.gcc-version }} 10
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ matrix.gcc-version }} 10
-        gcc --version
-        g++ --version
-
-    - name: Install CMake & Ninja
-      run: |
-        sudo apt-get install -y cmake ninja-build
-
-    - name: Setup vcpkg
-      run: |
-        git clone https://github.com/microsoft/vcpkg.git
-        ./vcpkg/bootstrap-vcpkg.sh 
-
-    - name: Configure
-      run: cmake --preset ${{ matrix.preset }}
-
-    - name: Build
-      run: cmake --build --preset ${{ matrix.preset }}
-
-    - name: Test
-      run: ctest --preset ${{ matrix.preset }}
-
-    - name: Upload Test Results
-      if: always()
-      uses: actions/upload-artifact@v2
-      with:
-        name: test-result-${{ matrix.gcc-version }}-${{ matrix.preset }}
-        path: build/${{ matrix.preset }}/Testing/Temporary/LastTest.log
+        gcc-version: [13]
+        exclude:
+          - preset: "debug-asan-ubsan"
+            gcc-version: 13
+    uses: ./.github/workflows/common.yml
+    with:
+      gcc-version: ${{ matrix.gcc-version }}
+      preset: ${{ matrix.preset }}
