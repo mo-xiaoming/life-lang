@@ -10,6 +10,7 @@ if(ENABLE_CLANG_TIDY)
         -extra-arg=-Wno-unknown-warning-option
         -extra-arg=-Wno-ignored-optimization-argument
         -extra-arg=-Wno-unknown-pragmas
+        -extra-arg=-Wno-unknown-argument
         -extra-arg=-Wno-unused-command-line-argument
     )
 
