@@ -54,7 +54,7 @@ target_compile_options(default_compile_warnings INTERFACE -Wall -Wextra -Wshadow
 target_compile_options(default_compile_warnings INTERFACE "$<$<CXX_COMPILER_ID:GNU>:-Wmisleading-indentation;-Wduplicated-cond;-Wduplicated-branches;-Wlogical-op;-Wuseless-cast>")
 
 # Define default sanitizer compile options
-option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(ENABLE_ASAN_AND_UBSAN "Enable AddressSanitizer" OFF)
 
 if(ENABLE_ASAN_AND_UBSAN)
   message(STATUS "Enabling AddressSanitizer and UndefinedBehaviorSanitizer")
