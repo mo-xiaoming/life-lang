@@ -1,10 +1,13 @@
 name: Coverage
 
 on:
-  workflow_run:
-    workflows: ["Build and Test"]
-    types:
-      - completed
+  schedule:
+    - cron: '0 21 * * FRI' # Run every Friday at 21:00 UTC
+  workflow_dispatch:       # Allows manual triggering of the workflow
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
 
 jobs:
   build-and-coverage:

@@ -1,13 +1,10 @@
 name: CI Build and Test
 
 on:
-  schedule:
-    - cron: '0 21 * * FRI' # Run every Friday at 21:00 UTC
-  workflow_dispatch:       # Allows manual triggering of the workflow
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+  workflow_run:
+    workflows: ["Coverage"]
+    types:
+      - completed
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
