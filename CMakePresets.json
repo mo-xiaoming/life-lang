@@ -103,7 +103,7 @@
     },
     {
       "name": "coverage",
-      "configuration": "coverage",
+      "configurePreset": "coverage",
       "verbose": true
     }
   ],
