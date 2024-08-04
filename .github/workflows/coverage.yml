@@ -1,10 +1,10 @@
 name: Coverage
 
 on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+  workflow_run:
+    workflows: ["Build and Test"]
+    types:
+      - completed
 
 jobs:
   build-and-coverage:
@@ -28,27 +28,20 @@ jobs:
         gcc --version
         g++ --version
 
-    - name: Install CMake & Ninja
+    - name: Install CMake & Ninja & lcov
       run: |
         wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
         sudo apt-get remove --purge --auto-remove cmake
-        sudo apt-get install -y cmake ninja-build
+        sudo apt-get install -y cmake ninja-build lcov
         cmake --version
+        ninja --version
+        lcov --version
 
     - name: Setup vcpkg
       run: |
         git clone https://github.com/microsoft/vcpkg.git
         ./vcpkg/bootstrap-vcpkg.sh 
     
-    - name: Install LLVM
-      run: |
-        sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-        sudo apt-get update
-        sudo apt install -y clang-18 clang-tidy-18
-        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 10
-        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 10
-        sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 10
-
     - name: Configure
       run: cmake --preset ${{ matrix.preset }}
 

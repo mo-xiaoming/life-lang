@@ -71,6 +71,10 @@
         "ENABLE_COVERAGE": {
           "type": "BOOL",
           "value": "ON"
+        },
+        "ENABLE_CLANG_TIDY": {
+          "type": "BOOL",
+          "value": "OFF"
         }
       }
     }
