@@ -1,4 +1,3 @@
-
 #include <gtest/gtest.h>
 
 #include <boost/spirit/home/x3.hpp>
@@ -74,4 +73,6 @@ INSTANTIATE_TEST_SUITE_P(ParseDoubleTests, ParseDoubleTest,
                            return std::string{param_info.param.name};
                          });
 
+// keep it here till we have meaningful things to test in lib
+// otherwise, coverage will fail for nothing to cover
 TEST(CoverageTest, Foo) { EXPECT_EQ("hello", lib::foo("hello")); }

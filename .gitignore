@@ -5,4 +5,5 @@ tags
 .vscode/
 vcpkg_installed/
 CMakeUserPresets.json
+/Testing/
 
