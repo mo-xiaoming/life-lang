@@ -30,7 +30,7 @@ jobs:
     strategy:
       matrix:
         preset: [ "debug", "release", "debug-asan-ubsan", "release-asan-ubsan" ]
-        gcc-version: [13]
+        gcc-version: [13, 14]
         exclude:
           - preset: "debug-asan-ubsan"
             gcc-version: 13
