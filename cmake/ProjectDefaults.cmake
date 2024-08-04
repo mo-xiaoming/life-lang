@@ -53,17 +53,21 @@ target_compile_options(default_compile_warnings INTERFACE "$<$<CONFIG:Release>:-
 target_compile_options(default_compile_warnings INTERFACE -Wall -Wextra -Wshadow -Wold-style-cast -Wcast-align -Wcast-qual -Wunused -Wconversion -Wsign-conversion -Wnull-dereference -Wdouble-promotion -Wformat=2 -Wfloat-equal -Wmissing-declarations -Wmissing-include-dirs -Wredundant-decls -Wundef -Wzero-as-null-pointer-constant)
 target_compile_options(default_compile_warnings INTERFACE "$<$<CXX_COMPILER_ID:GNU>:-Wmisleading-indentation;-Wduplicated-cond;-Wduplicated-branches;-Wlogical-op;-Wuseless-cast>")
 
+add_library(default_sanitizer_compile_options INTERFACE)
+add_library(default_sanitizer_link_options INTERFACE)
+target_compile_options(default_sanitizer_compile_options INTERFACE -fsanitize=address,undefined -fno-optimize-sibling-calls -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow)
+target_link_options(default_sanitizer_link_options INTERFACE -fsanitize=address,undefined -fno-optimize-sibling-calls -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow)
+target_compile_options(default_sanitizer_compile_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
+target_link_options(default_sanitizer_link_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
+
 # Define default sanitizer compile options
 option(ENABLE_ASAN_AND_UBSAN "Enable AddressSanitizer" OFF)
 
+set(SANITIZER_OPTIONS)
+
 if(ENABLE_ASAN_AND_UBSAN)
   message(STATUS "Enabling AddressSanitizer and UndefinedBehaviorSanitizer")
-  add_library(default_sanitizer_compile_options INTERFACE)
-  add_library(default_sanitizer_link_options INTERFACE)
-  target_compile_options(default_sanitizer_compile_options INTERFACE -fsanitize=address,undefined -fno-optimize-sibling-calls -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow)
-  target_link_options(default_sanitizer_link_options INTERFACE -fsanitize=address,undefined -fno-optimize-sibling-calls -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow)
-  target_compile_options(default_sanitizer_compile_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
-  target_link_options(default_sanitizer_link_options INTERFACE "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsanitize=local-bounds,float-divide-by-zero,implicit-conversion,nullability,integer>")
+  set(SANITIZER_OPTIONS default_sanitizer_compile_options default_sanitizer_link_options)
 endif()
 
 # Define project defaults, it can be added to any target with target_link_libraries
@@ -72,6 +76,5 @@ target_link_libraries(project_defaults INTERFACE
   default_compile_features
   default_compile_options
   default_compile_warnings
-  default_sanitizer_compile_options
-  default_sanitizer_link_options
+  ${SANITIZER_OPTIONS}
 )
