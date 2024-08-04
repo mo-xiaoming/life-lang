@@ -9,7 +9,7 @@
   "configurePresets": [
     {
       "name": "common",
-      "generator": "Unix Makefiles",
+      "generator": "Ninja",
       "hidden": true,
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
