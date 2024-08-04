@@ -63,6 +63,16 @@
     {
       "name": "default",
       "inherits": "debug-asan-ubsan"
+    },
+    {
+      "name": "coverage",
+      "inherits": "debug",
+      "cacheVariables": {
+        "ENABLE_COVERAGE": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      }
     }
   ],
   "buildPresets": [
@@ -89,6 +99,11 @@
     {
       "name": "default",
       "configurePreset": "default",
+      "verbose": true
+    },
+    {
+      "name": "coverage",
+      "configuration": "coverage",
       "verbose": true
     }
   ],

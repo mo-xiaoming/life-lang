@@ -1,0 +1,32 @@
+name: Coverage
+
+on: [push, pull_request]
+
+jobs:
+  build-and-coverage:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        preset: [coverage]
+        gcc-version: [13]
+
+    steps:
+    - name: Run common build and test
+      uses: ./.github/workflows/common.yml
+      with:
+        gcc-version: ${{ matrix.gcc-version }}
+        preset: ${{ matrix.preset }}
+
+    - name: Generate coverage report
+      run: |
+        lcov --capture --directory . --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' --output-file coverage.info
+        lcov --list coverage.info
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: coverage.info
+        fail_ci_if_error: true
