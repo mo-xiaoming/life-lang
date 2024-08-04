@@ -146,6 +146,11 @@
       "name": "default",
       "configurePreset": "default",
       "inherits": "common"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "inherits": "common"
     }
   ]
 }
