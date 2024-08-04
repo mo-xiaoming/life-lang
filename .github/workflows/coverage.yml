@@ -9,6 +9,11 @@ on:
   pull_request:
     branches: [ "master" ]
 
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
 env:
   VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
@@ -59,8 +64,8 @@ jobs:
 
     - name: Generate coverage report
       run: |
-        lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' --output-file coverage.info
+        lcov --capture --directory . --output-file coverage.info -rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch --demangle-cpp
+        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/build/*' --output-file coverage.info
         lcov --list coverage.info
 
     - name: Upload coverage to Codecov

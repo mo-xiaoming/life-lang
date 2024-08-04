@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/spirit/home/x3.hpp>
+#include <lib.hpp>
 #include <string_view>
 
 namespace x3 = boost::spirit::x3;
@@ -72,3 +73,5 @@ INSTANTIATE_TEST_SUITE_P(ParseDoubleTests, ParseDoubleTest,
                          [](testing::TestParamInfo<ParseDoubleTestParams> const& param_info) {
                            return std::string{param_info.param.name};
                          });
+
+TEST(CoverageTest, Foo) { EXPECT_EQ("hello", lib::foo("hello")); }
