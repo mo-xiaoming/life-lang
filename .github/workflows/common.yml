@@ -1,0 +1,69 @@
+name: Common Steps
+
+on:
+  workflow_call:
+    inputs:
+      gcc-version:
+        required: true
+        type: string
+      preset:
+        required: true
+        type: string
+
+env:
+  VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+jobs:
+  setup-and-build:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup GCC ${{ inputs.gcc-version }}
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        sudo apt-get update
+        sudo apt-get install -y gcc-${{ inputs.gcc-version }} g++-${{ inputs.gcc-version }}
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ inputs.gcc-version }} 10
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ inputs.gcc-version }} 10
+        gcc --version
+        g++ --version
+
+    - name: Install CMake & Ninja
+      run: |
+        wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
+        sudo apt-get remove --purge --auto-remove cmake
+        sudo apt-get install -y cmake ninja-build
+        cmake --version
+        ninja --version
+
+    - name: Setup vcpkg
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git
+        ./vcpkg/bootstrap-vcpkg.sh 
+    
+    - name: Install LLVM
+      run: |
+        sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+        sudo apt-get update
+        sudo apt install -y clang-18 clang-tidy-18
+        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 10
+        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 10
+        sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 10
+
+    - name: Configure
+      run: cmake --preset ${{ inputs.preset }}
+
+    - name: Build
+      run: cmake --build --preset ${{ inputs.preset }}
+
+    - name: Test
+      run: ctest --preset ${{ inputs.preset }}
+
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-result-${{ inputs.gcc-version }}-${{ inputs.preset }}
+        path: build/${{ inputs.preset }}/Testing/Temporary/LastTest.log

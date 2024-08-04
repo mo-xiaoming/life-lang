@@ -1,14 +1,156 @@
 {
-  "version": 2,
+  "$schema": "https://cmake.org/cmake/help/latest/_downloads/3e2d73bff478d88a7de0de736ba5e361/schema.json",
+  "version": 8,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
   "configurePresets": [
     {
-      "name": "vcpkg",
+      "name": "common",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+        "ENABLE_VERBOSE_BUILD": {
+          "type": "BOOL",
+          "value": "ON"
+        }
       }
+    },
+    {
+      "name": "vcpkg",
+      "inherits": "common",
+      "hidden": true,
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "debug",
+      "inherits": "vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug-asan-ubsan",
+      "inherits": "debug",
+      "cacheVariables": {
+        "ENABLE_ASAN_AND_UBSAN": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      }
+    },
+    {
+      "name": "release-asan-ubsan",
+      "inherits": "release",
+      "cacheVariables": {
+        "ENABLE_ASAN_AND_UBSAN": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      }
+    },
+    {
+      "name": "default",
+      "inherits": "debug-asan-ubsan"
+    },
+    {
+      "name": "coverage",
+      "inherits": "debug",
+      "cacheVariables": {
+        "ENABLE_COVERAGE": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ENABLE_CLANG_TIDY": {
+          "type": "BOOL",
+          "value": "OFF"
+        }
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "verbose": true
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "verbose": true
+    },
+    {
+      "name": "debug-asan-ubsan",
+      "configurePreset": "debug-asan-ubsan",
+      "verbose": true
+    },
+    {
+      "name": "release-asan-ubsan",
+      "configurePreset": "release-asan-ubsan",
+      "verbose": true
+    },
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "verbose": true
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "verbose": true
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "common",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "inherits": "common"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "inherits": "common"
+    },
+    {
+      "name": "debug-asan-ubsan",
+      "configurePreset": "debug-asan-ubsan",
+      "inherits": "common"
+    },
+    {
+      "name": "release-asan-ubsan",
+      "configurePreset": "release-asan-ubsan",
+      "inherits": "common"
+    },
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "inherits": "common"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "inherits": "common"
     }
   ]
 }

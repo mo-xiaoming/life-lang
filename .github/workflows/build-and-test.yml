@@ -1,0 +1,41 @@
+name: CI Build and Test
+
+on:
+  workflow_run:
+    workflows: [Coverage]
+    types:
+      - completed
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+#concurrency:
+#  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+#  cancel-in-progress: true
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  build-and-tests-one:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      matrix:
+        preset: [ "debug-asan-ubsan" ]
+        gcc-version: [13]
+    uses: ./.github/workflows/common.yml
+    with:
+      gcc-version: ${{ matrix.gcc-version }}
+      preset: ${{ matrix.preset }}
+
+  build-and-tests:
+    needs: build-and-tests-one
+    strategy:
+      matrix:
+        preset: [ "debug", "release", "debug-asan-ubsan", "release-asan-ubsan" ]
+        gcc-version: [13, 14]
+        exclude:
+          - preset: "debug-asan-ubsan"
+            gcc-version: 13
+    uses: ./.github/workflows/common.yml
+    with:
+      gcc-version: ${{ matrix.gcc-version }}
+      preset: ${{ matrix.preset }}

@@ -1,0 +1,10 @@
+TN:
+SF:/home/mx/repo/life-lang/src/lib.cpp
+FN:6,6,lib::foo(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+FNDA:1,lib::foo(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+FNF:1
+FNH:1
+DA:6,1
+LF:1
+LH:1
+end_of_record
