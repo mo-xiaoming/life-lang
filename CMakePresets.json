@@ -61,10 +61,6 @@
       }
     },
     {
-      "name": "default",
-      "inherits": "debug-asan-ubsan"
-    },
-    {
       "name": "coverage",
       "inherits": "debug",
       "cacheVariables": {
@@ -98,11 +94,6 @@
     {
       "name": "release-asan-ubsan",
       "configurePreset": "release-asan-ubsan",
-      "verbose": true
-    },
-    {
-      "name": "default",
-      "configurePreset": "default",
       "verbose": true
     },
     {
@@ -140,11 +131,6 @@
     {
       "name": "release-asan-ubsan",
       "configurePreset": "release-asan-ubsan",
-      "inherits": "common"
-    },
-    {
-      "name": "default",
-      "configurePreset": "default",
       "inherits": "common"
     },
     {
