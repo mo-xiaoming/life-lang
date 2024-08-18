@@ -145,7 +145,7 @@ TEST(ActionTest, Action) {
   auto const input = "{42}"sv;
   auto const* input_start = input.cbegin();
   auto const print_action = [](auto& ctx) { fmt::print("{}\n", spirit::_attr(ctx)); };
-  auto const succeed = spirit::parse(input_start, input.cend(), '(' >> spirit::int_[print_action] >> ')');
+  auto const succeed = spirit::parse(input_start, input.cend(), '{' >> spirit::int_[print_action] >> '}');
   EXPECT_TRUE(succeed);
   EXPECT_EQ(input.cend(), input_start);
 }

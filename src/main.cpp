@@ -10,7 +10,7 @@
 int main() {
   std::string const input = R"(
         { 35, "John", "Doe", 35000.0 },
-        { 25, "Jane", "Doe" 25000.0 }
+        { 25, "Jane", "Doe", 25000.0 }
     )";
 
   auto const &[success, ast] = client::parse(input.cbegin(), input.cend(), std::cerr);

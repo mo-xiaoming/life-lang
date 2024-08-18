@@ -35,14 +35,17 @@ using x3::int_;
 using x3::lexeme;
 using x3::ascii::print;
 
+// NOLINTNEXTLINE(bugprone-chained-comparison)
 auto const QuotedStringRule = lexeme['"' >> +(print - '"') >> '"'];
 
 PersonRuleType const PersonRule = "person rule";
+// NOLINTNEXTLINE(bugprone-chained-comparison)
 auto const PersonRule_def = QuotedStringRule > ',' > QuotedStringRule;
 BOOST_SPIRIT_DEFINE(PersonRule)
 BOOST_SPIRIT_INSTANTIATE(PersonRuleType, IteratorType, ContextType)
 
 EmployeeRuleType const EmployeeRule = "employee rule";
+// NOLINTNEXTLINE(bugprone-chained-comparison)
 auto const EmployeeRule_def = '{' > int_ > ',' > PersonRule > ',' > double_ > '}';
 BOOST_SPIRIT_DEFINE(EmployeeRule)
 BOOST_SPIRIT_INSTANTIATE(EmployeeRuleType, IteratorType, ContextType)
