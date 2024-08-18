@@ -4,9 +4,9 @@
 #include <fmt/core.h>
 
 #include <boost/fusion/include/adapt_struct.hpp>
-#include <boost/spirit/home/x3.hpp>
-#include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 #include <string>
+
+#include "spirit_x3.hpp"  // IWYU pragma: keep
 
 namespace client::ast {
 namespace x3 = boost::spirit::x3;
