@@ -1,9 +1,9 @@
-#ifndef __LIB_H__
-#define __LIB_H__
+#ifndef LIB_HPP__
+#define LIB_HPP__
 
 #include <string>
 
-namespace lib {
+namespace life_lang {
 std::string foo(std::string const& s);
 }
 

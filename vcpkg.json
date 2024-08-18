@@ -1,7 +1,9 @@
 {
   "dependencies": [
+    "boost-hana",
     "boost-spirit",
     "fmt",
-    "gtest"
+    "gtest",
+    "boost-fusion"
   ]
 }

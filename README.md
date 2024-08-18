@@ -14,3 +14,12 @@ ctest --preset debug
 
 ./build/lifec
 ```
+
+## The language
+
+```
+fn main(argc: u32, argv: std::Array<std::Span<Char>>): i32 {
+    std::print("Hello world!");
+    return 0;
+}
+```

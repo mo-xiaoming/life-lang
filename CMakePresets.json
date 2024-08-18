@@ -73,6 +73,16 @@
           "value": "OFF"
         }
       }
+    },
+    {
+      "name": "dev",
+      "inherits": "debug",
+      "cacheVariables": {
+        "ENABLE_CLANG_TIDY": {
+          "type": "BOOL",
+          "value": "OFF"
+        }
+      }
     }
   ],
   "buildPresets": [
@@ -99,6 +109,11 @@
     {
       "name": "coverage",
       "configurePreset": "coverage",
+      "verbose": true
+    },
+    {
+      "name": "dev",
+      "configurePreset": "dev",
       "verbose": true
     }
   ],
@@ -136,6 +151,11 @@
     {
       "name": "coverage",
       "configurePreset": "coverage",
+      "inherits": "common"
+    },
+    {
+      "name": "dev",
+      "configurePreset": "dev",
       "inherits": "common"
     }
   ]

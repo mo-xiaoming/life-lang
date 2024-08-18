@@ -18,7 +18,7 @@ include(cmake/ProjectDefaults.cmake)
 include(cmake/ProjectTools.cmake)
 
 # Find packages
-find_package(Boost CONFIG REQUIRED COMPONENTS spirit)
+find_package(Boost CONFIG REQUIRED COMPONENTS spirit hana fusion)
 find_package(fmt CONFIG REQUIRED)
 
 # lib and binaries

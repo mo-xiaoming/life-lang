@@ -2,6 +2,6 @@
 
 #include <string>
 
-namespace lib {
+namespace life_lang {
 std::string foo(std::string const& s) { return s; }
-}  // namespace lib
+}  // namespace life_lang
