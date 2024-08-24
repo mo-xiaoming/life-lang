@@ -1,11 +1,9 @@
 #include <fmt/core.h>
 
-#include <boost/fusion/include/adapt_struct.hpp>
 #include <iostream>
 #include <string>
 
-#include "rules.hpp"
-#include "spirit_x3.hpp"  // IWYU pragma: keep
+#include "lib.hpp"
 
 int main() {
   std::string const input = R"(
@@ -13,7 +11,8 @@ int main() {
         { 25, "Jane", "Doe", 25000.0 }
     )";
 
-  auto const &[success, ast] = client::parse(input.cbegin(), input.cend(), std::cerr);
+  auto inputStart = input.cbegin();
+  auto const &[success, ast] = client::parse(inputStart, input.cend(), std::cerr);
   if (success) {
     fmt::print("parsing succeeded\n");
     for (auto const &emp : ast) {

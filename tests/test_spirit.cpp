@@ -4,20 +4,15 @@
 #include <boost/fusion/include/for_each.hpp>
 #include <boost/fusion/include/std_pair.hpp>
 #include <boost/fusion/include/zip.hpp>
-#include <boost/hana.hpp>
 #include <boost/spirit/home/x3.hpp>
 #include <lib.hpp>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-// keep it here till we have meaningful things to test in lib
-// otherwise, coverage will fail for nothing to cover
-TEST(CoverageTest, Foo) { EXPECT_EQ("hello", life_lang::foo("hello")); }
-
-namespace spirit = boost::spirit::x3;
-namespace fusion = boost::fusion;
 using namespace std::string_view_literals;
+namespace fusion = boost::fusion;
+namespace spirit = boost::spirit::x3;
 
 struct ParseDoubleTestParams {
   std::string_view name;
@@ -114,7 +109,7 @@ TEST_P(ParseTwoDoublesTest, ParseTwoDoubles) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(ParseTwoDoublesTests, ParseTwoDoublesTest,
+INSTANTIATE_TEST_SUITE_P(ParseTwoDoublesTest, ParseTwoDoublesTest,
                          ::testing::Values(ParseTwoDoublesTestParams{.name = "TwoDoubles",
                                                                      .input = "3.14 42.0",
                                                                      .expected_value = std::pair{3.14, 42.0},

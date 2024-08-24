@@ -1,8 +1,10 @@
 #include "rules.hpp"
 
+#include <fmt/core.h>
+
 #include "spirit_x3.hpp"  // IWYU pragma: keep
 
-namespace client::parser {
+namespace life_lang::parser {
 namespace x3 = boost::spirit::x3;
 
 using SpaceType = x3::ascii::space_type;
@@ -15,53 +17,46 @@ struct ErrorHandler {
   x3::error_handler_result on_error(Iterator & /*first*/, Iterator const & /*last*/, Exception const &x,
                                     Context const &context) {
     auto &errorHandler = x3::get<x3::error_handler_tag>(context);
-    std::string const message = fmt::format("Error! Expecting: {} here:", x.which());
+    std::string const message = fmt::format("Error! Expecting: {} here:", x.which() /*.name()*/);
     errorHandler(x.where(), message);
     return x3::error_handler_result::fail;
   }
 };
 
-// all rules needs annotation have to be delcare/defined/instantiated with BOOST_SPIRIT_DECLARE/DEFINE/INSTANTIATE
-struct PersonRuleTag : x3::annotate_on_success {};
-struct EmployeeRuleTag : ErrorHandler, x3::annotate_on_success {};
-struct EmployeesRuleTag {};
-
-using PersonRuleType = x3::rule<PersonRuleTag, ast::Person>;
-using EmployeeRuleType = x3::rule<EmployeeRuleTag, ast::Employee>;
-using EmployeesRuleType = x3::rule<EmployeesRuleTag, std::vector<ast::Employee>>;
-
-using x3::double_;
-using x3::int_;
 using x3::lexeme;
-using x3::ascii::print;
+using x3::ascii::alnum;
+using x3::ascii::alpha;
+using x3::ascii::char_;
 
-// NOLINTNEXTLINE(bugprone-chained-comparison)
-auto const QuotedStringRule = lexeme['"' >> +(print - '"') >> '"'];
+x3::symbols<int> symtab;
 
-PersonRuleType const PersonRule = "person rule";
-// NOLINTNEXTLINE(bugprone-chained-comparison)
-auto const PersonRule_def = QuotedStringRule > ',' > QuotedStringRule;
-BOOST_SPIRIT_DEFINE(PersonRule)
-BOOST_SPIRIT_INSTANTIATE(PersonRuleType, IteratorType, ContextType)
+auto const mkkw = [](std::string const &kw) {
+  symtab.add(kw);
+  return lexeme[x3::lit(kw) >> !alnum];
+};
 
-EmployeeRuleType const EmployeeRule = "employee rule";
-// NOLINTNEXTLINE(bugprone-chained-comparison)
-auto const EmployeeRule_def = '{' > int_ > ',' > PersonRule > ',' > double_ > '}';
-BOOST_SPIRIT_DEFINE(EmployeeRule)
-BOOST_SPIRIT_INSTANTIATE(EmployeeRuleType, IteratorType, ContextType)
+auto const kw_fn = mkkw("fn");
+auto const kw_let = mkkw("let");
+auto const reserved = lexeme[symtab >> !(alnum | char_('_'))];
 
-EmployeesRuleType const EmployeesRule = "employees rule";
-auto const EmployeesRule_def = EmployeeRule % ',';
-BOOST_SPIRIT_DEFINE(EmployeesRule)
-BOOST_SPIRIT_INSTANTIATE(EmployeesRuleType, IteratorType, ContextType)
-}  // namespace client::parser
+struct IdentifierTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<IdentifierTag, std::string> const IdentifierRule = "identifier rule";
+auto const IdentifierRule_def = x3::lexeme[*char_('_') >> -(alpha >> *(alnum | char_('_')))] - reserved;
+BOOST_SPIRIT_DEFINE(IdentifierRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(IdentifierRule), IteratorType, ContextType)
 
-namespace client {
-std::pair<bool, std::vector<ast::Employee>> parse(parser::IteratorType begin, parser::IteratorType end,
-                                                  std::ostream &out) {
+struct PathSegmentTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<PathSegmentTag, std::string> const PathSegmentRule = "namespace rule";
+auto const PathSegmentRule_def = IdentifierRule;
+BOOST_SPIRIT_DEFINE(PathSegmentRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(PathSegmentRule), IteratorType, ContextType)
+}  // namespace life_lang::parser
+
+namespace life_lang::internal {
+std::pair<bool, std::string> ParseIdentifier(parser::IteratorType &begin, parser::IteratorType end, std::ostream &out) {
   static parser::ErrorHandlerType errorHandler(begin, end, out);
-  auto const parser = with<parser::x3::error_handler_tag>(std::ref(errorHandler))[parser::EmployeesRule];
-  std::vector<ast::Employee> ast;
+  auto const parser = with<parser::x3::error_handler_tag>(std::ref(errorHandler))[parser::IdentifierRule];
+  std::string ast;
   return {phrase_parse(begin, end, parser, parser::SpaceType{}, ast), ast};
 }
-}  // namespace client
+}  // namespace life_lang::internal
