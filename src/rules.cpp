@@ -74,7 +74,7 @@ auto const TemplateArgumentRule_def = TypeRule;
 BOOST_SPIRIT_DEFINE(TemplateArgumentRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(TemplateArgumentRule), IteratorType, ContextType)
 
-auto const TemplateArgumentListRule_def = lit('<') >> (TemplateArgumentRule % ',') >> lit('>');
+auto const TemplateArgumentListRule_def = lit('<') > (TemplateArgumentRule % ',') > lit('>');
 BOOST_SPIRIT_DEFINE(TemplateArgumentListRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(TemplateArgumentListRule), IteratorType, ContextType)
 

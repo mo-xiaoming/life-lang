@@ -32,29 +32,6 @@ struct formatter<Identifier> {
 };
 }  // namespace fmt
 
-struct PathSegment {
-  std::string value;
-  friend auto operator<=>(PathSegment const&, PathSegment const&) = default;
-  friend auto operator<<(std::ostream& os, PathSegment const& ps) -> std::ostream& { return os << fmt::to_string(ps); }
-};
-
-BOOST_FUSION_ADAPT_STRUCT(PathSegment, value)
-
-namespace fmt {
-template <>
-struct formatter<PathSegment> {
-  template <typename ParseContext>
-  constexpr auto parse(ParseContext& ctx) {
-    return ctx.begin();
-  }
-
-  template <typename FormatContext>
-  auto format(PathSegment const& ps, FormatContext& ctx) {
-    return format_to(ctx.out(), "PathSegment{{value: {}}}", ps.value);
-  }
-};
-}  // namespace fmt
-
 struct Path {
   bool isAbsolute{};
   std::vector<Identifier> segments;
