@@ -46,7 +46,7 @@ auto const KwLet = mkkw("let");
 auto const ReservedRule = lexeme[GetSymbolTable() >> !(alnum | char_('_'))];
 
 struct IdentifierTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<IdentifierTag, Identifier> const IdentifierRule = "identifier rule";
+x3::rule<IdentifierTag, ast::Identifier> const IdentifierRule = "identifier rule";
 auto const IdentifierRule_def =
     x3::raw[x3::lexeme[(alpha | char_('_')) >> *(alnum | char_('_'))] - ReservedRule]
            [([](auto &ctx) { x3::_val(ctx).value = std::string{x3::_attr(ctx).begin(), x3::_attr(ctx).end()}; })];
@@ -54,7 +54,7 @@ BOOST_SPIRIT_DEFINE(IdentifierRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(IdentifierRule), IteratorType, ContextType)
 
 struct PathTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<PathTag, Path> const PathRule = "path rule";
+x3::rule<PathTag, ast::Path> const PathRule = "path rule";
 auto const PathRule_def = eps[([](auto &ctx) { x3::_val(ctx).isAbsolute = false; })] >>
                           -lit("::")[([](auto &ctx) { x3::_val(ctx).isAbsolute = true; })] >>
                           (IdentifierRule % "::")[([](auto &ctx) { x3::_val(ctx).segments = x3::_attr(ctx); })];
@@ -62,13 +62,14 @@ BOOST_SPIRIT_DEFINE(PathRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(PathRule), IteratorType, ContextType)
 
 struct TypeTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<TypeTag, Type> const TypeRule = "type rule";
+x3::rule<TypeTag, ast::Type> const TypeRule = "type rule";
 
 struct TemplateArgumentTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<TemplateArgumentTag, TemplateArgument> const TemplateArgumentRule = "template argument rule";
+x3::rule<TemplateArgumentTag, ast::TemplateArgument> const TemplateArgumentRule = "template argument rule";
 
 struct TemplateArgumentListTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<TemplateArgumentListTag, TemplateArgumentList> const TemplateArgumentListRule = "template argument list rule";
+x3::rule<TemplateArgumentListTag, ast::TemplateArgumentList> const TemplateArgumentListRule =
+    "template argument list rule";
 
 auto const TemplateArgumentRule_def = TypeRule;
 BOOST_SPIRIT_DEFINE(TemplateArgumentRule)
@@ -83,13 +84,13 @@ BOOST_SPIRIT_DEFINE(TypeRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(TypeRule), IteratorType, ContextType)
 
 struct ArgumentTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<ArgumentTag, Argument> const ArgumentRule = "argument rule";
+x3::rule<ArgumentTag, ast::Argument> const ArgumentRule = "argument rule";
 auto const ArgumentRule_def = IdentifierRule > lit(':') > TypeRule;
 BOOST_SPIRIT_DEFINE(ArgumentRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(ArgumentRule), IteratorType, ContextType)
 
 struct ArgumentListTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<ArgumentListTag, ArgumentList> const ArgumentListRule = "argument list rule";
+x3::rule<ArgumentListTag, ast::ArgumentList> const ArgumentListRule = "argument list rule";
 auto const ArgumentListRule_def = lit('(') > -(ArgumentRule % ',') > lit(')');
 BOOST_SPIRIT_DEFINE(ArgumentListRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(ArgumentListRule), IteratorType, ContextType)
@@ -105,23 +106,17 @@ std::pair<bool, AST> Parse(Rule const &rule, parser::IteratorType &begin, parser
   return {phrase_parse(begin, end, parser, parser::SpaceType{}, ast), ast};
 }
 
-std::pair<bool, Identifier> ParseIdentifier(parser::IteratorType &begin, parser::IteratorType end, std::ostream &out) {
-  return Parse<decltype(parser::IdentifierRule), Identifier>(parser::IdentifierRule, begin, end, out);
-}
+#define PARSE_FN_DEFINITION(name)                                                                          \
+  std::pair<bool, life_lang::ast::name> Parse##name(                                                       \
+      parser::IteratorType &begin, parser::IteratorType end, std::ostream &out                             \
+  ) {                                                                                                      \
+    return Parse<decltype(parser::name##Rule), life_lang::ast::name>(parser::name##Rule, begin, end, out); \
+  }
 
-std::pair<bool, Path> ParsePath(parser::IteratorType &begin, parser::IteratorType end, std::ostream &out) {
-  return Parse<decltype(parser::PathRule), Path>(parser::PathRule, begin, end, out);
-}
-
-std::pair<bool, Type> ParseType(parser::IteratorType &begin, parser::IteratorType end, std::ostream &out) {
-  return Parse<decltype(parser::TypeRule), Type>(parser::TypeRule, begin, end, out);
-}
-std::pair<bool, Argument> ParseArgument(parser::IteratorType &begin, parser::IteratorType end, std::ostream &out) {
-  return Parse<decltype(parser::ArgumentRule), Argument>(parser::ArgumentRule, begin, end, out);
-}
-std::pair<bool, ArgumentList> ParseArgumentList(
-    parser::IteratorType &begin, parser::IteratorType end, std::ostream &out
-) {
-  return Parse<decltype(parser::ArgumentListRule), ArgumentList>(parser::ArgumentListRule, begin, end, out);
-}
+PARSE_FN_DEFINITION(Identifier)
+PARSE_FN_DEFINITION(Path)
+PARSE_FN_DEFINITION(Type)
+PARSE_FN_DEFINITION(Argument)
+PARSE_FN_DEFINITION(ArgumentList)
+#undef PARSE_FN_DEFINITION
 }  // namespace life_lang::internal

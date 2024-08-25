@@ -7,6 +7,29 @@
 
 #include "rules.hpp"
 
+using life_lang::ast::Argument;
+using life_lang::ast::ArgumentList;
+using life_lang::ast::Identifier;
+using life_lang::ast::Path;
+using life_lang::ast::Type;
+
+#define PARSE_TEST(name)                                                               \
+  using name##TestParamsType = ParseTestParams<name>;                                  \
+  class Parse##name##Test : public ::testing::TestWithParam<name##TestParamsType> {};  \
+                                                                                       \
+  TEST_P(Parse##name##Test, Parse##name) {                                             \
+    auto const& params = GetParam();                                                   \
+    auto inputStart = params.input.cbegin();                                           \
+    auto const inputEnd = params.input.cend();                                         \
+    std::ostringstream errorMsg;                                                       \
+    auto const ret = life_lang::internal::Parse##name(inputStart, inputEnd, errorMsg); \
+    EXPECT_EQ(params.shouldSucceed, ret.first) << errorMsg.str();                      \
+    if (params.shouldSucceed) {                                                        \
+      EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd);                      \
+      EXPECT_EQ(params.expectedValue, ret.second);                                     \
+    }                                                                                  \
+  }
+
 template <typename AstType>
 struct ParseTestParams {
   std::string_view name;
@@ -16,21 +39,7 @@ struct ParseTestParams {
   bool shouldConsumeAll{};
 };  // namespace std::ranges
 
-using IdentifierTestParamsType = ParseTestParams<Identifier>;
-class ParseIdentifierTest : public ::testing::TestWithParam<IdentifierTestParamsType> {};
-
-TEST_P(ParseIdentifierTest, ParseIdentifier) {
-  auto const& params = GetParam();
-  auto inputStart = params.input.cbegin();
-  auto const inputEnd = params.input.cend();
-  std::ostringstream oss;
-  auto const ret = life_lang::internal::ParseIdentifier(inputStart, inputEnd, oss);
-  EXPECT_EQ(params.shouldSucceed, ret.first);
-  if (params.shouldSucceed) {
-    EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd);
-    EXPECT_EQ(params.expectedValue, ret.second);
-  }
-}
+PARSE_TEST(Identifier)
 
 INSTANTIATE_TEST_SUITE_P(
     , ParseIdentifierTest,
@@ -116,21 +125,7 @@ INSTANTIATE_TEST_SUITE_P(
     [](testing::TestParamInfo<IdentifierTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
 );
 
-using PathTestParamsType = ParseTestParams<Path>;
-class ParsePathTest : public ::testing::TestWithParam<PathTestParamsType> {};
-
-TEST_P(ParsePathTest, ParsePath) {
-  auto const& params = GetParam();
-  auto inputStart = params.input.cbegin();
-  auto const inputEnd = params.input.cend();
-  std::ostringstream oss;
-  auto const ret = life_lang::internal::ParsePath(inputStart, inputEnd, oss);
-  EXPECT_EQ(params.shouldSucceed, ret.first);
-  if (params.shouldSucceed) {
-    EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd);
-    EXPECT_EQ(params.expectedValue, ret.second);
-  }
-}
+PARSE_TEST(Path)
 
 INSTANTIATE_TEST_SUITE_P(
     , ParsePathTest,
@@ -169,21 +164,7 @@ INSTANTIATE_TEST_SUITE_P(
     [](testing::TestParamInfo<PathTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
 );
 
-using TypeTestParamsType = ParseTestParams<Type>;
-class ParseTypeTest : public ::testing::TestWithParam<TypeTestParamsType> {};
-
-TEST_P(ParseTypeTest, ParseType) {
-  auto const& params = GetParam();
-  auto inputStart = params.input.cbegin();
-  auto const inputEnd = params.input.cend();
-  std::ostringstream oss;
-  auto const ret = life_lang::internal::ParseType(inputStart, inputEnd, oss);
-  EXPECT_EQ(params.shouldSucceed, ret.first);
-  if (params.shouldSucceed) {
-    EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd) << std::string{inputStart, inputEnd};
-    EXPECT_EQ(params.expectedValue, ret.second);
-  }
-}
+PARSE_TEST(Type)
 
 INSTANTIATE_TEST_SUITE_P(
     , ParseTypeTest,
@@ -289,21 +270,7 @@ INSTANTIATE_TEST_SUITE_P(
     [](testing::TestParamInfo<TypeTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
 );
 
-using ArgumentTestParamsType = ParseTestParams<Argument>;
-class ParseArgumentTest : public ::testing::TestWithParam<ArgumentTestParamsType> {};
-
-TEST_P(ParseArgumentTest, ParseArgument) {
-  auto const& params = GetParam();
-  auto inputStart = params.input.cbegin();
-  auto const inputEnd = params.input.cend();
-  std::ostringstream oss;
-  auto const ret = life_lang::internal::ParseArgument(inputStart, inputEnd, oss);
-  EXPECT_EQ(params.shouldSucceed, ret.first) << oss.str();
-  if (params.shouldSucceed) {
-    EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd) << std::string{inputStart, inputEnd};
-    EXPECT_EQ(params.expectedValue, ret.second);
-  }
-}
+PARSE_TEST(Argument)
 
 INSTANTIATE_TEST_SUITE_P(
     , ParseArgumentTest,
@@ -374,21 +341,7 @@ INSTANTIATE_TEST_SUITE_P(
     [](testing::TestParamInfo<ArgumentTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
 );
 
-using ArgumentListTestParamsType = ParseTestParams<ArgumentList>;
-class ParseArgumentListTest : public ::testing::TestWithParam<ArgumentListTestParamsType> {};
-
-TEST_P(ParseArgumentListTest, ParseArgumentList) {
-  auto const& params = GetParam();
-  auto inputStart = params.input.cbegin();
-  auto const inputEnd = params.input.cend();
-  std::ostringstream oss;
-  auto const ret = life_lang::internal::ParseArgumentList(inputStart, inputEnd, oss);
-  EXPECT_EQ(params.shouldSucceed, ret.first) << oss.str();
-  if (params.shouldSucceed) {
-    EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd) << std::string{inputStart, inputEnd};
-    EXPECT_EQ(params.expectedValue, ret.second);
-  }
-}
+PARSE_TEST(ArgumentList)
 
 INSTANTIATE_TEST_SUITE_P(
     , ParseArgumentListTest,
