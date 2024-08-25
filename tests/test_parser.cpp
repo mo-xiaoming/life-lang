@@ -7,17 +7,6 @@
 
 #include "rules.hpp"
 
-void PrintTo(Identifier const& id, std::ostream* os) { *os << "Identifier{value: " << id.value << "}"; }
-
-void PrintTo(Path const& path, std::ostream* os) {
-  *os << "Path{isAbsolute: " << path.isAbsolute << ", ";
-  *os << "segments: [";
-  for (auto const& segment : path.segments) {
-    *os << segment.value << ", ";
-  }
-  *os << "]}";
-}
-
 template <typename AstType>
 struct ParseTestParams {
   std::string_view name;
@@ -298,4 +287,255 @@ INSTANTIATE_TEST_SUITE_P(
         }
     ),
     [](testing::TestParamInfo<TypeTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
+);
+
+using ArgumentTestParamsType = ParseTestParams<Argument>;
+class ParseArgumentTest : public ::testing::TestWithParam<ArgumentTestParamsType> {};
+
+TEST_P(ParseArgumentTest, ParseArgument) {
+  auto const& params = GetParam();
+  auto inputStart = params.input.cbegin();
+  auto const inputEnd = params.input.cend();
+  std::ostringstream oss;
+  auto const ret = life_lang::internal::ParseArgument(inputStart, inputEnd, oss);
+  EXPECT_EQ(params.shouldSucceed, ret.first) << oss.str();
+  if (params.shouldSucceed) {
+    EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd) << std::string{inputStart, inputEnd};
+    EXPECT_EQ(params.expectedValue, ret.second);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    , ParseArgumentTest,
+    ::testing::Values(
+        ArgumentTestParamsType{
+            .name = "noNamespace",
+            .input = "hello:T",
+            .expectedValue =
+                Argument{
+                    .name = Identifier{.value = "hello"},
+                    .type =
+                        Type{
+                            .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "T"}}},
+                            .templateArguments = {}
+                        }
+                },
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        ArgumentTestParamsType{
+            .name = "multipleTemplateArgument",
+            .input = "hello: a::b::hello<::std::Array, a::b::C<int, double>>",
+            .expectedValue =
+                Argument{
+                    .name = Identifier{.value = "hello"},
+                    .type =
+                        Type{
+                            .path =
+                                Path{
+                                    .isAbsolute = false,
+                                    .segments =
+                                        {Identifier{.value = "a"}, Identifier{.value = "b"},
+                                         Identifier{.value = "hello"}}
+                                },
+                            .templateArguments =
+                                {Type{
+                                     .path =
+                                         Path{
+                                             .isAbsolute = true,
+                                             .segments = {Identifier{.value = "std"}, Identifier{.value = "Array"}}
+                                         },
+                                     .templateArguments = {}
+                                 },
+                                 Type{
+                                     .path =
+                                         Path{
+                                             .isAbsolute = false,
+                                             .segments =
+                                                 {Identifier{.value = "a"}, Identifier{.value = "b"},
+                                                  Identifier{.value = "C"}}
+                                         },
+                                     .templateArguments =
+                                         {Type{
+                                              .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}},
+                                              .templateArguments = {}
+                                          },
+                                          Type{
+                                              .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "double"}}},
+                                              .templateArguments = {}
+                                          }}
+                                 }}
+                        }
+                },
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        }
+    ),
+    [](testing::TestParamInfo<ArgumentTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
+);
+
+using ArgumentListTestParamsType = ParseTestParams<ArgumentList>;
+class ParseArgumentListTest : public ::testing::TestWithParam<ArgumentListTestParamsType> {};
+
+TEST_P(ParseArgumentListTest, ParseArgumentList) {
+  auto const& params = GetParam();
+  auto inputStart = params.input.cbegin();
+  auto const inputEnd = params.input.cend();
+  std::ostringstream oss;
+  auto const ret = life_lang::internal::ParseArgumentList(inputStart, inputEnd, oss);
+  EXPECT_EQ(params.shouldSucceed, ret.first) << oss.str();
+  if (params.shouldSucceed) {
+    EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd) << std::string{inputStart, inputEnd};
+    EXPECT_EQ(params.expectedValue, ret.second);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    , ParseArgumentListTest,
+    ::testing::
+        Values(
+            ArgumentListTestParamsType{
+                .name = "noArgument",
+                .input = "()",
+                .expectedValue = {},
+                .shouldSucceed = true,
+                .shouldConsumeAll = true
+            },
+            ArgumentListTestParamsType{
+                .name = "oneArgument",
+                .input = "(hello:T)",
+                .expectedValue =
+                    {
+                        Argument{
+                            .name = Identifier{.value = "hello"},
+                            .type =
+                                Type{
+                                    .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "T"}}},
+                                    .templateArguments = {}
+                                }
+                        },
+                    },
+                .shouldSucceed = true,
+                .shouldConsumeAll = true
+            },
+            ArgumentListTestParamsType{
+                .name = "multipleArguments",
+                .input = "(hello:T, world:U)",
+                .expectedValue =
+                    {
+                        Argument{
+                            .name = Identifier{.value = "hello"},
+                            .type =
+                                Type{
+                                    .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "T"}}},
+                                    .templateArguments = {}
+                                }
+                        },
+                        Argument{
+                            .name = Identifier{.value = "world"},
+                            .type =
+                                Type{
+                                    .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "U"}}},
+                                    .templateArguments = {}
+                                }
+                        },
+                    },
+                .shouldSucceed = true,
+                .shouldConsumeAll = true
+            },
+            ArgumentListTestParamsType{
+                .name = "oneTemplateArgument",
+                .input = "(hello: a::b::hello<::std::Array, a::b::C<int, double>>)",
+                .expectedValue =
+                    {
+                        Argument{
+                            .name = Identifier{.value = "hello"},
+                            .type =
+                                Type{
+                                    .path =
+                                        Path{
+                                            .isAbsolute = false,
+                                            .segments =
+                                                {Identifier{.value = "a"}, Identifier{.value = "b"},
+                                                 Identifier{.value = "hello"}}
+                                        },
+                                    .templateArguments =
+                                        {Type{
+                                             .path =
+                                                 Path{
+                                                     .isAbsolute = true,
+                                                     .segments =
+                                                         {Identifier{.value = "std"}, Identifier{.value = "Array"}}
+                                                 },
+                                             .templateArguments = {}
+                                         },
+                                         Type{
+                                             .path =
+                                                 Path{
+                                                     .isAbsolute = false,
+                                                     .segments = {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "C"}}
+                                                 },
+                                             .templateArguments =
+                                                 {Type{
+                                                      .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}},
+                                                      .templateArguments = {}
+                                                  },
+                                                  Type{
+                                                      .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "double"}}},
+                                                      .templateArguments = {}
+                                                  }}
+                                         }}
+                                }
+                        },
+                    },
+                .shouldSucceed = true,
+                .shouldConsumeAll = true
+            },
+            ArgumentListTestParamsType{
+                .name = "multipleTemplateArguments",
+                .input = "(hello: a::b::hello<::std::Array, a::b::C<int, double>>, world: ::world<A<::B>, C<D>>)",
+                .expectedValue =
+                    {
+                        Argument{
+                            .name = Identifier{.value = "hello"},
+                            .type = Type{.path = Path{.isAbsolute = false, .segments = {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "hello"}}}, .templateArguments = {Type{.path = Path{.isAbsolute = true, .segments = {Identifier{.value = "std"}, Identifier{.value = "Array"}}}, .templateArguments = {}}, Type{.path = Path{.isAbsolute = false, .segments = {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "C"}}}, .templateArguments = {Type{.path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}}, .templateArguments = {}}, Type{.path = Path{.isAbsolute = false, .segments = {Identifier{.value = "double"}}}, .templateArguments = {}}}}}}
+                        },
+                        Argument{
+                            .name = Identifier{.value = "world"},
+                            .type =
+                                Type{
+                                    .path = Path{.isAbsolute = true, .segments = {Identifier{.value = "world"}}},
+                                    .templateArguments =
+                                        {
+                                            Type{
+                                                .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "A"}}},
+                                                .templateArguments =
+                                                    {
+                                                        Type{
+                                                            .path = Path{.isAbsolute = true, .segments = {Identifier{.value = "B"}}},
+                                                            .templateArguments = {}
+                                                        },
+                                                    }
+                                            },
+                                            Type{
+                                                .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "C"}}},
+                                                .templateArguments =
+                                                    {
+                                                        Type{
+                                                            .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "D"}}},
+                                                            .templateArguments = {}
+                                                        },
+                                                    }
+                                            },
+                                        },
+                                },
+                        },
+                    },
+                .shouldSucceed = true,
+                .shouldConsumeAll = true
+            }
+        ),
+    [](testing::TestParamInfo<ArgumentListTestParamsType> const& paramInfo) {
+      return std::string{paramInfo.param.name};
+    }
 );

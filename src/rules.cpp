@@ -18,7 +18,7 @@ struct ErrorHandler {
       Iterator & /*first*/, Iterator const & /*last*/, Exception const &x, Context const &context
   ) {
     auto &errorHandler = x3::get<x3::error_handler_tag>(context);
-    std::string const message = fmt::format("Error! Expecting: {} here:", x.which() /*.name()*/);
+    std::string const message = fmt::format("Error! Expecting: {} here:", x.which());
     errorHandler(x.where(), message);
     return x3::error_handler_result::fail;
   }
@@ -81,6 +81,18 @@ BOOST_SPIRIT_INSTANTIATE(decltype(TemplateArgumentListRule), IteratorType, Conte
 auto const TypeRule_def = PathRule >> -TemplateArgumentListRule;
 BOOST_SPIRIT_DEFINE(TypeRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(TypeRule), IteratorType, ContextType)
+
+struct ArgumentTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<ArgumentTag, Argument> const ArgumentRule = "argument rule";
+auto const ArgumentRule_def = IdentifierRule > lit(':') > TypeRule;
+BOOST_SPIRIT_DEFINE(ArgumentRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(ArgumentRule), IteratorType, ContextType)
+
+struct ArgumentListTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<ArgumentListTag, ArgumentList> const ArgumentListRule = "argument list rule";
+auto const ArgumentListRule_def = lit('(') > -(ArgumentRule % ',') > lit(')');
+BOOST_SPIRIT_DEFINE(ArgumentListRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(ArgumentListRule), IteratorType, ContextType)
 }  // namespace life_lang::parser
 
 namespace life_lang::internal {
@@ -103,5 +115,13 @@ std::pair<bool, Path> ParsePath(parser::IteratorType &begin, parser::IteratorTyp
 
 std::pair<bool, Type> ParseType(parser::IteratorType &begin, parser::IteratorType end, std::ostream &out) {
   return Parse<decltype(parser::TypeRule), Type>(parser::TypeRule, begin, end, out);
+}
+std::pair<bool, Argument> ParseArgument(parser::IteratorType &begin, parser::IteratorType end, std::ostream &out) {
+  return Parse<decltype(parser::ArgumentRule), Argument>(parser::ArgumentRule, begin, end, out);
+}
+std::pair<bool, ArgumentList> ParseArgumentList(
+    parser::IteratorType &begin, parser::IteratorType end, std::ostream &out
+) {
+  return Parse<decltype(parser::ArgumentListRule), ArgumentList>(parser::ArgumentListRule, begin, end, out);
 }
 }  // namespace life_lang::internal
