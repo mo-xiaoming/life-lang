@@ -23,23 +23,3 @@ fn main(args: std::Array<std::String>): i32 {
     return 0;
 }
 ```
-
-```cpp
-x3::symbols<int> symtab;
-
-auto mkkw = [](std::string kw) {
-    symtab.add(kw);
-    return lexeme[x3::lit(kw) >> !alnum];
-}
-
-auto const kw_fn = mkkw("fn")
-auto const kw_let = mkkw("let")
-auto const reserved = lexeme[symtab >> !(alnum | char_('_'))];
-auto const ident = lexeme[*char_('_') >> alpha >> *(alnum | char_('_'))] - reserved
-auto const fn_sign = kw_fn > ident > lit('(') > *(ident > type) > lit(')') > lit(':') > type
-auto const fn_decl = fn_sign > ';'
-auto const fn_body = lit('{') > stat > lit('}')
-auto const fn_def = fn_sign > fn_body
-auto const stmt = fn_decl | fn_def
-auto const tu = +stmt;
-```

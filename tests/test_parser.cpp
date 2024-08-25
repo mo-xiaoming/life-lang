@@ -1,9 +1,22 @@
+#include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <gtest/gtest.h>
 
 #include <string_view>
 #include <utility>
 
 #include "rules.hpp"
+
+void PrintTo(Identifier const& id, std::ostream* os) { *os << "Identifier{value: " << id.value << "}"; }
+
+void PrintTo(Path const& path, std::ostream* os) {
+  *os << "Path{isAbsolute: " << path.isAbsolute << ", ";
+  *os << "segments: [";
+  for (auto const& segment : path.segments) {
+    *os << segment.value << ", ";
+  }
+  *os << "]}";
+}
 
 template <typename AstType>
 struct ParseTestParams {
@@ -14,7 +27,8 @@ struct ParseTestParams {
   bool shouldConsumeAll{};
 };  // namespace std::ranges
 
-class ParseIdentifierTest : public ::testing::TestWithParam<ParseTestParams<std::string>> {};
+using IdentifierTestParamsType = ParseTestParams<Identifier>;
+class ParseIdentifierTest : public ::testing::TestWithParam<IdentifierTestParamsType> {};
 
 TEST_P(ParseIdentifierTest, ParseIdentifier) {
   auto const& params = GetParam();
@@ -30,57 +44,138 @@ TEST_P(ParseIdentifierTest, ParseIdentifier) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    ParseIdentifierTest, ParseIdentifierTest,
-    ::testing::Values(ParseTestParams<std::string>{.name = "allLowerAlphabets",
-                                                   .input = "hello",
-                                                   .expectedValue = "hello",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true},
-                      ParseTestParams<std::string>{.name = "allUpperAlphabets",
-                                                   .input = "HELLO",
-                                                   .expectedValue = "HELLO",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true},
-                      ParseTestParams<std::string>{.name = "mixedAlphaNumeric",
-                                                   .input = "h340",
-                                                   .expectedValue = "h340",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true},
-                      ParseTestParams<std::string>{.name = "allUpperAlphabetsStartsWithUnderscore",
-                                                   .input = "_hello",
-                                                   .expectedValue = "_hello",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true},
-                      ParseTestParams<std::string>{.name = "allLowerAlphabetsStartsWithUnderscore",
-                                                   .input = "_HELLO",
-                                                   .expectedValue = "_HELLO",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true},
-                      ParseTestParams<std::string>{.name = "allUpperAlphabetsStartsWithMultipleUnderscore",
-                                                   .input = "__hello",
-                                                   .expectedValue = "__hello",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true},
-                      ParseTestParams<std::string>{.name = "allLowerAlphabetsStartsWithMultipleUnderscore",
-                                                   .input = "__HELLO",
-                                                   .expectedValue = "__HELLO",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true},
-                      ParseTestParams<std::string>{.name = "underScoreInBetween",
-                                                   .input = "_he__ll_o",
-                                                   .expectedValue = "_he__ll_o",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true},
-                      ParseTestParams<std::string>{.name = "underScoreAtEnd",
-                                                   .input = "_hello_",
-                                                   .expectedValue = "_hello_",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true},
-                      ParseTestParams<std::string>{.name = "underScoreOnly",
-                                                   .input = "_",
-                                                   .expectedValue = "_",
-                                                   .shouldSucceed = true,
-                                                   .shouldConsumeAll = true}),
-    [](testing::TestParamInfo<ParseTestParams<std::string>> const& paramInfo) {
-      return std::string{paramInfo.param.name};
-    });
+    , ParseIdentifierTest,
+    ::testing::Values(
+        IdentifierTestParamsType{
+            .name = "allLowerAlphabets",
+            .input = "hello",
+            .expectedValue = Identifier{.value = "hello"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "allUpperAlphabets",
+            .input = "HELLO",
+            .expectedValue = Identifier{.value = "HELLO"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "mixedAlphaNumeric",
+            .input = "h340",
+            .expectedValue = Identifier{.value = "h340"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "allUpperAlphabetsStartsWithUnderscore",
+            .input = "_hello",
+            .expectedValue = Identifier{.value = "_hello"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "allLowerAlphabetsStartsWithUnderscore",
+            .input = "_HELLO",
+            .expectedValue = Identifier{.value = "_HELLO"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "allUpperAlphabetsStartsWithMultipleUnderscore",
+            .input = "__hello",
+            .expectedValue = Identifier{.value = "__hello"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "allLowerAlphabetsStartsWithMultipleUnderscore",
+            .input = "__HELLO",
+            .expectedValue = Identifier{.value = "__HELLO"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "underScoreInBetween",
+            .input = "_he__ll_o",
+            .expectedValue = Identifier{.value = "_he__ll_o"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "underScoreAtEnd",
+            .input = "_hello_",
+            .expectedValue = Identifier{.value = "_hello_"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "underScoreOnly",
+            .input = "_",
+            .expectedValue = Identifier{.value = "_"},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        IdentifierTestParamsType{
+            .name = "unsupportedStartsWithNumber",
+            .input = "0abc",
+            .expectedValue = Identifier{.value = ""},
+            .shouldSucceed = false,
+            .shouldConsumeAll = false
+        }
+    ),
+    [](testing::TestParamInfo<IdentifierTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
+);
+
+using PathTestParamsType = ParseTestParams<Path>;
+class ParsePathTest : public ::testing::TestWithParam<PathTestParamsType> {};
+
+TEST_P(ParsePathTest, ParsePath) {
+  auto const& params = GetParam();
+  auto inputStart = params.input.cbegin();
+  auto const inputEnd = params.input.cend();
+  std::ostringstream oss;
+  auto const ret = life_lang::internal::ParsePath(inputStart, inputEnd, oss);
+  EXPECT_EQ(params.shouldSucceed, ret.first);
+  if (params.shouldSucceed) {
+    EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd);
+    EXPECT_EQ(params.expectedValue, ret.second);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    , ParsePathTest,
+    ::testing::Values(
+        PathTestParamsType{
+            .name = "singleSegment",
+            .input = "a",
+            .expectedValue = Path{.isAbsolute = false, .segments = {Identifier{.value = "a"}}},
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        PathTestParamsType{
+            .name = "multiSegments",
+            .input = "a::b::c",
+            .expectedValue =
+                Path{
+                    .isAbsolute = false,
+                    .segments = {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "c"}}
+                },
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        PathTestParamsType{
+            .name = "AbsolutePath",
+            .input = "::a::b::c",
+            .expectedValue =
+                Path{
+                    .isAbsolute = true,
+                    .segments = {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "c"}}
+                },
+
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        }
+    ),
+    [](testing::TestParamInfo<PathTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
+);
