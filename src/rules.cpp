@@ -60,6 +60,27 @@ auto const PathRule_def = eps[([](auto &ctx) { x3::_val(ctx).isAbsolute = false;
                           (IdentifierRule % "::")[([](auto &ctx) { x3::_val(ctx).segments = x3::_attr(ctx); })];
 BOOST_SPIRIT_DEFINE(PathRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(PathRule), IteratorType, ContextType)
+
+struct TypeTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<TypeTag, Type> const TypeRule = "type rule";
+
+struct TemplateArgumentTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<TemplateArgumentTag, TemplateArgument> const TemplateArgumentRule = "template argument rule";
+
+struct TemplateArgumentListTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<TemplateArgumentListTag, TemplateArgumentList> const TemplateArgumentListRule = "template argument list rule";
+
+auto const TemplateArgumentRule_def = TypeRule;
+BOOST_SPIRIT_DEFINE(TemplateArgumentRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(TemplateArgumentRule), IteratorType, ContextType)
+
+auto const TemplateArgumentListRule_def = lit('<') >> (TemplateArgumentRule % ',') >> lit('>');
+BOOST_SPIRIT_DEFINE(TemplateArgumentListRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(TemplateArgumentListRule), IteratorType, ContextType)
+
+auto const TypeRule_def = PathRule >> -TemplateArgumentListRule;
+BOOST_SPIRIT_DEFINE(TypeRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(TypeRule), IteratorType, ContextType)
 }  // namespace life_lang::parser
 
 namespace life_lang::internal {
@@ -80,4 +101,7 @@ std::pair<bool, Path> ParsePath(parser::IteratorType &begin, parser::IteratorTyp
   return Parse<decltype(parser::PathRule), Path>(parser::PathRule, begin, end, out);
 }
 
+std::pair<bool, Type> ParseType(parser::IteratorType &begin, parser::IteratorType end, std::ostream &out) {
+  return Parse<decltype(parser::TypeRule), Type>(parser::TypeRule, begin, end, out);
+}
 }  // namespace life_lang::internal

@@ -6,6 +6,7 @@
 
 #include <boost/fusion/adapted/struct/adapt_struct.hpp>
 #include <string>
+#include <variant>
 #include <vector>
 
 struct Identifier {
@@ -76,6 +77,38 @@ struct formatter<Path> {
     format_to(ctx.out(), "Path{{isAbsolute: {}, segments: [", path.isAbsolute);
     for (auto const& segment : path.segments) {
       format_to(ctx.out(), "{}, ", segment);
+    }
+    return format_to(ctx.out(), "]}}");
+  }
+};
+}  // namespace fmt
+
+struct Type;
+using TemplateArgument = Type;
+using TemplateArgumentList = std::vector<TemplateArgument>;
+
+struct Type {
+  Path path;
+  TemplateArgumentList templateArguments;
+  friend bool operator==(Type const&, Type const&) = default;
+  friend auto operator<<(std::ostream& os, Type const& type) -> std::ostream& { return os << fmt::to_string(type); }
+};
+
+BOOST_FUSION_ADAPT_STRUCT(Type, path, templateArguments)
+
+namespace fmt {
+template <>
+struct formatter<Type> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx) {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(Type const& type, FormatContext& ctx) {
+    format_to(ctx.out(), "Type{{path: {}, templateArguments: [", type.path);
+    for (auto const& arg : type.templateArguments) {
+      format_to(ctx.out(), "{}, ", arg);
     }
     return format_to(ctx.out(), "]}}");
   }

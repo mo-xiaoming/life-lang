@@ -179,3 +179,123 @@ INSTANTIATE_TEST_SUITE_P(
     ),
     [](testing::TestParamInfo<PathTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
 );
+
+using TypeTestParamsType = ParseTestParams<Type>;
+class ParseTypeTest : public ::testing::TestWithParam<TypeTestParamsType> {};
+
+TEST_P(ParseTypeTest, ParseType) {
+  auto const& params = GetParam();
+  auto inputStart = params.input.cbegin();
+  auto const inputEnd = params.input.cend();
+  std::ostringstream oss;
+  auto const ret = life_lang::internal::ParseType(inputStart, inputEnd, oss);
+  EXPECT_EQ(params.shouldSucceed, ret.first);
+  if (params.shouldSucceed) {
+    EXPECT_EQ(params.shouldConsumeAll, inputStart == inputEnd) << std::string{inputStart, inputEnd};
+    EXPECT_EQ(params.expectedValue, ret.second);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    , ParseTypeTest,
+    ::testing::Values(
+        TypeTestParamsType{
+            .name = "noNamespace",
+            .input = "hello",
+            .expectedValue =
+                Type{
+                    .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "hello"}}},
+                    .templateArguments = {}
+                },
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        TypeTestParamsType{
+            .name = "absoluteNamespace",
+            .input = "::hello<int>",
+            .expectedValue =
+                Type{
+                    .path = Path{.isAbsolute = true, .segments = {Identifier{.value = "hello"}}},
+                    .templateArguments = {Type{
+                        .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}},
+                        .templateArguments = {}
+                    }}
+                },
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        TypeTestParamsType{
+            .name = "templateArgumentHasNamespace",
+            .input = "::hello<std::Array>",
+            .expectedValue =
+                Type{
+                    .path = Path{.isAbsolute = true, .segments = {Identifier{.value = "hello"}}},
+                    .templateArguments = {Type{
+                        .path =
+                            Path{
+                                .isAbsolute = false,
+                                .segments = {Identifier{.value = "std"}, Identifier{.value = "Array"}}
+                            },
+                        .templateArguments = {}
+                    }}
+                },
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        TypeTestParamsType{
+            .name = "templateArgumentHasAbsoluteNamespace",
+            .input = "::hello<::std::Array>",
+            .expectedValue =
+                Type{
+                    .path = Path{.isAbsolute = true, .segments = {Identifier{.value = "hello"}}},
+                    .templateArguments = {Type{
+                        .path =
+                            Path{
+                                .isAbsolute = true,
+                                .segments = {Identifier{.value = "std"}, Identifier{.value = "Array"}}
+                            },
+                        .templateArguments = {}
+                    }}
+                },
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        },
+        TypeTestParamsType{
+            .name = "multipleTemplateArgument",
+            .input = "a::b::hello<::std::Array, a::b::C<int, double>>",
+            .expectedValue =
+                Type{
+                    .path =
+                        Path{
+                            .isAbsolute = false,
+                            .segments =
+                                {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "hello"}}
+                        },
+                    .templateArguments =
+                        {Type{
+                             .path =
+                                 Path{
+                                     .isAbsolute = true,
+                                     .segments = {Identifier{.value = "std"}, Identifier{.value = "Array"}}
+                                 },
+                             .templateArguments = {}
+                         },
+                         Type{
+                             .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "C"}}},
+                             .templateArguments =
+                                 {Type{
+                                      .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}},
+                                      .templateArguments = {}
+                                  },
+                                  Type{
+                                      .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "double"}}},
+                                      .templateArguments = {}
+                                  }}
+                         }}
+                },
+            .shouldSucceed = true,
+            .shouldConsumeAll = true
+        }
+    ),
+    [](testing::TestParamInfo<TypeTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
+);
