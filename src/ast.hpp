@@ -6,13 +6,12 @@
 
 #include <boost/fusion/adapted/struct/adapt_struct.hpp>
 #include <string>
-#include <variant>
 #include <vector>
 
 namespace life_lang::ast {
 struct Identifier {
   std::string value;
-  friend auto operator<=>(Identifier const&, Identifier const&) = default;
+  friend bool operator==(Identifier const&, Identifier const&) = default;
   friend auto operator<<(std::ostream& os, Identifier const& id) -> std::ostream& { return os << fmt::to_string(id); }
 };
 }  // namespace life_lang::ast
@@ -99,52 +98,85 @@ struct formatter<life_lang::ast::Type> {
 }  // namespace fmt
 
 namespace life_lang::ast {
-struct Argument {
+struct FunctionParameter {
   Identifier name;
   Type type;
-  friend bool operator==(Argument const&, Argument const&) = default;
-  friend auto operator<<(std::ostream& os, Argument const& arg) -> std::ostream& { return os << fmt::to_string(arg); }
+  friend bool operator==(FunctionParameter const&, FunctionParameter const&) = default;
+  friend auto operator<<(std::ostream& os, FunctionParameter const& arg) -> std::ostream& {
+    return os << fmt::to_string(arg);
+  }
 };
 }  // namespace life_lang::ast
 
-BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::Argument, name, type)
+BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionParameter, name, type)
 
 namespace fmt {
 template <>
-struct formatter<life_lang::ast::Argument> {
+struct formatter<life_lang::ast::FunctionParameter> {
   template <typename ParseContext>
   constexpr auto parse(ParseContext& ctx) {
     return ctx.begin();
   }
 
   template <typename FormatContext>
-  auto format(life_lang::ast::Argument const& arg, FormatContext& ctx) {
-    return format_to(ctx.out(), "Argument{{name: {}, type: {}}}", arg.name, arg.type);
+  auto format(life_lang::ast::FunctionParameter const& arg, FormatContext& ctx) {
+    return format_to(ctx.out(), "FunctionParameter{{name: {}, type: {}}}", arg.name, arg.type);
   }
 };
 }  // namespace fmt
 
 namespace life_lang::ast {
-using ArgumentList = std::vector<life_lang::ast::Argument>;
+using FunctionParameterList = std::vector<life_lang::ast::FunctionParameter>;
 }
 
 namespace fmt {
 template <>
-struct formatter<life_lang::ast::ArgumentList> {
+struct formatter<life_lang::ast::FunctionParameterList> {
   template <typename ParseContext>
   constexpr auto parse(ParseContext& ctx) {
     return ctx.begin();
   }
 
   template <typename FormatContext>
-  auto format(life_lang::ast::ArgumentList const& args, FormatContext& ctx) {
-    format_to(ctx.out(), "ArgumentList{");
+  auto format(life_lang::ast::FunctionParameterList const& args, FormatContext& ctx) {
+    format_to(ctx.out(), "FunctionParameterList{{");
     for (auto const& arg : args) {
       format_to(ctx.out(), "{}, ", arg);
     }
-    return format_to(ctx.out(), "}");
+    return format_to(ctx.out(), "}}");
   }
 };
 }  // namespace fmt
 
+namespace life_lang::ast {
+struct FunctionDeclaration {
+  Identifier name;
+  FunctionParameterList parameters;
+  Type returnType;
+  friend bool operator==(FunctionDeclaration const&, FunctionDeclaration const&) = default;
+  friend auto operator<<(std::ostream& os, FunctionDeclaration const& decl) -> std::ostream& {
+    return os << fmt::to_string(decl);
+  }
+};
+}  // namespace life_lang::ast
+
+BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionDeclaration, name, parameters, returnType)
+
+namespace fmt {
+template <>
+struct formatter<life_lang::ast::FunctionDeclaration> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx) {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(life_lang::ast::FunctionDeclaration const& decl, FormatContext& ctx) {
+    return format_to(
+        ctx.out(), "FunctionDeclaration{{name: {}, parameters: {}, returnType: {}}}", decl.name, decl.parameters,
+        decl.returnType
+    );
+  }
+};
+}  // namespace fmt
 #endif

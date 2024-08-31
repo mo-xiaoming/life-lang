@@ -19,8 +19,9 @@ namespace life_lang::internal {
 PARSE_FN_DECLARATION(Identifier)
 PARSE_FN_DECLARATION(Path)
 PARSE_FN_DECLARATION(Type)
-PARSE_FN_DECLARATION(Argument)
-PARSE_FN_DECLARATION(ArgumentList)
+PARSE_FN_DECLARATION(FunctionParameter)
+PARSE_FN_DECLARATION(FunctionParameterList)
+PARSE_FN_DECLARATION(FunctionDeclaration)
 #undef PARSE_FN_DECLARATION
 }  // namespace life_lang::internal
 

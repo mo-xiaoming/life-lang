@@ -83,17 +83,24 @@ auto const TypeRule_def = PathRule >> -TemplateArgumentListRule;
 BOOST_SPIRIT_DEFINE(TypeRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(TypeRule), IteratorType, ContextType)
 
-struct ArgumentTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<ArgumentTag, ast::Argument> const ArgumentRule = "argument rule";
-auto const ArgumentRule_def = IdentifierRule > lit(':') > TypeRule;
-BOOST_SPIRIT_DEFINE(ArgumentRule)
-BOOST_SPIRIT_INSTANTIATE(decltype(ArgumentRule), IteratorType, ContextType)
+struct FunctionParameterTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<FunctionParameterTag, ast::FunctionParameter> const FunctionParameterRule = "function parameter rule";
+auto const FunctionParameterRule_def = IdentifierRule > lit(':') > TypeRule;
+BOOST_SPIRIT_DEFINE(FunctionParameterRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(FunctionParameterRule), IteratorType, ContextType)
 
-struct ArgumentListTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<ArgumentListTag, ast::ArgumentList> const ArgumentListRule = "argument list rule";
-auto const ArgumentListRule_def = lit('(') > -(ArgumentRule % ',') > lit(')');
-BOOST_SPIRIT_DEFINE(ArgumentListRule)
-BOOST_SPIRIT_INSTANTIATE(decltype(ArgumentListRule), IteratorType, ContextType)
+struct FunctionParameterListTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<FunctionParameterListTag, ast::FunctionParameterList> const FunctionParameterListRule =
+    "function parameter list rule";
+auto const FunctionParameterListRule_def = lit('(') > -(FunctionParameterRule % ',') > lit(')');
+BOOST_SPIRIT_DEFINE(FunctionParameterListRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(FunctionParameterListRule), IteratorType, ContextType)
+
+struct FunctionDeclarationTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<FunctionDeclarationTag, ast::FunctionDeclaration> const FunctionDeclarationRule = "function declaration rule";
+auto const FunctionDeclarationRule_def = lit("fn") > IdentifierRule > FunctionParameterListRule > lit(':') > TypeRule;
+BOOST_SPIRIT_DEFINE(FunctionDeclarationRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(FunctionDeclarationRule), IteratorType, ContextType)
 }  // namespace life_lang::parser
 
 namespace life_lang::internal {
@@ -116,7 +123,8 @@ std::pair<bool, AST> Parse(Rule const &rule, parser::IteratorType &begin, parser
 PARSE_FN_DEFINITION(Identifier)
 PARSE_FN_DEFINITION(Path)
 PARSE_FN_DEFINITION(Type)
-PARSE_FN_DEFINITION(Argument)
-PARSE_FN_DEFINITION(ArgumentList)
+PARSE_FN_DEFINITION(FunctionParameter)
+PARSE_FN_DEFINITION(FunctionParameterList)
+PARSE_FN_DEFINITION(FunctionDeclaration)
 #undef PARSE_FN_DEFINITION
 }  // namespace life_lang::internal

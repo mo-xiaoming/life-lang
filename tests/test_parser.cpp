@@ -7,8 +7,9 @@
 
 #include "rules.hpp"
 
-using life_lang::ast::Argument;
-using life_lang::ast::ArgumentList;
+using life_lang::ast::FunctionDeclaration;
+using life_lang::ast::FunctionParameter;
+using life_lang::ast::FunctionParameterList;
 using life_lang::ast::Identifier;
 using life_lang::ast::Path;
 using life_lang::ast::Type;
@@ -270,16 +271,16 @@ INSTANTIATE_TEST_SUITE_P(
     [](testing::TestParamInfo<TypeTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
 );
 
-PARSE_TEST(Argument)
+PARSE_TEST(FunctionParameter)
 
 INSTANTIATE_TEST_SUITE_P(
-    , ParseArgumentTest,
+    , ParseFunctionParameterTest,
     ::testing::Values(
-        ArgumentTestParamsType{
+        FunctionParameterTestParamsType{
             .name = "noNamespace",
             .input = "hello:T",
             .expectedValue =
-                Argument{
+                FunctionParameter{
                     .name = Identifier{.value = "hello"},
                     .type =
                         Type{
@@ -290,11 +291,11 @@ INSTANTIATE_TEST_SUITE_P(
             .shouldSucceed = true,
             .shouldConsumeAll = true
         },
-        ArgumentTestParamsType{
+        FunctionParameterTestParamsType{
             .name = "multipleTemplateArgument",
             .input = "hello: a::b::hello<::std::Array, a::b::C<int, double>>",
             .expectedValue =
-                Argument{
+                FunctionParameter{
                     .name = Identifier{.value = "hello"},
                     .type =
                         Type{
@@ -338,28 +339,30 @@ INSTANTIATE_TEST_SUITE_P(
             .shouldConsumeAll = true
         }
     ),
-    [](testing::TestParamInfo<ArgumentTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
+    [](testing::TestParamInfo<FunctionParameterTestParamsType> const& paramInfo) {
+      return std::string{paramInfo.param.name};
+    }
 );
 
-PARSE_TEST(ArgumentList)
+PARSE_TEST(FunctionParameterList)
 
 INSTANTIATE_TEST_SUITE_P(
-    , ParseArgumentListTest,
+    , ParseFunctionParameterListTest,
     ::testing::
         Values(
-            ArgumentListTestParamsType{
+            FunctionParameterListTestParamsType{
                 .name = "noArgument",
                 .input = "()",
                 .expectedValue = {},
                 .shouldSucceed = true,
                 .shouldConsumeAll = true
             },
-            ArgumentListTestParamsType{
+            FunctionParameterListTestParamsType{
                 .name = "oneArgument",
                 .input = "(hello:T)",
                 .expectedValue =
                     {
-                        Argument{
+                        FunctionParameter{
                             .name = Identifier{.value = "hello"},
                             .type =
                                 Type{
@@ -371,12 +374,12 @@ INSTANTIATE_TEST_SUITE_P(
                 .shouldSucceed = true,
                 .shouldConsumeAll = true
             },
-            ArgumentListTestParamsType{
+            FunctionParameterListTestParamsType{
                 .name = "multipleArguments",
                 .input = "(hello:T, world:U)",
                 .expectedValue =
                     {
-                        Argument{
+                        FunctionParameter{
                             .name = Identifier{.value = "hello"},
                             .type =
                                 Type{
@@ -384,7 +387,7 @@ INSTANTIATE_TEST_SUITE_P(
                                     .templateArguments = {}
                                 }
                         },
-                        Argument{
+                        FunctionParameter{
                             .name = Identifier{.value = "world"},
                             .type =
                                 Type{
@@ -396,12 +399,12 @@ INSTANTIATE_TEST_SUITE_P(
                 .shouldSucceed = true,
                 .shouldConsumeAll = true
             },
-            ArgumentListTestParamsType{
+            FunctionParameterListTestParamsType{
                 .name = "oneTemplateArgument",
                 .input = "(hello: a::b::hello<::std::Array, a::b::C<int, double>>)",
                 .expectedValue =
                     {
-                        Argument{
+                        FunctionParameter{
                             .name = Identifier{.value = "hello"},
                             .type =
                                 Type{
@@ -444,16 +447,16 @@ INSTANTIATE_TEST_SUITE_P(
                 .shouldSucceed = true,
                 .shouldConsumeAll = true
             },
-            ArgumentListTestParamsType{
+            FunctionParameterListTestParamsType{
                 .name = "multipleTemplateArguments",
                 .input = "(hello: a::b::hello<::std::Array, a::b::C<int, double>>, world: ::world<A<::B>, C<D>>)",
                 .expectedValue =
                     {
-                        Argument{
+                        FunctionParameter{
                             .name = Identifier{.value = "hello"},
                             .type = Type{.path = Path{.isAbsolute = false, .segments = {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "hello"}}}, .templateArguments = {Type{.path = Path{.isAbsolute = true, .segments = {Identifier{.value = "std"}, Identifier{.value = "Array"}}}, .templateArguments = {}}, Type{.path = Path{.isAbsolute = false, .segments = {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "C"}}}, .templateArguments = {Type{.path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}}, .templateArguments = {}}, Type{.path = Path{.isAbsolute = false, .segments = {Identifier{.value = "double"}}}, .templateArguments = {}}}}}}
                         },
-                        Argument{
+                        FunctionParameter{
                             .name = Identifier{.value = "world"},
                             .type =
                                 Type{
@@ -488,7 +491,162 @@ INSTANTIATE_TEST_SUITE_P(
                 .shouldConsumeAll = true
             }
         ),
-    [](testing::TestParamInfo<ArgumentListTestParamsType> const& paramInfo) {
+    [](testing::TestParamInfo<FunctionParameterListTestParamsType> const& paramInfo) {
+      return std::string{paramInfo.param.name};
+    }
+);
+
+PARSE_TEST(FunctionDeclaration)
+
+INSTANTIATE_TEST_SUITE_P(
+    , ParseFunctionDeclarationTest,
+    ::testing::
+        Values(
+            FunctionDeclarationTestParamsType{
+                .name = "noArgument",
+                .input = "fn foo(): int",
+                .expectedValue = {FunctionDeclaration{
+                    .name = Identifier{.value = "foo"},
+                    .parameters = {},
+                    .returnType =
+                        Type{
+                            .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}},
+                            .templateArguments = {}
+                        }
+                }},
+                .shouldSucceed = true,
+                .shouldConsumeAll = true
+            },
+            FunctionDeclarationTestParamsType{
+                .name = "oneArgument",
+                .input = "fn foo(hello:T): int",
+                .expectedValue =
+                    {
+                        FunctionDeclaration{
+                            .name = Identifier{.value = "foo"},
+                            .parameters = {FunctionParameter{
+                                .name = Identifier{.value = "hello"},
+                                .type =
+                                    Type{
+                                        .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "T"}}},
+                                        .templateArguments = {}
+                                    }
+                            }},
+                            .returnType =
+                                Type{
+                                    .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}},
+                                    .templateArguments = {}
+                                },
+                        },
+                    },
+                .shouldSucceed = true,
+                .shouldConsumeAll = true
+            },
+            FunctionDeclarationTestParamsType{
+                .name = "multipleArguments",
+                .input = "fn foo(hello:T, world:U): int",
+                .expectedValue =
+                    {
+                        FunctionDeclaration{
+                            .name = Identifier{.value = "foo"},
+                            .parameters =
+                                {
+                                    FunctionParameter{
+                                        .name = Identifier{.value = "hello"},
+                                        .type =
+                                            Type{
+                                                .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "T"}}},
+                                                .templateArguments = {}
+                                            }
+                                    },
+                                    FunctionParameter{
+                                        .name = Identifier{.value = "world"},
+                                        .type =
+                                            Type{
+                                                .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "U"}}},
+                                                .templateArguments = {}
+                                            }
+                                    },
+                                },
+                            .returnType =
+                                Type{
+                                    .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}},
+                                    .templateArguments = {}
+                                },
+                        },
+                    },
+                .shouldSucceed = true,
+                .shouldConsumeAll = true
+            },
+            FunctionDeclarationTestParamsType{
+                .name = "oneTemplateArgument",
+                .input = "fn foo(hello: a::b::hello<::std::Array, a::b::C<int, double>>): a::b::C<int>",
+                .expectedValue =
+                {
+                    FunctionDeclaration{
+                        .name = Identifier{.value = "foo"},
+                        .parameters =
+                            {
+                                FunctionParameter{
+                                    .name = Identifier{.value = "hello"},
+                                    .type =
+                                        Type{
+                                            .path =
+                                                Path{
+                                                    .isAbsolute = false,
+                                                    .segments =
+                                                        {Identifier{.value = "a"}, Identifier{.value = "b"},
+                                                         Identifier{.value = "hello"}}
+                                                },
+                                            .templateArguments =
+                                                {Type{
+                                                     .path =
+                                                         Path{
+                                                             .isAbsolute = true,
+                                                             .segments = {Identifier{.value = "std"}, Identifier{.value = "Array"}}
+                                                         },
+                                                     .templateArguments = {}
+                                                 },
+                                                 Type{
+                                                     .path =
+                                                         Path{
+                                                             .isAbsolute = false,
+                                                             .segments = {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "C"}}
+                                                         },
+                                                     .templateArguments =
+                                                         {Type{
+                                                              .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}},
+                                                              .templateArguments = {}
+                                                          },
+                                                          Type{
+                                                              .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "double"}}},
+                                                              .templateArguments = {}
+                                                          }}
+                                                 }}
+                                        }
+                                },
+                            },
+                        .returnType =
+                            Type{
+                                .path =
+                                    Path{
+                                        .isAbsolute = false,
+                                        .segments =
+                                            {Identifier{.value = "a"}, Identifier{.value = "b"}, Identifier{.value = "C"}}
+                                    },
+                                .templateArguments =
+                                    {Type{
+                                         .path = Path{.isAbsolute = false, .segments = {Identifier{.value = "int"}}},
+                                         .templateArguments = {}
+                                     }}
+                            },
+                    },
+                },
+                .shouldSucceed = true,
+                .shouldConsumeAll = true
+            }
+        ),
+    [](testing::TestParamInfo<FunctionDeclarationTestParamsType> const& paramInfo) {
       return std::string{paramInfo.param.name};
     }
 );
