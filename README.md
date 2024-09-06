@@ -18,8 +18,8 @@ ctest --preset debug
 ## The language
 
 ```
-fn main(args: std::Array<std::String>): i32 {
-    std::print("Hello world!");
+fn main(args: Std.Array<Std.String>): I32 {
+    Std.print("Hello world!");
     return 0;
 }
 ```

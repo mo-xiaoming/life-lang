@@ -11,17 +11,37 @@ using IteratorType = std::string::const_iterator;
 }  // namespace life_lang::parser
 
 namespace life_lang::internal {
+template <typename Ast>
+struct ParseResult {
+  ParseResult(bool success, Ast ast) : m_success(success), m_ast(std::move(ast)) {}
+  [[nodiscard]] constexpr explicit operator bool() const noexcept { return m_success; }
+  [[nodiscard]] Ast const &operator*() const noexcept { return m_ast; }
+
+ private:
+  bool m_success;
+  Ast m_ast;
+};
+
 #define PARSE_FN_DECLARATION(name)                                             \
-  std::pair<bool, life_lang::ast::name> Parse##name(                           \
+  ParseResult<life_lang::ast::name> Parse##name(                               \
       parser::IteratorType &begin, parser::IteratorType end, std::ostream &out \
   );
 
-PARSE_FN_DECLARATION(Identifier)
-PARSE_FN_DECLARATION(Path)
+PARSE_FN_DECLARATION(ModulePathSegment)
+PARSE_FN_DECLARATION(ModulePath)
+PARSE_FN_DECLARATION(DataPathSegment)
+PARSE_FN_DECLARATION(DataPath)
 PARSE_FN_DECLARATION(Type)
 PARSE_FN_DECLARATION(FunctionParameter)
-PARSE_FN_DECLARATION(FunctionParameterList)
 PARSE_FN_DECLARATION(FunctionDeclaration)
+PARSE_FN_DECLARATION(Value)
+PARSE_FN_DECLARATION(Expr)
+PARSE_FN_DECLARATION(FunctionCallExpr)
+PARSE_FN_DECLARATION(FunctionCallExprStatement)
+PARSE_FN_DECLARATION(ReturnStatement)
+PARSE_FN_DECLARATION(Statement)
+PARSE_FN_DECLARATION(Block)
+PARSE_FN_DECLARATION(FunctionDefinition)
 #undef PARSE_FN_DECLARATION
 }  // namespace life_lang::internal
 
