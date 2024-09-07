@@ -6,53 +6,46 @@
 
 #include <boost/fusion/adapted/struct/adapt_struct.hpp>
 #include <boost/spirit/home/x3/support/ast/variant.hpp>
-#include <optional>
 #include <string>
 #include <vector>
 
 namespace life_lang::ast {
 
-struct ModulePathSegment {
+namespace internal {
+struct VariantCmp {
+  template <typename T>
+  [[nodiscard]] bool operator()(
+      boost::spirit::x3::forward_ast<T> const& lhs, boost::spirit::x3::forward_ast<T> const& rhs
+  ) const {
+    return lhs.get() == rhs.get();
+  }
+  template <typename T>
+  [[nodiscard]] bool operator()(T const& lhs, T const& rhs) const {
+    return lhs == rhs;
+  }
+  [[nodiscard]] bool operator()(auto const& /*lhs*/, auto const& /*rhs*/) const { return false; }
+};
+}  // namespace internal
+
+struct PathSegment;
+struct Path {
+  std::vector<PathSegment> segments;
+  friend bool operator==(Path const& lhs, Path const& rhs) = default;
+  friend auto operator<<(std::ostream& os, Path const& path) -> std::ostream& { return os << fmt::to_string(path); }
+};
+
+struct PathSegment {
   std::string value;
-  friend bool operator==(ModulePathSegment const& lhs, ModulePathSegment const& rhs) = default;
-  friend auto operator<<(std::ostream& os, ModulePathSegment const& segment) -> std::ostream& {
+  std::vector<Path> templateParameters;
+  friend bool operator==(PathSegment const& lhs, PathSegment const& rhs) = default;
+  friend auto operator<<(std::ostream& os, PathSegment const& segment) -> std::ostream& {
     return os << fmt::to_string(segment);
   }
-};
-struct ModulePath {
-  bool isAbsolute{};
-  std::vector<ModulePathSegment> segments;
-  friend bool operator==(ModulePath const& lhs, ModulePath const& rhs) = default;
-  friend auto operator<<(std::ostream& os, ModulePath const& path) -> std::ostream& {
-    return os << fmt::to_string(path);
-  }
-};
-
-struct DataPathSegment {
-  std::string value;
-  friend bool operator==(DataPathSegment const& lhs, DataPathSegment const& rhs) = default;
-  friend auto operator<<(std::ostream& os, DataPathSegment const& segment) -> std::ostream& {
-    return os << fmt::to_string(segment);
-  }
-};
-
-struct DataPath {
-  std::vector<DataPathSegment> segments;
-  friend bool operator==(DataPath const& lhs, DataPath const& rhs) = default;
-  friend auto operator<<(std::ostream& os, DataPath const& path) -> std::ostream& { return os << fmt::to_string(path); }
-};
-
-struct Type {
-  ModulePath modulePath;
-  std::string name;
-  std::vector<Type> templateParameters;
-  friend bool operator==(Type const& lhs, Type const& rhs) = default;
-  friend auto operator<<(std::ostream& os, Type const& type) -> std::ostream& { return os << fmt::to_string(type); }
 };
 
 struct FunctionParameter {
   std::string name;
-  Type type;
+  Path type;
   friend bool operator==(FunctionParameter const& lhs, FunctionParameter const& rhs) = default;
   friend auto operator<<(std::ostream& os, FunctionParameter const& arg) -> std::ostream& {
     return os << fmt::to_string(arg);
@@ -62,45 +55,22 @@ struct FunctionParameter {
 struct FunctionDeclaration {
   std::string name;
   std::vector<FunctionParameter> parameters;
-  Type returnType;
+  Path returnType;
   friend bool operator==(FunctionDeclaration const& lhs, FunctionDeclaration const& rhs) = default;
   friend auto operator<<(std::ostream& os, FunctionDeclaration const& decl) -> std::ostream& {
     return os << fmt::to_string(decl);
   }
 };
 
-struct Value {
-  std::optional<Type> type;
-  DataPath dataPath;
-  friend bool operator==(Value const& lhs, Value const& rhs) = default;
-  friend auto operator<<(std::ostream& os, Value const& value) -> std::ostream& { return os << fmt::to_string(value); }
-};
-
 struct FunctionCallExpr;
-
-using Expr = boost::spirit::x3::variant<Value, boost::spirit::x3::forward_ast<FunctionCallExpr>>;
-namespace internal {
-struct ExprCmp {
-  [[nodiscard]] bool operator()(Value const& lhs, Value const& rhs) const {
-    if (lhs.type != rhs.type) {
-      return false;
-    }
-    return lhs.dataPath == rhs.dataPath;
-  }
-  template <typename T>
-  [[nodiscard]] bool operator()(
-      boost::spirit::x3::forward_ast<T> const& lhs, boost::spirit::x3::forward_ast<T> const& rhs
-  ) const {
-    return lhs.get() == rhs.get();
-  }
-  [[nodiscard]] bool operator()(auto const& /*lhs*/, auto const& /*rhs*/) const { return false; }
-};
-}  // namespace internal
-inline bool operator==(Expr const& lhs, Expr const& rhs) { return boost::apply_visitor(internal::ExprCmp{}, lhs, rhs); }
+using Expr = boost::spirit::x3::variant<Path, boost::spirit::x3::forward_ast<FunctionCallExpr>>;
+inline bool operator==(Expr const& lhs, Expr const& rhs) {
+  return boost::apply_visitor(internal::VariantCmp{}, lhs, rhs);
+}
 inline std::ostream& operator<<(std::ostream& os, Expr const& expr) { return os << fmt::to_string(expr); }
 
 struct FunctionCallExpr {
-  Value name;
+  Path name;
   std::vector<Expr> parameters;
   friend bool operator==(FunctionCallExpr const& lhs, FunctionCallExpr const& rhs) = default;
   friend auto operator<<(std::ostream& os, FunctionCallExpr const& call) -> std::ostream& {
@@ -108,10 +78,10 @@ struct FunctionCallExpr {
   }
 };
 
-struct FunctionCallExprStatement {
+struct FunctionCallStatement {
   FunctionCallExpr expr;
-  friend bool operator==(FunctionCallExprStatement const& lhs, FunctionCallExprStatement const& rhs) = default;
-  friend auto operator<<(std::ostream& os, FunctionCallExprStatement const& call) -> std::ostream& {
+  friend bool operator==(FunctionCallStatement const& lhs, FunctionCallStatement const& rhs) = default;
+  friend auto operator<<(std::ostream& os, FunctionCallStatement const& call) -> std::ostream& {
     return os << fmt::to_string(call);
   }
 };
@@ -127,25 +97,10 @@ struct ReturnStatement {
 struct FunctionDefinition;
 struct Block;
 using Statement = boost::spirit::x3::variant<
-    boost::spirit::x3::forward_ast<FunctionDefinition>, FunctionCallExprStatement, ReturnStatement,
+    boost::spirit::x3::forward_ast<FunctionDefinition>, FunctionCallStatement, ReturnStatement,
     boost::spirit::x3::forward_ast<Block>>;
-namespace internal {
-struct StatementCmp {
-  template <typename T>
-  [[nodiscard]] bool operator()(
-      boost::spirit::x3::forward_ast<T> const& lhs, boost::spirit::x3::forward_ast<T> const& rhs
-  ) const {
-    return lhs.get() == rhs.get();
-  }
-  [[nodiscard]] bool operator()(FunctionCallExprStatement const& lhs, FunctionCallExprStatement const& rhs) const {
-    return lhs == rhs;
-  }
-  [[nodiscard]] bool operator()(ReturnStatement const& lhs, ReturnStatement const& rhs) const { return lhs == rhs; }
-  [[nodiscard]] bool operator()(auto const& /*lhs*/, auto const& /*rhs*/) const { return false; }
-};
-}  // namespace internal
 inline bool operator==(Statement const& lhs, Statement const& rhs) {
-  return boost::apply_visitor(internal::StatementCmp{}, lhs, rhs);
+  return boost::apply_visitor(internal::VariantCmp{}, lhs, rhs);
 }
 inline std::ostream& operator<<(std::ostream& os, Statement const& statement) {
   return os << fmt::to_string(statement);
@@ -160,99 +115,56 @@ struct Block {
 struct FunctionDefinition {
   FunctionDeclaration declaration;
   Block body;
-  friend bool operator==(FunctionDefinition const& lhs, FunctionDefinition const& rhs) = default;
+  friend bool operator==(FunctionDefinition const& lhs, FunctionDefinition const& rhs) {
+    if (lhs.declaration == rhs.declaration) {
+      return lhs.body == rhs.body;
+    }
+    return false;
+  }
   friend auto operator<<(std::ostream& os, FunctionDefinition const& def) -> std::ostream& {
     return os << fmt::to_string(def);
   }
 };
 }  // namespace life_lang::ast
 
-BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::ModulePathSegment, value)
-BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::ModulePath, isAbsolute, segments)
-BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::DataPathSegment, value)
-BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::DataPath, segments)
-BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::Type, modulePath, name, templateParameters)
+BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::PathSegment, value, templateParameters)
+BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::Path, segments)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionParameter, name, type)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionDeclaration, name, parameters, returnType)
-BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::Value, type, dataPath)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::ReturnStatement, expr)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionCallExpr, name, parameters)
-BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionCallExprStatement, expr)
+BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionCallStatement, expr)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::Block, statements)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionDefinition, declaration, body)
 
 namespace fmt {
+
 template <>
-struct formatter<life_lang::ast::ModulePathSegment> {
+struct formatter<life_lang::ast::PathSegment> {
   template <typename ParseContext>
   constexpr auto parse(ParseContext& ctx) const {
     return ctx.begin();
   }
 
   template <typename FormatContext>
-  auto format(life_lang::ast::ModulePathSegment const& segment, FormatContext& ctx) const {
+  auto format(life_lang::ast::PathSegment const& segment, FormatContext& ctx) const {
+    if (segment.templateParameters.size() > 0) {
+      return format_to(ctx.out(), "{}<{}>", segment.value, fmt::join(segment.templateParameters, ", "));
+    }
     return format_to(ctx.out(), "{}", segment.value);
   }
 };
 
 template <>
-struct formatter<life_lang::ast::ModulePath> {
+struct formatter<life_lang::ast::Path> {
   template <typename ParseContext>
   constexpr auto parse(ParseContext& ctx) const {
     return ctx.begin();
   }
 
   template <typename FormatContext>
-  auto format(life_lang::ast::ModulePath const& path, FormatContext& ctx) const {
-    return format_to(ctx.out(), "{}{}", path.isAbsolute ? "" : ".", fmt::join(path.segments, "."));
-  }
-};
-
-template <>
-struct formatter<life_lang::ast::DataPathSegment> {
-  template <typename ParseContext>
-  constexpr auto parse(ParseContext& ctx) const {
-    return ctx.begin();
-  }
-
-  template <typename FormatContext>
-  auto format(life_lang::ast::DataPathSegment const& segment, FormatContext& ctx) const {
-    return format_to(ctx.out(), "{}", segment.value);
-  }
-};
-
-template <>
-struct formatter<life_lang::ast::DataPath> {
-  template <typename ParseContext>
-  constexpr auto parse(ParseContext& ctx) const {
-    return ctx.begin();
-  }
-
-  template <typename FormatContext>
-  auto format(life_lang::ast::DataPath const& path, FormatContext& ctx) const {
+  auto format(life_lang::ast::Path const& path, FormatContext& ctx) const {
     return format_to(ctx.out(), "{}", fmt::join(path.segments, "."));
-  }
-};
-
-template <>
-struct formatter<life_lang::ast::Type> {
-  template <typename ParseContext>
-  constexpr auto parse(ParseContext& ctx) const {
-    return ctx.begin();
-  }
-
-  template <typename FormatContext>
-  auto format(life_lang::ast::Type const& type, FormatContext& ctx) const {
-    if (type.templateParameters.empty()) {
-      if (type.modulePath.segments.empty()) {
-        return format_to(ctx.out(), ".{}", type.name);
-      }
-      return format_to(ctx.out(), "{}.{}", type.modulePath, type.name);
-    }
-    if (type.modulePath.segments.empty()) {
-      return format_to(ctx.out(), ".{}<{}>", type.name, fmt::join(type.templateParameters, ", "));
-    }
-    return format_to(ctx.out(), "{}.{}<{}>", type.modulePath, type.name, fmt::join(type.templateParameters, ", "));
   }
 };
 
@@ -283,22 +195,6 @@ struct formatter<life_lang::ast::FunctionDeclaration> {
 };
 
 template <>
-struct formatter<life_lang::ast::Value> {
-  template <typename ParseContext>
-  constexpr auto parse(ParseContext& ctx) const {
-    return ctx.begin();
-  }
-
-  template <typename FormatContext>
-  auto format(life_lang::ast::Value const& value, FormatContext& ctx) const {
-    if (value.type.has_value()) {
-      return format_to(ctx.out(), "{}.{}", *value.type, value.dataPath);
-    }
-    return format_to(ctx.out(), "{}", value.dataPath);
-  }
-};
-
-template <>
 struct formatter<life_lang::ast::FunctionCallExpr> {
   template <typename ParseContext>
   constexpr auto parse(ParseContext& ctx) const {
@@ -312,14 +208,14 @@ struct formatter<life_lang::ast::FunctionCallExpr> {
 };
 
 template <>
-struct formatter<life_lang::ast::FunctionCallExprStatement> {
+struct formatter<life_lang::ast::FunctionCallStatement> {
   template <typename ParseContext>
   constexpr auto parse(ParseContext& ctx) const {
     return ctx.begin();
   }
 
   template <typename FormatContext>
-  auto format(life_lang::ast::FunctionCallExprStatement const& call, FormatContext& ctx) const {
+  auto format(life_lang::ast::FunctionCallStatement const& call, FormatContext& ctx) const {
     return format_to(ctx.out(), "{};", call.expr);
   }
 };
@@ -347,8 +243,8 @@ struct formatter<life_lang::ast::Expr> {
   template <typename FormatContext>
   struct Formatter {
     explicit Formatter(FormatContext* ctx) : m_ctx(ctx) {}
-    [[nodiscard]] auto operator()(life_lang::ast::Value const& value) const {
-      return format_to(m_ctx->out(), "{}", value);
+    [[nodiscard]] auto operator()(life_lang::ast::Path const& path) const {
+      return format_to(m_ctx->out(), "{}", path);
     }
     template <typename T>
     [[nodiscard]] auto operator()(boost::spirit::x3::forward_ast<T> const& t) const {
@@ -401,7 +297,7 @@ struct formatter<life_lang::ast::Statement> {
   template <typename FormatContext>
   struct Formatter {
     explicit Formatter(FormatContext* ctx) : m_ctx(ctx) {}
-    [[nodiscard]] auto operator()(life_lang::ast::FunctionCallExprStatement const& call) const {
+    [[nodiscard]] auto operator()(life_lang::ast::FunctionCallStatement const& call) const {
       return format_to(m_ctx->out(), "{}", call);
     }
     [[nodiscard]] auto operator()(life_lang::ast::ReturnStatement const& ret) const {

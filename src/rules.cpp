@@ -24,7 +24,6 @@ struct ErrorHandler {
   }
 };
 
-using x3::eps;
 using x3::lexeme;
 using x3::raw;
 using x3::ascii::alnum;
@@ -32,7 +31,6 @@ using x3::ascii::char_;
 using x3::ascii::digit;
 using x3::ascii::lit;
 using x3::ascii::lower;
-using x3::ascii::upper;
 
 auto &GetSymbolTable() {
   static x3::symbols<int> symtab;
@@ -48,84 +46,47 @@ auto const MakeKeyword = [](std::string const &kw) {
 auto const KwFn = MakeKeyword("fn");
 auto const KwLet = MakeKeyword("let");
 auto const ReservedRule = lexeme[GetSymbolTable() >> !(alnum | char_('_'))];
+
+// auto const CName = raw[lexeme[upper >> *(alnum)] >> !alnum];
+auto const SnakeCase = raw[lexeme[lower >> *(lower | digit | char_('_')) >> !(alnum | char_('_'))]];
 }  // namespace
 
-auto const CName = raw[lexeme[upper >> *(alnum)] >> !alnum];
-auto const LName = raw[lexeme[lower >> *(lower | digit | char_('_')) >> !(alnum | char_('_'))]];
+struct PathTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<PathTag, ast::Path> const PathRule = "path rule";
 
-struct ModulePathSegmentTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<ModulePathSegmentTag, ast::ModulePathSegment> const ModulePathSegmentRule = "module path segment rule";
-auto const ModulePathSegmentRule_def = CName;
-BOOST_SPIRIT_DEFINE(ModulePathSegmentRule)
-BOOST_SPIRIT_INSTANTIATE(decltype(ModulePathSegmentRule), IteratorType, ContextType)
+struct PathSegmentTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<PathSegmentTag, ast::PathSegment> const PathSegmentRule = "path segment rule";
+auto const PathSegmentRule_def = raw[lexeme[+(alnum | char_('_'))]] >> -(lit('<') > (PathRule % ',') > lit('>'));
+BOOST_SPIRIT_DEFINE(PathSegmentRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(PathSegmentRule), IteratorType, ContextType)
 
-struct ModulePathTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<ModulePathTag, ast::ModulePath> const ModulePathRule = "module path rule";
-auto const ModulePathRule_def = eps[([](auto &ctx) { x3::_val(ctx).isAbsolute = true; })] >>
-                                -lit('.')[([](auto &ctx) { x3::_val(ctx).isAbsolute = false; })] >>
-                                (ModulePathSegmentRule % lit('.')
-                                )[([](auto &ctx) { x3::_val(ctx).segments = x3::_attr(ctx); })];
-BOOST_SPIRIT_DEFINE(ModulePathRule)
-BOOST_SPIRIT_INSTANTIATE(decltype(ModulePathRule), IteratorType, ContextType)
-
-struct DataPathSegmentTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<DataPathSegmentTag, ast::DataPathSegment> const DataPathSegmentRule = "data path segment rule";
-auto const DataPathSegmentRule_def = LName;
-BOOST_SPIRIT_DEFINE(DataPathSegmentRule)
-BOOST_SPIRIT_INSTANTIATE(decltype(DataPathSegmentRule), IteratorType, ContextType)
-
-struct DataPathTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<DataPathTag, ast::DataPath> const DataPathRule = "module path rule";
-auto const DataPathRule_def = (DataPathSegmentRule % lit('.'));
-BOOST_SPIRIT_DEFINE(DataPathRule)
-BOOST_SPIRIT_INSTANTIATE(decltype(DataPathRule), IteratorType, ContextType)
-
-struct TypeTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<TypeTag, ast::Type> const TypeRule = "module path rule";
-auto const TypeRule_def =
-    ModulePathRule[([](auto &ctx) {
-      auto const &modulePath = x3::_attr(ctx);
-      auto const &segments = modulePath.segments;
-      x3::_val(ctx).name = segments.crbegin()->value;
-      x3::_val(ctx).modulePath =
-          ast::ModulePath{.isAbsolute = modulePath.isAbsolute, .segments = {segments.cbegin(), segments.cend() - 1}};
-      if (modulePath.segments.size() == 1) {
-        x3::_val(ctx).modulePath.isAbsolute = false;
-      }
-    })] >>
-    -(lit('<') > (TypeRule % ',')[([](auto &ctx) { x3::_val(ctx).templateParameters = x3::_attr(ctx); })] > lit('>'));
-BOOST_SPIRIT_DEFINE(TypeRule)
-BOOST_SPIRIT_INSTANTIATE(decltype(TypeRule), IteratorType, ContextType)
+auto const PathRule_def = PathSegmentRule % lit('.');
+BOOST_SPIRIT_DEFINE(PathRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(PathRule), IteratorType, ContextType)
 
 struct FunctionParameterTag : ErrorHandler, x3::annotate_on_success {};
 x3::rule<FunctionParameterTag, ast::FunctionParameter> const FunctionParameterRule = "function parameter rule";
-auto const FunctionParameterRule_def = LName > lit(':') > TypeRule;
+auto const FunctionParameterRule_def = SnakeCase > lit(':') > PathRule;
 BOOST_SPIRIT_DEFINE(FunctionParameterRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionParameterRule), IteratorType, ContextType)
 
 struct FunctionDeclarationTag : ErrorHandler, x3::annotate_on_success {};
 x3::rule<FunctionDeclarationTag, ast::FunctionDeclaration> const FunctionDeclarationRule = "function declaration rule";
-auto const FunctionDeclarationRule_def = lit("fn") > LName > lit('(') > -(FunctionParameterRule % lit(',')) > lit(')') >
-                                         lit(':') > TypeRule;
+auto const FunctionDeclarationRule_def = lit("fn") > SnakeCase > lit('(') > -(FunctionParameterRule % lit(',')) >
+                                         lit(')') > lit(':') > PathRule;
 BOOST_SPIRIT_DEFINE(FunctionDeclarationRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionDeclarationRule), IteratorType, ContextType)
-
-struct ValueTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<ValueTag, ast::Value> const ValueRule = "value rule";
-auto const ValueRule_def = -(TypeRule > '.') >> DataPathRule;
-BOOST_SPIRIT_DEFINE(ValueRule)
-BOOST_SPIRIT_INSTANTIATE(decltype(ValueRule), IteratorType, ContextType)
 
 struct ExprTag : ErrorHandler, x3::annotate_on_success {};
 x3::rule<ExprTag, ast::Expr> const ExprRule = "expr rule";
 
 struct FunctionCallExprTag : ErrorHandler, x3::annotate_on_success {};
 x3::rule<FunctionCallExprTag, ast::FunctionCallExpr> const FunctionCallExprRule = "function call rule";
-auto const FunctionCallExprRule_def = ValueRule >> lit('(') >> -(ExprRule % ',') >> lit(')');
+auto const FunctionCallExprRule_def = PathRule >> lit('(') >> -(ExprRule % ',') >> lit(')');
 BOOST_SPIRIT_DEFINE(FunctionCallExprRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionCallExprRule), IteratorType, ContextType)
 
-auto const ExprRule_def = FunctionCallExprRule | ValueRule;
+auto const ExprRule_def = FunctionCallExprRule | PathRule;
 BOOST_SPIRIT_DEFINE(ExprRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(ExprRule), IteratorType, ContextType)
 
@@ -135,12 +96,12 @@ auto const ReturnStatementRule_def = lit("return") > ExprRule > lit(';');
 BOOST_SPIRIT_DEFINE(ReturnStatementRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(ReturnStatementRule), IteratorType, ContextType)
 
-struct FunctionCallExprStatementTag : ErrorHandler, x3::annotate_on_success {};
-x3::rule<FunctionCallExprStatementTag, ast::FunctionCallExprStatement> const FunctionCallExprStatementRule =
+struct FunctionCallStatementTag : ErrorHandler, x3::annotate_on_success {};
+x3::rule<FunctionCallStatementTag, ast::FunctionCallStatement> const FunctionCallStatementRule =
     "function call statement rule";
-auto const FunctionCallExprStatementRule_def = FunctionCallExprRule > lit(';');
-BOOST_SPIRIT_DEFINE(FunctionCallExprStatementRule)
-BOOST_SPIRIT_INSTANTIATE(decltype(FunctionCallExprStatementRule), IteratorType, ContextType)
+auto const FunctionCallStatementRule_def = FunctionCallExprRule > lit(';');
+BOOST_SPIRIT_DEFINE(FunctionCallStatementRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(FunctionCallStatementRule), IteratorType, ContextType)
 
 struct StatementTag : ErrorHandler, x3::annotate_on_success {};
 x3::rule<StatementTag, ast::Statement> const StatementRule = "statement rule";
@@ -157,7 +118,7 @@ auto const FunctionDefinitionRule_def = FunctionDeclarationRule > BlockRule;
 BOOST_SPIRIT_DEFINE(FunctionDefinitionRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionDefinitionRule), IteratorType, ContextType)
 
-auto const StatementRule_def = FunctionDefinitionRule | FunctionCallExprStatementRule | BlockRule | ReturnStatementRule;
+auto const StatementRule_def = FunctionDefinitionRule | FunctionCallStatementRule | BlockRule | ReturnStatementRule;
 BOOST_SPIRIT_DEFINE(StatementRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(StatementRule), IteratorType, ContextType)
 }  // namespace life_lang::parser
@@ -179,20 +140,22 @@ ParseResult<Ast> Parse(Rule const &rule, parser::IteratorType &begin, parser::It
     return Parse<decltype(parser::name##Rule), life_lang::ast::name>(parser::name##Rule, begin, end, out); \
   }
 
-PARSE_FN_DEFINITION(ModulePathSegment)
-PARSE_FN_DEFINITION(ModulePath)
-PARSE_FN_DEFINITION(DataPathSegment)
-PARSE_FN_DEFINITION(DataPath)
-PARSE_FN_DEFINITION(Type)
+PARSE_FN_DEFINITION(PathSegment)
+PARSE_FN_DEFINITION(Path)
 PARSE_FN_DEFINITION(FunctionParameter)
 PARSE_FN_DEFINITION(FunctionDeclaration)
-PARSE_FN_DEFINITION(Value)
 PARSE_FN_DEFINITION(Expr)
 PARSE_FN_DEFINITION(FunctionCallExpr)
-PARSE_FN_DEFINITION(FunctionCallExprStatement)
+PARSE_FN_DEFINITION(FunctionCallStatement)
 PARSE_FN_DEFINITION(ReturnStatement)
 PARSE_FN_DEFINITION(Statement)
 PARSE_FN_DEFINITION(Block)
 PARSE_FN_DEFINITION(FunctionDefinition)
 #undef PARSE_FN_DEFINITION
 }  // namespace life_lang::internal
+
+namespace life_lang::parser {
+internal::ParseResult<ast::FunctionDefinition> parse(IteratorType &begin, IteratorType end, std::ostream &out) {
+  return internal::ParseFunctionDefinition(begin, end, out);
+}
+}  // namespace life_lang::parser

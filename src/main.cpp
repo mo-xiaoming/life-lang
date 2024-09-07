@@ -1,24 +1,24 @@
 #include <fmt/core.h>
 
-#include <iostream>
+#include <sstream>
 #include <string>
 
-#include "lib.hpp"
+#include "rules.hpp"
 
 int main() {
   std::string const input = R"(
-        { 35, "John", "Doe", 35000.0 },
-        { 25, "Jane", "Doe", 25000.0 }
-    )";
+fn main(args: Std.Array<Std.String>): I32 {
+    Std.print(args);
+    return args.size();
+}
+)";
 
   auto inputStart = input.cbegin();
-  auto const &[success, ast] = client::parse(inputStart, input.cend(), std::cerr);
-  if (success) {
-    fmt::print("parsing succeeded\n");
-    for (auto const &emp : ast) {
-      fmt::print("got: {}\n", emp);
-    }
+  std::ostringstream errorMsg;
+  auto const &got = life_lang::parser::parse(inputStart, input.cend(), errorMsg);
+  if (got) {
+    fmt::print("{}\n", *got);
   } else {
-    fmt::print("parsing failed\n");
+    fmt::print("parsing failed: {}\n", errorMsg.str());
   }
 }
