@@ -7,6 +7,7 @@ using life_lang::ast::MakeFunctionDefinition;
 using life_lang::ast::MakeFunctionParameter;
 using life_lang::ast::MakePath;
 using life_lang::ast::MakePathSegment;
+using life_lang::ast::MakeString;
 
 PARSE_TEST(FunctionDefinition)
 
@@ -26,7 +27,10 @@ INSTANTIATE_TEST_SUITE_P(
             .expected = MakeFunctionDefinition(
                 MakeFunctionDeclaration(
                     "hello",
-                    {MakeFunctionParameter("a", MakePath("Int")), MakeFunctionParameter("b", MakePath("Double"))},
+                    {
+                        MakeFunctionParameter("a", MakePath("Int")),
+                        MakeFunctionParameter("b", MakePath("Double")),
+                    },
                     MakePath("Int")
                 ),
                 MakeBlock({})
@@ -171,6 +175,34 @@ return a;
                     )),
                     MakeStatement(MakeReturnStatement(MakeExpr(MakePath(MakePathSegment("a"))))),
                 })
+            ),
+            .shouldSucceed = true,
+            .rest = ""
+        },
+        FunctionDefinitionTestParamsType{
+            .name = "helloWorld",
+            .input = R"(
+fn main(args: Std.Array<Std.String>): I32 {
+    Std.print("Hello, world!");
+    return args.size();
+}
+)",
+            .expected = MakeFunctionDefinition(
+                MakeFunctionDeclaration(
+                    "main",
+                    {
+                        MakeFunctionParameter(
+                            "args", MakePath("Std", MakePathSegment("Array", {MakePath("Std", "String")}))
+                        ),
+                    },
+                    MakePath("I32")
+                ),
+                MakeBlock(
+                    {MakeStatement(MakeFunctionCallStatement(
+                         MakeFunctionCallExpr(MakePath("Std", "print"), {MakeExpr(MakeString("\"Hello, world!\""))})
+                     )),
+                     MakeStatement(MakeReturnStatement(MakeExpr(MakeFunctionCallExpr(MakePath("args", "size"), {}))))}
+                )
             ),
             .shouldSucceed = true,
             .rest = ""

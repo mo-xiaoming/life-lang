@@ -58,6 +58,14 @@ inline PathSegment MakePathSegment(std::string&& value, std::vector<Path>&& temp
 }
 inline PathSegment MakePathSegment(std::string&& value) { return MakePathSegment(std::move(value), {}); }
 
+struct String {
+  std::string value;
+  friend bool operator==(String const& lhs, String const& rhs) = default;
+  friend auto operator<<(std::ostream& os, String const& str) -> std::ostream& { return os << fmt::to_string(str); }
+};
+
+inline String MakeString(std::string&& value) { return String{.value = std::move(value)}; }
+
 struct FunctionParameter {
   std::string name;
   Path type;
@@ -90,13 +98,14 @@ inline FunctionDeclaration MakeFunctionDeclaration(
 }
 
 struct FunctionCallExpr;
-using Expr = boost::spirit::x3::variant<Path, boost::spirit::x3::forward_ast<FunctionCallExpr>>;
+using Expr = boost::spirit::x3::variant<Path, boost::spirit::x3::forward_ast<FunctionCallExpr>, String>;
 inline bool operator==(Expr const& lhs, Expr const& rhs) {
   return boost::apply_visitor(internal::VariantCmp{}, lhs, rhs);
 }
 inline std::ostream& operator<<(std::ostream& os, Expr const& expr) { return os << fmt::to_string(expr); }
 
 inline Expr MakeExpr(Path&& path) { return Expr{std::move(path)}; }
+inline Expr MakeExpr(String&& str) { return Expr{std::move(str)}; }
 
 struct FunctionCallExpr {
   Path name;
@@ -179,6 +188,7 @@ inline Statement MakeStatement(FunctionDefinition&& def) { return Statement{std:
 
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::PathSegment, value, templateParameters)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::Path, segments)
+BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::String, value)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionParameter, name, type)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionDeclaration, name, parameters, returnType)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::ReturnStatement, expr)
@@ -215,6 +225,19 @@ struct formatter<life_lang::ast::Path> {
   template <typename FormatContext>
   auto format(life_lang::ast::Path const& path, FormatContext& ctx) const {
     return format_to(ctx.out(), "{}", fmt::join(path.segments, "."));
+  }
+};
+
+template <>
+struct formatter<life_lang::ast::String> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx) const {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(life_lang::ast::String const& str, FormatContext& ctx) const {
+    return format_to(ctx.out(), "{}", str.value);
   }
 };
 
@@ -293,14 +316,11 @@ struct formatter<life_lang::ast::Expr> {
   template <typename FormatContext>
   struct Formatter {
     explicit Formatter(FormatContext* ctx) : m_ctx(ctx) {}
-    [[nodiscard]] auto operator()(life_lang::ast::Path const& path) const {
-      return format_to(m_ctx->out(), "{}", path);
-    }
     template <typename T>
     [[nodiscard]] auto operator()(boost::spirit::x3::forward_ast<T> const& t) const {
       return format_to(m_ctx->out(), "{}", t.get());
     }
-    [[nodiscard]] auto operator()(auto const& /*t*/) const { return format_to(m_ctx->out(), "Unknown expr"); }
+    [[nodiscard]] auto operator()(auto const& v) const { return format_to(m_ctx->out(), "{}", v); }
 
    private:
     FormatContext* m_ctx;

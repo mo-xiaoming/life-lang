@@ -1,12 +1,9 @@
 #include "utils.hpp"
 
 using life_lang::ast::FunctionDeclaration;
-using life_lang::ast::FunctionParameter;
 using life_lang::ast::MakeFunctionParameter;
 using life_lang::ast::MakePath;
 using life_lang::ast::MakePathSegment;
-using life_lang::ast::Path;
-using life_lang::ast::PathSegment;
 
 PARSE_TEST(FunctionDeclaration)
 

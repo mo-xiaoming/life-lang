@@ -4,7 +4,6 @@ using life_lang::ast::Expr;
 using life_lang::ast::MakeFunctionCallExpr;
 using life_lang::ast::MakePath;
 using life_lang::ast::MakePathSegment;
-using life_lang::ast::MakeStatement;
 
 PARSE_TEST(Expr)
 

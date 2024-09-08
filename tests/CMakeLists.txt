@@ -13,6 +13,7 @@ add_executable(tests
     parser/test_path_segment.cpp
     parser/test_path.cpp
     parser/test_return_statement.cpp
+    parser/test_string.cpp
 )
 target_link_libraries(tests PRIVATE project_defaults life-lang GTest::gtest GTest::gtest_main fmt::fmt Boost::spirit)
 
