@@ -10,6 +10,13 @@ INSTANTIATE_TEST_SUITE_P(
     , ParsePathSegmentTest,
     ::testing::Values(
         PathSegmentTestParamsType{
+            .name = "starsWithDigit",
+            .input = "0abc",
+            .expected = MakePathSegment(""),
+            .shouldSucceed = false,
+            .rest = "0abc"
+        },
+        PathSegmentTestParamsType{
             .name = "spaceAfterInt",
             .input = "Int  {",
             .expected = MakePathSegment("Int"),

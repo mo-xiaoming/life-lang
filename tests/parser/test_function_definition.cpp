@@ -5,9 +5,42 @@ using life_lang::ast::MakeBlock;
 using life_lang::ast::MakeFunctionDeclaration;
 using life_lang::ast::MakeFunctionDefinition;
 using life_lang::ast::MakeFunctionParameter;
+using life_lang::ast::MakeInteger;
 using life_lang::ast::MakePath;
 using life_lang::ast::MakePathSegment;
 using life_lang::ast::MakeString;
+
+namespace life_lang::ast {
+void PrintTo(Integer const& integer, std::ostream* os) { *os << "Integer{" << integer.value << "}"; }
+void PrintTo(String const& string, std::ostream* os) { *os << "String{" << string.value << "}"; }
+void PrintTo(auto const& v, std::ostream* os) { *os << typeid(v).name(); }
+void PrintTo(Expr const& expr, std::ostream* os) {
+  boost::apply_visitor([os](auto const& expr) { PrintTo(expr, os); }, expr);
+}
+void PrintTo(ReturnStatement const& returnStatement, std::ostream* os) {
+  *os << "ReturnStatement{";
+  PrintTo(returnStatement.expr, os);
+  *os << "}";
+}
+void PrintTo(Statement const& statement, std::ostream* os) {
+  boost::apply_visitor([os](auto const& statement) { PrintTo(statement, os); }, statement);
+}
+void PrintTo(Block const& functionBlock, std::ostream* os) {
+  *os << "FunctionBlock{";
+  for (auto const& statement : functionBlock.statements) {
+    PrintTo(statement, os);
+    *os << ", ";
+  }
+  *os << "}";
+}
+void PrintTo(FunctionDefinition const& functionDefinition, std::ostream* os) {
+  *os << "FunctionDefinition{";
+  *os << functionDefinition.declaration << ", ";
+  *os << ", ";
+  PrintTo(functionDefinition.body, os);
+  *os << "}";
+}
+}  // namespace life_lang::ast
 
 PARSE_TEST(FunctionDefinition)
 
@@ -184,7 +217,7 @@ return a;
             .input = R"(
 fn main(args: Std.Array<Std.String>): I32 {
     Std.print("Hello, world!");
-    return args.size();
+    return 0;
 }
 )",
             .expected = MakeFunctionDefinition(
@@ -201,7 +234,7 @@ fn main(args: Std.Array<Std.String>): I32 {
                     {MakeStatement(MakeFunctionCallStatement(
                          MakeFunctionCallExpr(MakePath("Std", "print"), {MakeExpr(MakeString("\"Hello, world!\""))})
                      )),
-                     MakeStatement(MakeReturnStatement(MakeExpr(MakeFunctionCallExpr(MakePath("args", "size"), {}))))}
+                     MakeStatement(MakeReturnStatement(MakeExpr(MakeInteger("0"))))}
                 )
             ),
             .shouldSucceed = true,

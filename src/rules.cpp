@@ -30,6 +30,7 @@ struct ErrorHandler {
 using x3::lexeme;
 using x3::raw;
 using x3::ascii::alnum;
+using x3::ascii::alpha;
 using x3::ascii::char_;
 using x3::ascii::digit;
 using x3::ascii::lit;
@@ -59,7 +60,8 @@ x3::rule<PathTag, ast::Path> const PathRule = "path rule";
 
 struct PathSegmentTag : ErrorHandler, x3::position_tagged {};
 x3::rule<PathSegmentTag, ast::PathSegment> const PathSegmentRule = "path segment rule";
-auto const PathSegmentRule_def = raw[lexeme[+(alnum | char_('_'))]] >> -(lit('<') > (PathRule % ',') > lit('>'));
+auto const PathSegmentRule_def = raw[lexeme[alpha >> *(alnum | char_('_'))]] >>
+                                 -(lit('<') > (PathRule % ',') > lit('>'));
 BOOST_SPIRIT_DEFINE(PathSegmentRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(PathSegmentRule), IteratorType, ContextType)
 
@@ -73,6 +75,23 @@ x3::rule<StringTag, ast::String> const StringRule = "string rule";
 auto const StringRule_def = raw[lexeme[lit('"') > *(EscapedChar | (char_ - lit('"') - lit('\\'))) > lit('"')]];
 BOOST_SPIRIT_DEFINE(StringRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(StringRule), IteratorType, ContextType)
+
+struct IntegerTag : ErrorHandler, x3::position_tagged {};
+x3::rule<IntegerTag, ast::Integer> const IntegerRule = "integer rule";
+auto const IntegerRule_def =
+    raw[lexeme[(lit('0') >> !(digit | char_('_'))) | (char_('1', '9') >> *(char_('0', '9') | char_('_')))]]
+       [([](auto &ctx) {
+         auto const &attr = x3::_attr(ctx);
+         std::string str{attr.begin(), attr.end()};
+         if (str.back() == '_') {
+           x3::_pass(ctx) = false;
+         } else {
+           std::erase(str, '_');
+           x3::_val(ctx) = ast::MakeInteger(str);
+         }
+       })];
+BOOST_SPIRIT_DEFINE(IntegerRule)
+BOOST_SPIRIT_INSTANTIATE(decltype(IntegerRule), IteratorType, ContextType)
 
 struct FunctionParameterTag : ErrorHandler, x3::position_tagged {};
 x3::rule<FunctionParameterTag, ast::FunctionParameter> const FunctionParameterRule = "function parameter rule";
@@ -96,7 +115,7 @@ auto const FunctionCallExprRule_def = PathRule >> lit('(') >> -(ExprRule % ',') 
 BOOST_SPIRIT_DEFINE(FunctionCallExprRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionCallExprRule), IteratorType, ContextType)
 
-auto const ExprRule_def = FunctionCallExprRule | StringRule | PathRule;
+auto const ExprRule_def = FunctionCallExprRule | StringRule | PathRule | IntegerRule;
 BOOST_SPIRIT_DEFINE(ExprRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(ExprRule), IteratorType, ContextType)
 
@@ -153,6 +172,7 @@ ParseResult<Ast> Parse(Rule const &rule, parser::IteratorType &begin, parser::It
 PARSE_FN_DEFINITION(PathSegment)
 PARSE_FN_DEFINITION(Path)
 PARSE_FN_DEFINITION(String)
+PARSE_FN_DEFINITION(Integer)
 PARSE_FN_DEFINITION(FunctionParameter)
 PARSE_FN_DEFINITION(FunctionDeclaration)
 PARSE_FN_DEFINITION(Expr)

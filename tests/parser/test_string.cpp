@@ -1,4 +1,3 @@
-
 #include "utils.hpp"
 
 using life_lang::ast::MakeString;

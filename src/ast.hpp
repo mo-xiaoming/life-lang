@@ -66,6 +66,16 @@ struct String {
 
 inline String MakeString(std::string&& value) { return String{.value = std::move(value)}; }
 
+struct Integer {
+  std::string value;
+  friend bool operator==(Integer const& lhs, Integer const& rhs) = default;
+  friend auto operator<<(std::ostream& os, Integer const& integer) -> std::ostream& {
+    return os << fmt::to_string(integer);
+  }
+};
+
+inline Integer MakeInteger(std::string value) noexcept { return Integer{.value = std::move(value)}; }
+
 struct FunctionParameter {
   std::string name;
   Path type;
@@ -98,7 +108,7 @@ inline FunctionDeclaration MakeFunctionDeclaration(
 }
 
 struct FunctionCallExpr;
-using Expr = boost::spirit::x3::variant<Path, boost::spirit::x3::forward_ast<FunctionCallExpr>, String>;
+using Expr = boost::spirit::x3::variant<Path, boost::spirit::x3::forward_ast<FunctionCallExpr>, String, Integer>;
 inline bool operator==(Expr const& lhs, Expr const& rhs) {
   return boost::apply_visitor(internal::VariantCmp{}, lhs, rhs);
 }
@@ -106,6 +116,7 @@ inline std::ostream& operator<<(std::ostream& os, Expr const& expr) { return os 
 
 inline Expr MakeExpr(Path&& path) { return Expr{std::move(path)}; }
 inline Expr MakeExpr(String&& str) { return Expr{std::move(str)}; }
+inline Expr MakeExpr(Integer&& integer) noexcept { return Expr{std::move(integer)}; }
 
 struct FunctionCallExpr {
   Path name;
@@ -189,6 +200,7 @@ inline Statement MakeStatement(FunctionDefinition&& def) { return Statement{std:
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::PathSegment, value, templateParameters)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::Path, segments)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::String, value)
+BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::Integer, value)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionParameter, name, type)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::FunctionDeclaration, name, parameters, returnType)
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::ReturnStatement, expr)
@@ -238,6 +250,19 @@ struct formatter<life_lang::ast::String> {
   template <typename FormatContext>
   auto format(life_lang::ast::String const& str, FormatContext& ctx) const {
     return format_to(ctx.out(), "{}", str.value);
+  }
+};
+
+template <>
+struct formatter<life_lang::ast::Integer> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx) const {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(life_lang::ast::Integer const& integer, FormatContext& ctx) const {
+    return format_to(ctx.out(), "{}", integer.value);
   }
 };
 
