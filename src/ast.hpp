@@ -4,8 +4,10 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include <boost/describe.hpp>
 #include <boost/fusion/adapted/struct/adapt_struct.hpp>
 #include <boost/spirit/home/x3/support/ast/variant.hpp>
+#include <boost/type_index.hpp>
 #include <concepts>
 #include <string>
 #include <utility>

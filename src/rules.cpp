@@ -61,7 +61,7 @@ x3::rule<PathTag, ast::Path> const PathRule = "path rule";
 struct PathSegmentTag : ErrorHandler, x3::position_tagged {};
 x3::rule<PathSegmentTag, ast::PathSegment> const PathSegmentRule = "path segment rule";
 auto const PathSegmentRule_def = raw[lexeme[alpha >> *(alnum | char_('_'))]] >>
-                                 -(lit('<') > (PathRule % ',') > lit('>'));
+                                 -(lit('<') > (PathRule % ',') > lit('>'));  // NOLINT(bugprone-chained-comparison)
 BOOST_SPIRIT_DEFINE(PathSegmentRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(PathSegmentRule), IteratorType, ContextType)
 
@@ -72,6 +72,7 @@ BOOST_SPIRIT_INSTANTIATE(decltype(PathRule), IteratorType, ContextType)
 auto const EscapedChar = lexeme[lit('\\') > (char_("\"\\ntr") | (char_('x') > x3::repeat(2)[x3::xdigit]))];
 struct StringTag : ErrorHandler, x3::position_tagged {};
 x3::rule<StringTag, ast::String> const StringRule = "string rule";
+// NOLINTNEXTLINE(bugprone-chained-comparison)
 auto const StringRule_def = raw[lexeme[lit('"') > *(EscapedChar | (char_ - lit('"') - lit('\\'))) > lit('"')]];
 BOOST_SPIRIT_DEFINE(StringRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(StringRule), IteratorType, ContextType)
@@ -95,14 +96,15 @@ BOOST_SPIRIT_INSTANTIATE(decltype(IntegerRule), IteratorType, ContextType)
 
 struct FunctionParameterTag : ErrorHandler, x3::position_tagged {};
 x3::rule<FunctionParameterTag, ast::FunctionParameter> const FunctionParameterRule = "function parameter rule";
-auto const FunctionParameterRule_def = SnakeCase > lit(':') > PathRule;
+auto const FunctionParameterRule_def = SnakeCase > lit(':') > PathRule;  // NOLINT(bugprone-chained-comparison)
 BOOST_SPIRIT_DEFINE(FunctionParameterRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionParameterRule), IteratorType, ContextType)
 
 struct FunctionDeclarationTag : ErrorHandler, x3::position_tagged {};
 x3::rule<FunctionDeclarationTag, ast::FunctionDeclaration> const FunctionDeclarationRule = "function declaration rule";
+// NOLINTNEXTLINE(bugprone-chained-comparison)
 auto const FunctionDeclarationRule_def = lit("fn") > SnakeCase > lit('(') > -(FunctionParameterRule % lit(',')) >
-                                         lit(')') > lit(':') > PathRule;
+                                         lit(')') > lit(':') > PathRule;  // NOLINT(bugprone-chained-comparison)
 BOOST_SPIRIT_DEFINE(FunctionDeclarationRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionDeclarationRule), IteratorType, ContextType)
 
@@ -121,7 +123,7 @@ BOOST_SPIRIT_INSTANTIATE(decltype(ExprRule), IteratorType, ContextType)
 
 struct ReturnStatementTag : ErrorHandler, x3::position_tagged {};
 x3::rule<ReturnStatementTag, ast::ReturnStatement> const ReturnStatementRule = "return statement rule";
-auto const ReturnStatementRule_def = lit("return") > ExprRule > lit(';');
+auto const ReturnStatementRule_def = lit("return") > ExprRule > lit(';');  // NOLINT(bugprone-chained-comparison)
 BOOST_SPIRIT_DEFINE(ReturnStatementRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(ReturnStatementRule), IteratorType, ContextType)
 
@@ -137,7 +139,7 @@ x3::rule<StatementTag, ast::Statement> const StatementRule = "statement rule";
 
 struct BlockTag : ErrorHandler, x3::position_tagged {};
 x3::rule<BlockTag, ast::Block> const BlockRule = "block rule";
-auto const BlockRule_def = lit('{') > *StatementRule > lit('}');
+auto const BlockRule_def = lit('{') > *StatementRule > lit('}');  // NOLINT(bugprone-chained-comparison)
 BOOST_SPIRIT_DEFINE(BlockRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(BlockRule), IteratorType, ContextType)
 

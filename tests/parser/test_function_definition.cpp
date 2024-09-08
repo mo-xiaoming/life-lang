@@ -10,38 +10,6 @@ using life_lang::ast::MakePath;
 using life_lang::ast::MakePathSegment;
 using life_lang::ast::MakeString;
 
-namespace life_lang::ast {
-void PrintTo(Integer const& integer, std::ostream* os) { *os << "Integer{" << integer.value << "}"; }
-void PrintTo(String const& string, std::ostream* os) { *os << "String{" << string.value << "}"; }
-void PrintTo(auto const& v, std::ostream* os) { *os << typeid(v).name(); }
-void PrintTo(Expr const& expr, std::ostream* os) {
-  boost::apply_visitor([os](auto const& expr) { PrintTo(expr, os); }, expr);
-}
-void PrintTo(ReturnStatement const& returnStatement, std::ostream* os) {
-  *os << "ReturnStatement{";
-  PrintTo(returnStatement.expr, os);
-  *os << "}";
-}
-void PrintTo(Statement const& statement, std::ostream* os) {
-  boost::apply_visitor([os](auto const& statement) { PrintTo(statement, os); }, statement);
-}
-void PrintTo(Block const& functionBlock, std::ostream* os) {
-  *os << "FunctionBlock{";
-  for (auto const& statement : functionBlock.statements) {
-    PrintTo(statement, os);
-    *os << ", ";
-  }
-  *os << "}";
-}
-void PrintTo(FunctionDefinition const& functionDefinition, std::ostream* os) {
-  *os << "FunctionDefinition{";
-  *os << functionDefinition.declaration << ", ";
-  *os << ", ";
-  PrintTo(functionDefinition.body, os);
-  *os << "}";
-}
-}  // namespace life_lang::ast
-
 PARSE_TEST(FunctionDefinition)
 
 INSTANTIATE_TEST_SUITE_P(
