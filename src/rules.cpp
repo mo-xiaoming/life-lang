@@ -2,7 +2,10 @@
 
 #include <fmt/core.h>
 
-#include "spirit_x3.hpp"  // IWYU pragma: keep
+#include <boost/spirit/home/x3.hpp>
+#include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
+#include <boost/spirit/home/x3/support/utility/annotate_on_success.hpp>
+#include <boost/spirit/home/x3/support/utility/error_reporting.hpp>
 
 namespace life_lang::parser {
 namespace x3 = boost::spirit::x3;
@@ -51,10 +54,10 @@ auto const ReservedRule = lexeme[GetSymbolTable() >> !(alnum | char_('_'))];
 auto const SnakeCase = raw[lexeme[lower >> *(lower | digit | char_('_')) >> !(alnum | char_('_'))]];
 }  // namespace
 
-struct PathTag : ErrorHandler, x3::annotate_on_success {};
+struct PathTag : ErrorHandler, x3::position_tagged {};
 x3::rule<PathTag, ast::Path> const PathRule = "path rule";
 
-struct PathSegmentTag : ErrorHandler, x3::annotate_on_success {};
+struct PathSegmentTag : ErrorHandler, x3::position_tagged {};
 x3::rule<PathSegmentTag, ast::PathSegment> const PathSegmentRule = "path segment rule";
 auto const PathSegmentRule_def = raw[lexeme[+(alnum | char_('_'))]] >> -(lit('<') > (PathRule % ',') > lit('>'));
 BOOST_SPIRIT_DEFINE(PathSegmentRule)
@@ -64,23 +67,23 @@ auto const PathRule_def = PathSegmentRule % lit('.');
 BOOST_SPIRIT_DEFINE(PathRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(PathRule), IteratorType, ContextType)
 
-struct FunctionParameterTag : ErrorHandler, x3::annotate_on_success {};
+struct FunctionParameterTag : ErrorHandler, x3::position_tagged {};
 x3::rule<FunctionParameterTag, ast::FunctionParameter> const FunctionParameterRule = "function parameter rule";
 auto const FunctionParameterRule_def = SnakeCase > lit(':') > PathRule;
 BOOST_SPIRIT_DEFINE(FunctionParameterRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionParameterRule), IteratorType, ContextType)
 
-struct FunctionDeclarationTag : ErrorHandler, x3::annotate_on_success {};
+struct FunctionDeclarationTag : ErrorHandler, x3::position_tagged {};
 x3::rule<FunctionDeclarationTag, ast::FunctionDeclaration> const FunctionDeclarationRule = "function declaration rule";
 auto const FunctionDeclarationRule_def = lit("fn") > SnakeCase > lit('(') > -(FunctionParameterRule % lit(',')) >
                                          lit(')') > lit(':') > PathRule;
 BOOST_SPIRIT_DEFINE(FunctionDeclarationRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionDeclarationRule), IteratorType, ContextType)
 
-struct ExprTag : ErrorHandler, x3::annotate_on_success {};
+struct ExprTag : ErrorHandler, x3::position_tagged {};
 x3::rule<ExprTag, ast::Expr> const ExprRule = "expr rule";
 
-struct FunctionCallExprTag : ErrorHandler, x3::annotate_on_success {};
+struct FunctionCallExprTag : ErrorHandler, x3::position_tagged {};
 x3::rule<FunctionCallExprTag, ast::FunctionCallExpr> const FunctionCallExprRule = "function call rule";
 auto const FunctionCallExprRule_def = PathRule >> lit('(') >> -(ExprRule % ',') >> lit(')');
 BOOST_SPIRIT_DEFINE(FunctionCallExprRule)
@@ -90,29 +93,29 @@ auto const ExprRule_def = FunctionCallExprRule | PathRule;
 BOOST_SPIRIT_DEFINE(ExprRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(ExprRule), IteratorType, ContextType)
 
-struct ReturnStatementTag : ErrorHandler, x3::annotate_on_success {};
+struct ReturnStatementTag : ErrorHandler, x3::position_tagged {};
 x3::rule<ReturnStatementTag, ast::ReturnStatement> const ReturnStatementRule = "return statement rule";
 auto const ReturnStatementRule_def = lit("return") > ExprRule > lit(';');
 BOOST_SPIRIT_DEFINE(ReturnStatementRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(ReturnStatementRule), IteratorType, ContextType)
 
-struct FunctionCallStatementTag : ErrorHandler, x3::annotate_on_success {};
+struct FunctionCallStatementTag : ErrorHandler, x3::position_tagged {};
 x3::rule<FunctionCallStatementTag, ast::FunctionCallStatement> const FunctionCallStatementRule =
     "function call statement rule";
 auto const FunctionCallStatementRule_def = FunctionCallExprRule > lit(';');
 BOOST_SPIRIT_DEFINE(FunctionCallStatementRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(FunctionCallStatementRule), IteratorType, ContextType)
 
-struct StatementTag : ErrorHandler, x3::annotate_on_success {};
+struct StatementTag : ErrorHandler, x3::position_tagged {};
 x3::rule<StatementTag, ast::Statement> const StatementRule = "statement rule";
 
-struct BlockTag : ErrorHandler, x3::annotate_on_success {};
+struct BlockTag : ErrorHandler, x3::position_tagged {};
 x3::rule<BlockTag, ast::Block> const BlockRule = "block rule";
 auto const BlockRule_def = lit('{') > *StatementRule > lit('}');
 BOOST_SPIRIT_DEFINE(BlockRule)
 BOOST_SPIRIT_INSTANTIATE(decltype(BlockRule), IteratorType, ContextType)
 
-struct FunctionDefinitionTag : ErrorHandler, x3::annotate_on_success {};
+struct FunctionDefinitionTag : ErrorHandler, x3::position_tagged {};
 x3::rule<FunctionDefinitionTag, ast::FunctionDefinition> const FunctionDefinitionRule = "function definition rule";
 auto const FunctionDefinitionRule_def = FunctionDeclarationRule > BlockRule;
 BOOST_SPIRIT_DEFINE(FunctionDefinitionRule)

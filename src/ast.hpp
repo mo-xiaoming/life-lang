@@ -6,7 +6,9 @@
 
 #include <boost/fusion/adapted/struct/adapt_struct.hpp>
 #include <boost/spirit/home/x3/support/ast/variant.hpp>
+#include <concepts>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace life_lang::ast {
@@ -43,6 +45,19 @@ struct PathSegment {
   }
 };
 
+template <typename... Args>
+  requires((std::same_as<Args, PathSegment> || std::constructible_from<std::string, Args>) && ...)
+inline Path MakePath(Args&&... args) {
+  std::vector<PathSegment> segments;
+  segments.reserve(sizeof...(args));
+  (segments.emplace_back(std::forward<Args>(args)), ...);
+  return Path{.segments = std::move(segments)};
+}
+inline PathSegment MakePathSegment(std::string&& value, std::vector<Path>&& templateParameters) {
+  return PathSegment{.value = std::move(value), .templateParameters = std::move(templateParameters)};
+}
+inline PathSegment MakePathSegment(std::string&& value) { return MakePathSegment(std::move(value), {}); }
+
 struct FunctionParameter {
   std::string name;
   Path type;
@@ -51,6 +66,10 @@ struct FunctionParameter {
     return os << fmt::to_string(arg);
   }
 };
+
+inline FunctionParameter MakeFunctionParameter(std::string&& name, Path&& type) {
+  return FunctionParameter{.name = std::move(name), .type = std::move(type)};
+}
 
 struct FunctionDeclaration {
   std::string name;
@@ -62,12 +81,22 @@ struct FunctionDeclaration {
   }
 };
 
+inline FunctionDeclaration MakeFunctionDeclaration(
+    std::string&& name, std::vector<FunctionParameter>&& parameters, Path&& returnType
+) {
+  return FunctionDeclaration{
+      .name = std::move(name), .parameters = std::move(parameters), .returnType = std::move(returnType)
+  };
+}
+
 struct FunctionCallExpr;
 using Expr = boost::spirit::x3::variant<Path, boost::spirit::x3::forward_ast<FunctionCallExpr>>;
 inline bool operator==(Expr const& lhs, Expr const& rhs) {
   return boost::apply_visitor(internal::VariantCmp{}, lhs, rhs);
 }
 inline std::ostream& operator<<(std::ostream& os, Expr const& expr) { return os << fmt::to_string(expr); }
+
+inline Expr MakeExpr(Path&& path) { return Expr{std::move(path)}; }
 
 struct FunctionCallExpr {
   Path name;
@@ -77,6 +106,10 @@ struct FunctionCallExpr {
     return os << fmt::to_string(call);
   }
 };
+inline FunctionCallExpr MakeFunctionCallExpr(Path&& name, std::vector<Expr>&& parameters) {
+  return FunctionCallExpr{.name = std::move(name), .parameters = std::move(parameters)};
+}
+inline Expr MakeExpr(FunctionCallExpr&& call) { return Expr{std::move(call)}; }
 
 struct FunctionCallStatement {
   FunctionCallExpr expr;
@@ -86,6 +119,10 @@ struct FunctionCallStatement {
   }
 };
 
+inline FunctionCallStatement MakeFunctionCallStatement(FunctionCallExpr&& expr) {
+  return FunctionCallStatement{.expr = std::move(expr)};
+}
+
 struct ReturnStatement {
   Expr expr;
   friend bool operator==(ReturnStatement const& lhs, ReturnStatement const& rhs) = default;
@@ -93,6 +130,8 @@ struct ReturnStatement {
     return os << fmt::to_string(returnStatement);
   }
 };
+
+inline ReturnStatement MakeReturnStatement(Expr&& expr) { return ReturnStatement{.expr = std::move(expr)}; }
 
 struct FunctionDefinition;
 struct Block;
@@ -106,11 +145,17 @@ inline std::ostream& operator<<(std::ostream& os, Statement const& statement) {
   return os << fmt::to_string(statement);
 }
 
+inline Statement MakeStatement(FunctionCallStatement&& call) { return Statement{std::move(call)}; }
+inline Statement MakeStatement(ReturnStatement&& ret) { return Statement{std::move(ret)}; }
+
 struct Block {
   std::vector<Statement> statements;
   friend bool operator==(Block const& lhs, Block const& rhs) = default;
   friend auto operator<<(std::ostream& os, Block const& block) -> std::ostream& { return os << fmt::to_string(block); }
 };
+
+inline Block MakeBlock(std::vector<Statement>&& statements) { return Block{.statements = std::move(statements)}; }
+inline Statement MakeStatement(Block&& block) { return Statement{std::move(block)}; }
 
 struct FunctionDefinition {
   FunctionDeclaration declaration;
@@ -125,6 +170,11 @@ struct FunctionDefinition {
     return os << fmt::to_string(def);
   }
 };
+
+inline FunctionDefinition MakeFunctionDefinition(FunctionDeclaration&& decl, Block&& body) {
+  return FunctionDefinition{.declaration = std::move(decl), .body = std::move(body)};
+}
+inline Statement MakeStatement(FunctionDefinition&& def) { return Statement{std::move(def)}; }
 }  // namespace life_lang::ast
 
 BOOST_FUSION_ADAPT_STRUCT(life_lang::ast::PathSegment, value, templateParameters)

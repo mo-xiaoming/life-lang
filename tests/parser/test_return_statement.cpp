@@ -1,11 +1,11 @@
 #include "utils.hpp"
 
-using life_lang::ast::Expr;
-using life_lang::ast::FunctionCallExpr;
-using life_lang::ast::Path;
-using life_lang::ast::PathSegment;
+using life_lang::ast::MakeExpr;
+using life_lang::ast::MakeFunctionCallExpr;
+using life_lang::ast::MakePath;
+using life_lang::ast::MakePathSegment;
+using life_lang::ast::MakeReturnStatement;
 using life_lang::ast::ReturnStatement;
-using life_lang::ast::Statement;
 
 PARSE_TEST(ReturnStatement)
 
@@ -15,38 +15,14 @@ INSTANTIATE_TEST_SUITE_P(
         ReturnStatementTestParamsType{
             .name = "noType",
             .input = "return hello;",
-            .expected =
-                ReturnStatement{
-                    .expr =
-                        Expr{
-                            Path{
-                                .segments =
-                                    {
-                                        PathSegment{.value = "hello", .templateParameters = {}},
-                                    }
-                            },
-                        },
-                },
+            .expected = MakeReturnStatement(MakeExpr(MakePath("hello"))),
             .shouldSucceed = true,
             .rest = ""
         },
         ReturnStatementTestParamsType{
             .name = "noTypeMultiSegments",
             .input = "return hello.a.b;",
-            .expected =
-                ReturnStatement{
-                    .expr =
-                        Expr{
-                            Path{
-                                .segments =
-                                    {
-                                        PathSegment{.value = "hello", .templateParameters = {}},
-                                        PathSegment{.value = "a", .templateParameters = {}},
-                                        PathSegment{.value = "b", .templateParameters = {}},
-                                    }
-                            },
-                        },
-                },
+            .expected = MakeReturnStatement(MakeExpr(MakePath("hello", "a", "b"))),
             .shouldSucceed = true,
             .rest = ""
         },
@@ -54,116 +30,25 @@ INSTANTIATE_TEST_SUITE_P(
             .name = "withType",
             .input = "return A.B.Hello<Int>.a;",
             .expected =
-                ReturnStatement{
-                    .expr =
-                        Expr{
-                            Path{
-                                .segments =
-                                    {
-                                        PathSegment{.value = "A", .templateParameters = {}},
-                                        PathSegment{.value = "B", .templateParameters = {}},
-                                        PathSegment{
-                                            .value = "Hello",
-                                            .templateParameters =
-                                                {
-                                                    Path{
-                                                        .segments =
-                                                            {
-                                                                PathSegment{.value = "Int", .templateParameters = {}},
-                                                            }
-                                                    },
-                                                },
-                                        },
-                                        PathSegment{.value = "a", .templateParameters = {}},
-                                    },
-                            },
-                        },
-                },
+                MakeReturnStatement(MakeExpr(MakePath("A", "B", MakePathSegment("Hello", {MakePath("Int")}), "a"))),
             .shouldSucceed = true,
             .rest = ""
         },
         ReturnStatementTestParamsType{
             .name = "withTypeMultiSegments",
             .input = "return A.B.Hello<Int>.a.b.c;",
-            .expected =
-                ReturnStatement{
-                    .expr =
-                        Expr{
-                            Path{
-                                .segments =
-                                    {
-                                        PathSegment{.value = "A", .templateParameters = {}},
-                                        PathSegment{.value = "B", .templateParameters = {}},
-                                        PathSegment{
-                                            .value = "Hello",
-                                            .templateParameters =
-                                                {
-                                                    Path{
-                                                        .segments =
-                                                            {
-                                                                PathSegment{.value = "Int", .templateParameters = {}},
-                                                            }
-                                                    },
-                                                },
-                                        },
-                                        PathSegment{.value = "a", .templateParameters = {}},
-                                        PathSegment{.value = "b", .templateParameters = {}},
-                                        PathSegment{.value = "c", .templateParameters = {}},
-                                    }
-                            },
-                        },
-                },
+            .expected = MakeReturnStatement(
+                MakeExpr(MakePath("A", "B", MakePathSegment("Hello", {MakePath("Int")}), "a", "b", "c"))
+            ),
             .shouldSucceed = true,
             .rest = ""
         },
         ReturnStatementTestParamsType{
             .name = "functionResult",
             .input = "return A.B.Hello<Int>.a.c(b);",
-            .expected =
-                {
-                    ReturnStatement{
-                        .expr =
-                            Expr{
-                                FunctionCallExpr{
-                                    .name =
-                                        Path{
-                                            .segments =
-                                                {
-                                                    PathSegment{.value = "A", .templateParameters = {}},
-                                                    PathSegment{.value = "B", .templateParameters = {}},
-                                                    PathSegment{
-                                                        .value = "Hello",
-                                                        .templateParameters =
-                                                            {
-                                                                Path{
-                                                                    .segments =
-                                                                        {
-                                                                            PathSegment{
-                                                                                .value = "Int", .templateParameters = {}
-                                                                            },
-                                                                        }
-                                                                },
-                                                            },
-                                                    },
-                                                    PathSegment{.value = "a", .templateParameters = {}},
-                                                    PathSegment{.value = "c", .templateParameters = {}},
-                                                }
-                                        },
-                                    .parameters =
-                                        {
-                                            Expr{
-                                                Path{
-                                                    .segments =
-                                                        {
-                                                            PathSegment{.value = "b", .templateParameters = {}},
-                                                        }
-                                                },
-                                            },
-                                        },
-                                },
-                            },
-                    },
-                },
+            .expected = MakeReturnStatement(MakeExpr(MakeFunctionCallExpr(
+                MakePath("A", "B", MakePathSegment("Hello", {MakePath("Int")}), "a", "c"), {MakeExpr(MakePath("b"))}
+            ))),
             .shouldSucceed = true,
             .rest = ""
         }

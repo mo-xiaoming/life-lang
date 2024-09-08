@@ -1,10 +1,10 @@
 #include "utils.hpp"
 
-using life_lang::ast::Expr;
-using life_lang::ast::FunctionCallExpr;
 using life_lang::ast::FunctionCallStatement;
-using life_lang::ast::Path;
-using life_lang::ast::PathSegment;
+using life_lang::ast::MakeExpr;
+using life_lang::ast::MakeFunctionCallExpr;
+using life_lang::ast::MakePath;
+using life_lang::ast::MakePathSegment;
 
 PARSE_TEST(FunctionCallStatement)
 
@@ -14,64 +14,20 @@ INSTANTIATE_TEST_SUITE_P(
         FunctionCallStatementTestParamsType{
             .name = "noArguments",
             .input = "hello();",
-            .expected =
-                FunctionCallStatement{
-                    .expr =
-                        FunctionCallExpr{
-                            .name =
-                                Path{
-                                    .segments = {PathSegment{.value = "hello", .templateParameters = {}}},
-                                },
-                            .parameters = {}
-                        }
-                },
+            .expected = MakeFunctionCallStatement(MakeFunctionCallExpr(MakePath("hello"), {})),
             .shouldSucceed = true,
             .rest = ""
         },
         FunctionCallStatementTestParamsType{
             .name = "withEverything",
             .input = "A.B<Double>.hello.world(a, b.c);",
-            .expected =
+            .expected = MakeFunctionCallStatement(MakeFunctionCallExpr(
+                MakePath("A", MakePathSegment("B", {MakePath("Double")}), "hello", "world"),
                 {
-                    FunctionCallStatement{
-                        .expr =
-                            FunctionCallExpr{
-                                .name =
-                                    Path{
-                                        .segments =
-                                            {
-                                                PathSegment{.value = "A", .templateParameters = {}},
-                                                PathSegment{
-                                                    .value = "B",
-                                                    .templateParameters = {Path{
-                                                        .segments =
-                                                            {
-                                                                PathSegment{
-                                                                    .value = "Double", .templateParameters = {}
-                                                                },
-                                                            }
-                                                    }}
-                                                },
-                                                PathSegment{.value = "hello", .templateParameters = {}},
-                                                PathSegment{.value = "world", .templateParameters = {}},
-                                            },
-                                    },
-                                .parameters =
-                                    {
-                                        Expr{
-                                            Path{
-                                                .segments = {PathSegment{.value = "a", .templateParameters = {}},},
-                                            }
-                                        },
-                                        Expr{
-                                            Path{
-                                                .segments = {PathSegment{.value = "b", .templateParameters = {}},PathSegment{.value = "c", .templateParameters = {}},},
-                                            }
-                                        },
-                                    },
-                            }
-                    }
-                },
+                    MakeExpr(MakePath("a")),
+                    MakeExpr(MakePath("b", "c")),
+                }
+            )),
             .shouldSucceed = true,
             .rest = ""
         }

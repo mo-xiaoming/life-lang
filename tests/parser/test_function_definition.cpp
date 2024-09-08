@@ -1,16 +1,12 @@
 #include "utils.hpp"
 
-using life_lang::ast::Block;
-using life_lang::ast::Expr;
-using life_lang::ast::FunctionCallExpr;
-using life_lang::ast::FunctionCallStatement;
-using life_lang::ast::FunctionDeclaration;
 using life_lang::ast::FunctionDefinition;
-using life_lang::ast::FunctionParameter;
-using life_lang::ast::Path;
-using life_lang::ast::PathSegment;
-using life_lang::ast::ReturnStatement;
-using life_lang::ast::Statement;
+using life_lang::ast::MakeBlock;
+using life_lang::ast::MakeFunctionDeclaration;
+using life_lang::ast::MakeFunctionDefinition;
+using life_lang::ast::MakeFunctionParameter;
+using life_lang::ast::MakePath;
+using life_lang::ast::MakePathSegment;
 
 PARSE_TEST(FunctionDefinition)
 
@@ -20,130 +16,45 @@ INSTANTIATE_TEST_SUITE_P(
         FunctionDefinitionTestParamsType{
             .name = "noArguments",
             .input = "fn hello(): Int {}",
-            .expected =
-                FunctionDefinition{
-                    .declaration =
-                        FunctionDeclaration{
-                            .name = "hello",
-                            .parameters = {},
-                            .returnType =
-                                Path{
-                                    .segments =
-                                        {PathSegment{.value = "Int", .templateParameters = {},},},
-                                }
-                        },
-                    .body = Block{.statements = {},},
-                },
+            .expected = MakeFunctionDefinition(MakeFunctionDeclaration("hello", {}, MakePath("Int")), MakeBlock({})),
             .shouldSucceed = true,
             .rest = ""
         },
         FunctionDefinitionTestParamsType{
             .name = "withArguments",
             .input = "fn hello(a: Int, b: Double): Int {}",
-            .expected =
-                FunctionDefinition{
-                    .declaration =
-                        FunctionDeclaration{
-                            .name = "hello",
-                            .parameters =
-                                {
-                                    FunctionParameter{
-                                        .name = "a",
-                                        .type =
-                                            Path{
-                                                .segments =
-                                                    {PathSegment{.value = "Int", .templateParameters = {},},},
-                                            }
-                                    },
-                                    FunctionParameter{
-                                        .name = "b",
-                                        .type =
-                                            Path{
-                                                .segments =
-                                                    {PathSegment{.value = "Double", .templateParameters = {},},},
-                                            }
-                                    },
-                                },
-                            .returnType =
-                                Path{
-                                    .segments =
-                                        {PathSegment{.value = "Int", .templateParameters = {},},},
-                                }
-                        },
-                    .body = Block{.statements = {},},
-                },
+            .expected = MakeFunctionDefinition(
+                MakeFunctionDeclaration(
+                    "hello",
+                    {MakeFunctionParameter("a", MakePath("Int")), MakeFunctionParameter("b", MakePath("Double"))},
+                    MakePath("Int")
+                ),
+                MakeBlock({})
+            ),
             .shouldSucceed = true,
             .rest = ""
         },
         FunctionDefinitionTestParamsType{
             .name = "withBody",
             .input = "fn hello(): Int {return world;}",
-            .expected =
-                FunctionDefinition{
-                    .declaration =
-                        FunctionDeclaration{
-                            .name = "hello",
-                            .parameters = {},
-                            .returnType =
-                                Path{
-                                    .segments =
-                                        {PathSegment{.value = "Int", .templateParameters = {},},},
-                                }
-                        },
-                    .body =
-                        Block{
-                            .statements = {Statement{ReturnStatement{
-                                .expr = Expr{Path{
-                                    .segments =
-                                        {PathSegment{.value = "world", .templateParameters = {},},},
-                                },},
-                            },},}
-                        }
-                },
+            .expected = MakeFunctionDefinition(
+                MakeFunctionDeclaration("hello", {}, MakePath("Int")),
+                MakeBlock({MakeStatement(MakeReturnStatement(MakeExpr(MakePath("world"))))})
+            ),
             .shouldSucceed = true,
             .rest = ""
         },
         FunctionDefinitionTestParamsType{
             .name = "withArgumentsAndBody",
             .input = "fn hello(a: Int, b: Double): Int {return world;}",
-            .expected =
-                FunctionDefinition{
-                    .declaration =
-                        FunctionDeclaration{
-                            .name = "hello",
-                            .parameters =
-                                {
-                                    FunctionParameter{
-                                        .name = "a",
-                                        .type = Path{
-                                            .segments =
-                                                {PathSegment{.value = "Int", .templateParameters = {},},},
-                                        },
-                                    },
-                                    FunctionParameter{
-                                        .name = "b",
-                                        .type = Path{
-                                            .segments =
-                                                {PathSegment{.value = "Double", .templateParameters = {},},},
-                                        },
-                                    },
-                                },
-                            .returnType =
-                                Path{
-                                    .segments =
-                                        {PathSegment{.value = "Int", .templateParameters = {},},},
-                                }
-                        },
-                    .body =
-                        Block{
-                            .statements = {Statement{ReturnStatement{
-                                .expr = Expr{Path{
-                                    .segments =
-                                        {PathSegment{.value = "world", .templateParameters = {},},},
-                                },},
-                            },},}
-                        }
-                },
+            .expected = MakeFunctionDefinition(
+                MakeFunctionDeclaration(
+                    "hello",
+                    {MakeFunctionParameter("a", MakePath("Int")), MakeFunctionParameter("b", MakePath("Double"))},
+                    MakePath("Int")
+                ),
+                MakeBlock({MakeStatement(MakeReturnStatement(MakeExpr(MakePath("world"))))})
+            ),
             .shouldSucceed = true,
             .rest = ""
         },
@@ -156,46 +67,22 @@ hello();
 }
 }
 )",
-            .expected =
-                FunctionDefinition{
-                    .declaration =
-                        FunctionDeclaration{
-                            .name = "hello",
-                            .parameters =
-                                {
-                                    FunctionParameter{
-                                        .name = "a",
-                                        .type = Path{
-                                            .segments =
-                                                {PathSegment{.value = "Int", .templateParameters = {},},},
-                                        },
-                                    },
-                                    FunctionParameter{
-                                        .name = "b",
-                                        .type = Path{
-                                            .segments =
-                                                {PathSegment{.value = "Double", .templateParameters = {},},},
-                                        },
-                                    },
-                                },
-                            .returnType =
-                                Path{
-                                    .segments =
-                                        {PathSegment{.value = "Int", .templateParameters = {},},},
-                                }
-                        },
-                    .body =
-                        Block{
-                            .statements =
-                                {
-                                    Statement{FunctionCallStatement{.expr = FunctionCallExpr{.name = Path{
-                                        .segments = {PathSegment{.value = "hello", .templateParameters = {},},},
-                                    }, .parameters = {},},},}, Statement{Block{.statements = {Statement{ReturnStatement{.expr = Expr{Path{
-                                        .segments = {PathSegment{.value = "world", .templateParameters = {},},},
-                                    },},},},},},}
-                                }
-                        }
-                },
+            .expected = MakeFunctionDefinition(
+                MakeFunctionDeclaration(
+                    "hello",
+                    {
+                        MakeFunctionParameter("a", MakePath("Int")),
+                        MakeFunctionParameter("b", MakePath("Double")),
+                    },
+                    MakePath("Int")
+                ),
+                MakeBlock({
+                    MakeStatement(MakeFunctionCallStatement(MakeFunctionCallExpr(MakePath("hello"), {}))),
+                    MakeStatement(MakeBlock({
+                        MakeStatement(MakeReturnStatement(MakeExpr(MakePath("world")))),
+                    })),
+                })
+            ),
             .shouldSucceed = true,
             .rest = ""
         },
@@ -204,61 +91,26 @@ hello();
             .input = R"(fn hello(a: Int, b: Double): Int {
 hello();
 {
-    return world(a);
+    return world();
 }
-})",
-            .expected =
-                FunctionDefinition{
-                    .declaration =
-                        FunctionDeclaration{
-                            .name = "hello",
-                            .parameters =
-                                {
-                                    FunctionParameter{
-                                        .name = "a",
-                                        .type = Path{
-                                            .segments =
-                                                {PathSegment{.value = "Int", .templateParameters = {},},},
-                                        },
-                                    },
-                                    FunctionParameter{
-                                        .name = "b",
-                                        .type = Path{
-                                            .segments =
-                                                {PathSegment{.value = "Double", .templateParameters = {},},},
-                                        },
-                                    },
-                                },
-                            .returnType =
-                                Path{
-                                    .segments =
-                                        {PathSegment{.value = "Int", .templateParameters = {},},},
-                                }
-                        },
-                    .body =
-                        Block{
-                            .statements =
-                                {Statement{FunctionCallStatement{
-                                        .expr = FunctionCallExpr{.name = Path{
-                                            .segments = {PathSegment{.value = "hello", .templateParameters = {},},},
-                                        }, .parameters = {},},
-                                    },},
-                                    Statement{Block{
-                                        .statements = {Statement{ReturnStatement{
-                                            .expr = Expr{FunctionCallExpr{
-                                                .name =
-                                                    Path{
-                                                        .segments = {PathSegment{.value = "world", .templateParameters = {},},},
-                                                    },
-                                                .parameters = {Expr{Path{
-                                                    .segments =
-                                                        {PathSegment{.value = "a", .templateParameters = {},},},
-                                                },},}
-                                            },},
-                                        },},}
-                                    },},}
-                        }
-                },
+}
+)",
+            .expected = MakeFunctionDefinition(
+                MakeFunctionDeclaration(
+                    "hello",
+                    {
+                        MakeFunctionParameter("a", MakePath("Int")),
+                        MakeFunctionParameter("b", MakePath("Double")),
+                    },
+                    MakePath("Int")
+                ),
+                MakeBlock(
+                    {MakeStatement(MakeFunctionCallStatement(MakeFunctionCallExpr(MakePath("hello"), {}))),
+                     MakeStatement(MakeBlock({
+                         MakeStatement(MakeReturnStatement(MakeExpr(MakeFunctionCallExpr(MakePath("world"), {})))),
+                     }))}
+                )
+            ),
             .shouldSucceed = true,
             .rest = ""
         },
@@ -271,141 +123,60 @@ fn world(): Int {
 return world();
 }
 )",
-            .expected =
-                FunctionDefinition{
-                    .declaration =
-                        FunctionDeclaration{
-                            .name = "hello",
-                            .parameters =
-                                {
-                                    FunctionParameter{
-                                        .name = "a",
-                                        .type = Path{.segments = {PathSegment{.value = "Int", .templateParameters = {},},},},
-                                    },
-                                    FunctionParameter{
-                                        .name = "b",
-                                        .type = Path{.segments = {PathSegment{.value = "Double", .templateParameters = {},},},},
-                                    },
-                                },
-                            .returnType =
-                                Path{
-                                    .segments =
-                                        {PathSegment{.value = "Int", .templateParameters = {},},},
-                                }
-                        },
-                    .body =
-                        Block{
-                            .statements =
-                                {Statement{
-                                        FunctionDefinition{
-                                            .declaration =
-                                                FunctionDeclaration{
-                                                    .name = "world",
-                                                    .parameters = {},
-                                                    .returnType =
-                                                        Path{
-                                                            .segments =
-                                                                {PathSegment{.value = "Int", .templateParameters = {},},},
-                                                        }
-                                                },
-                                            .body =
-                                                Block{
-                                                    .statements =
-                                                        {
-                                                            Statement{FunctionCallStatement{.expr = FunctionCallExpr{.name = Path{
-                                                                .segments = {PathSegment{.value = "hello", .templateParameters = {},},},
-                                                            }, .parameters = {},},},}
-                                                        }
-                                                }
-                                        }
-                                    },
-                                    Statement{ReturnStatement{
-                                        .expr = Expr{FunctionCallExpr{
-                                            .name =
-                                                Path{.segments = {PathSegment{.value = "world", .templateParameters = {},},},},
-                                            .parameters = {}
-                                        },},
-                                    },},}
-                        }
-                },
+            .expected = MakeFunctionDefinition(
+                MakeFunctionDeclaration(
+                    "hello",
+                    {
+                        MakeFunctionParameter("a", MakePath("Int")),
+                        MakeFunctionParameter("b", MakePath("Double")),
+                    },
+                    MakePath("Int")
+                ),
+                MakeBlock({
+                    MakeStatement(MakeFunctionDefinition(
+                        MakeFunctionDeclaration("world", {}, MakePath("Int")),
+                        MakeBlock({MakeStatement(MakeFunctionCallStatement(MakeFunctionCallExpr(MakePath("hello"), {})))
+                        })
+                    )),
+                    MakeStatement(MakeReturnStatement(MakeExpr(MakeFunctionCallExpr(MakePath("world"), {})))),
+                })
+            ),
             .shouldSucceed = true,
             .rest = ""
         },
         FunctionDefinitionTestParamsType{
-            .name = "helloWorld",
-            .input = R"(
-fn main(args: Std.Array<Std.String>): I32 {
-    Std.print(args);
-    return args.size();
+            .name = "complexFunctionDefinition",
+            .input = R"(fn complex(a: Int, b: Double): Int {
+fn nested(): Double {
+    return b;
+}
+return a;
 }
 )",
-            .expected =
-                FunctionDefinition{
-                    .declaration =
-                        FunctionDeclaration{
-                            .name = "main",
-                            .parameters =
-                                {
-                                    FunctionParameter{
-                                        .name = "args",
-                                        .type =
-                                            Path{
-                                                .segments =
-                                                    {
-                                                        PathSegment{.value="Std", .templateParameters = {}},
-                                                        PathSegment{.value = "Array", .templateParameters = {Path{
-                                                            .segments = {
-                                                                PathSegment{.value = "Std", .templateParameters = {}},
-                                                                PathSegment{.value = "String", .templateParameters = {}},
-                                                            },
-                                                        },},},
-                                                    },
-                                            }
-                                    },
-                                },
-                            .returnType =
-                                Path{
-                                    .segments =
-                                        {PathSegment{.value = "I32", .templateParameters = {},},},
-                                }
-                        },
-                        .body = Block{
-                            .statements =
-                                {
-                                    Statement{FunctionCallStatement{
-                                        .expr = FunctionCallExpr{
-                                            .name = Path{
-                                                .segments = {
-                                                    PathSegment{.value = "Std", .templateParameters = {}},
-                                                    PathSegment{.value = "print", .templateParameters = {}},
-                                                },
-                                            },
-                                            .parameters = {Expr{Path{
-                                                .segments = {
-                                                    PathSegment{.value = "args", .templateParameters = {},},
-                                                },
-                                            },},},
-                                        },
-                                    },},
-                                    Statement{ReturnStatement{
-                                        .expr = Expr{FunctionCallExpr{
-                                            .name = Path{
-                                                .segments = {
-                                                    PathSegment{.value = "args", .templateParameters = {}},
-                                                    PathSegment{.value = "size", .templateParameters = {}},
-                                                },
-                                            },
-                                            .parameters = {},
-                                        },},
-                                    },},
-                                },
-                        },
-                },
+            .expected = MakeFunctionDefinition(
+                MakeFunctionDeclaration(
+                    "complex",
+                    {
+                        MakeFunctionParameter("a", MakePath("Int")),
+                        MakeFunctionParameter("b", MakePath("Double")),
+                    },
+                    MakePath("Int")
+                ),
+                MakeBlock({
+                    MakeStatement(MakeFunctionDefinition(
+                        MakeFunctionDeclaration("nested", {}, MakePath("Double")),
+                        MakeBlock({
+                            MakeStatement(MakeReturnStatement(MakeExpr(MakePath("b")))),
+                        })
+                    )),
+                    MakeStatement(MakeReturnStatement(MakeExpr(MakePath(MakePathSegment("a"))))),
+                })
+            ),
             .shouldSucceed = true,
             .rest = ""
         }
     ),
     [](testing::TestParamInfo<FunctionDefinitionTestParamsType> const& paramInfo) {
-        return std::string{paramInfo.param.name};
+      return std::string{paramInfo.param.name};
     }
 );

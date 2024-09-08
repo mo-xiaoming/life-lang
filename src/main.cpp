@@ -8,8 +8,8 @@
 int main() {
   std::string const input = R"(
 fn main(args: Std.Array<Std.String>): I32 {
-    Std.print(args);
-    return args.size();
+    Std.print("Hello, world!");
+    return 0;
 }
 )";
 
@@ -19,6 +19,6 @@ fn main(args: Std.Array<Std.String>): I32 {
   if (got) {
     fmt::print("{}\n", *got);
   } else {
-    fmt::print("parsing failed: {}\n", errorMsg.str());
+    fmt::print("parsing failed:\n{}\n", errorMsg.str());
   }
 }

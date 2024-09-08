@@ -1,8 +1,8 @@
 #include "utils.hpp"
 
-using life_lang::ast::Expr;
+using life_lang::ast::MakePath;
+using life_lang::ast::MakePathSegment;
 using life_lang::ast::Path;
-using life_lang::ast::PathSegment;
 using life_lang::ast::Statement;
 
 PARSE_TEST(Path)
@@ -12,52 +12,20 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(PathTestParamsType{
         .name = "all",
         .input = "A.B.World<Int<e>, Double.c>.Hi.a.b",
-        .expected =
-            {
-                .segments =
-                    {
-                        PathSegment{.value = "A", .templateParameters = {}},
-                        PathSegment{.value = "B", .templateParameters = {}},
-                        PathSegment{
-                            .value = "World",
-                            .templateParameters =
-                                {
-                                    Path{
-                                        .segments =
-                                            {
-                                                PathSegment{
-                                                    .value = "Int",
-                                                    .templateParameters =
-                                                        {
-                                                            Path{
-                                                                .segments =
-                                                                    {
-                                                                        PathSegment{
-                                                                            .value = "e", .templateParameters = {}
-                                                                        },
-                                                                    },
-                                                            },
-                                                        }
-                                                },
-                                            }
-                                    },
-                                    Path{
-                                        .segments =
-                                            {
-                                                PathSegment{.value = "Double", .templateParameters = {}},
-                                                PathSegment{.value = "c", .templateParameters = {}},
-                                            }
-                                    },
-                                },
-                        },
-                        PathSegment{.value = "Hi", .templateParameters = {}},
-                        PathSegment{.value = "a", .templateParameters = {}},
-                        PathSegment{.value = "b", .templateParameters = {}},
-                    },
-            },
-
+        .expected = MakePath(
+            "A", "B",
+            MakePathSegment(
+                "World",
+                {
+                    MakePath(MakePathSegment("Int", {MakePath("e")})),
+                    MakePath("Double", "c"),
+                }
+            ),
+            "Hi", "a", "b"
+        ),
         .shouldSucceed = true,
         .rest = ""
     }),
+
     [](testing::TestParamInfo<PathTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
 );
