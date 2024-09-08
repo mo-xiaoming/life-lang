@@ -1,5 +1,6 @@
 {
   "dependencies": [
+    "boost-fusion",
     "boost-spirit",
     "fmt",
     "gtest"

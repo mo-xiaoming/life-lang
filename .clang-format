@@ -1,3 +1,4 @@
 BasedOnStyle: Google
 QualifierAlignment: Right
 ColumnLimit: 120
+AlignAfterOpenBracket: BlockIndent

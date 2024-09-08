@@ -61,10 +61,6 @@
       }
     },
     {
-      "name": "default",
-      "inherits": "debug-asan-ubsan"
-    },
-    {
       "name": "coverage",
       "inherits": "debug",
       "cacheVariables": {
@@ -72,6 +68,16 @@
           "type": "BOOL",
           "value": "ON"
         },
+        "ENABLE_CLANG_TIDY": {
+          "type": "BOOL",
+          "value": "OFF"
+        }
+      }
+    },
+    {
+      "name": "dev",
+      "inherits": "debug",
+      "cacheVariables": {
         "ENABLE_CLANG_TIDY": {
           "type": "BOOL",
           "value": "OFF"
@@ -101,13 +107,13 @@
       "verbose": true
     },
     {
-      "name": "default",
-      "configurePreset": "default",
+      "name": "coverage",
+      "configurePreset": "coverage",
       "verbose": true
     },
     {
-      "name": "coverage",
-      "configurePreset": "coverage",
+      "name": "dev",
+      "configurePreset": "dev",
       "verbose": true
     }
   ],
@@ -143,13 +149,13 @@
       "inherits": "common"
     },
     {
-      "name": "default",
-      "configurePreset": "default",
+      "name": "coverage",
+      "configurePreset": "coverage",
       "inherits": "common"
     },
     {
-      "name": "coverage",
-      "configurePreset": "coverage",
+      "name": "dev",
+      "configurePreset": "dev",
       "inherits": "common"
     }
   ]
