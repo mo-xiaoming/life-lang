@@ -20,6 +20,7 @@ include(cmake/ProjectTools.cmake)
 # Find packages
 find_package(Boost CONFIG REQUIRED COMPONENTS spirit fusion)
 find_package(fmt CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 # lib and binaries
 add_subdirectory(src)

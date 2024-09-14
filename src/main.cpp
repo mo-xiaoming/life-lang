@@ -17,7 +17,7 @@ fn main(args: Std.Array<Std.String>): I32 {
   std::ostringstream errorMsg;
   auto const &got = life_lang::parser::parse(inputStart, input.cend(), errorMsg);
   if (got) {
-    fmt::print("{}\n", *got);
+    fmt::print("{}\n", ToJsonString(*got, 4));
   } else {
     fmt::print("parsing failed:\n{}\n", errorMsg.str());
   }
