@@ -3,6 +3,7 @@
     "boost-fusion",
     "boost-spirit",
     "fmt",
-    "gtest"
+    "gtest",
+    "nlohmann-json"
   ]
 }
