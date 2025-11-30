@@ -1,44 +1,47 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <gtest/gtest.h>
 
 #include <boost/fusion/include/io.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <rules.hpp>
 #include <string_view>
 
-#define PARSE_TEST(name)                                                                          \
-  using name##TestParamsType = ParseTestParams<name>;                                             \
-  class Parse##name##Test : public ::testing::TestWithParam<name##TestParamsType> {};             \
-                                                                                                  \
-  TEST_P(Parse##name##Test, Parse##name) {                                                        \
-    auto const& params = GetParam();                                                              \
-    auto inputStart = params.input.cbegin();                                                      \
-    auto const inputEnd = params.input.cend();                                                    \
-    std::ostringstream errorMsg;                                                                  \
-    auto const got = life_lang::internal::Parse##name(inputStart, inputEnd, errorMsg);            \
-    EXPECT_EQ(params.shouldSucceed, bool(got)) << (got ? ToJsonString(*got, 2) : errorMsg.str()); \
-    auto const rest = std::string_view{inputStart, inputEnd};                                     \
-    EXPECT_EQ(params.rest, rest);                                                                 \
-    EXPECT_EQ(ToJsonString(params.expected, 2), ToJsonString(*got, 2));                           \
-  }
+#define PARSE_TEST(AstType, fn_name)                                                          \
+  namespace {                                                                                 \
+  using AstType##_Params = Parse_Test_Params<AstType>;                                        \
+  void check_parse(AstType##_Params const& params) {                                          \
+    auto input_start = params.input.cbegin();                                                 \
+    auto const input_end = params.input.cend();                                               \
+    std::ostringstream error_msg;                                                             \
+    auto const got = life_lang::internal::parse_##fn_name(input_start, input_end, error_msg); \
+    CHECK(params.should_succeed == bool(got));                                                \
+    if (params.should_succeed != bool(got)) {                                                 \
+      UNSCOPED_INFO((got ? to_json_string(*got, 2) : error_msg.str()));                       \
+    }                                                                                         \
+    auto const rest = std::string_view{input_start, input_end};                               \
+    CHECK(params.rest == rest);                                                               \
+    if (got) {                                                                                \
+      CHECK(to_json_string(params.expected, 2) == to_json_string(*got, 2));                   \
+    }                                                                                         \
+  }                                                                                           \
+  }  // namespace
 
-template <typename AstType>
-struct ParseTestParams {
+template <typename Ast_Type>
+struct Parse_Test_Params {
   std::string_view name;
   std::string input;
-  AstType expected;
-  bool shouldSucceed{};
+  Ast_Type expected;
+  bool should_succeed{};
   std::string_view rest;
-};  // namespace std::ranges
+};
 
+// Catch2 uses operator<< to print test parameters in failure messages
+// Note: Uses indent=-1 for compact single-line JSON output
 template <typename T>
-void PrintTo(ParseTestParams<T> const& params, std::ostream* os) {
-  *os << fmt::format(
-      R"({{.input = "{}", .expected = {}, .shouldSucceed = {}, .rest = "{}"}})", params.input,
-      ToJsonString(params.expected, -1), params.shouldSucceed, params.rest
-  );
+std::ostream& operator<<(std::ostream& a_os, Parse_Test_Params<T> const& a_params) {
+  return a_os << fmt::format(
+             R"({{.input = "{}", .expected = {}, .shouldSucceed = {}, .rest = "{}"}})", a_params.input,
+             to_json_string(a_params.expected, -1), a_params.should_succeed, a_params.rest
+         );
 }
-
-namespace life_lang::ast {
-void PrintTo(JsonStringConvertible auto const& ast, std::ostream* os) { *os << ToJsonString(ast, 2); }
-}  // namespace life_lang::ast

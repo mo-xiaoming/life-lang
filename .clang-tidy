@@ -17,3 +17,32 @@ Checks: >
   -readability-identifier-length,
   -misc-no-recursion,
   -misc-include-cleaner
+CheckOptions:
+  - key: readability-identifier-naming.StructCase
+    value: Camel_Snake_Case
+  - key: readability-identifier-naming.ClassCase
+    value: Camel_Snake_Case
+  - key: readability-identifier-naming.TypedefCase
+    value: Camel_Snake_Case
+  - key: readability-identifier-naming.TypeAliasCase
+    value: Camel_Snake_Case
+  - key: readability-identifier-naming.PrivateMemberPrefix
+    value: m_
+  - key: readability-identifier-naming.ParameterPrefix
+    value: a_
+  - key: readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: lower_case
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: k_
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: lower_case
+  - key: readability-identifier-naming.ConstexprVariablePrefix
+    value: k_
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: readability-identifier-naming.EnumCase
+    value: Camel_Snake_Case

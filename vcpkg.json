@@ -1,9 +1,9 @@
 {
   "dependencies": [
-    "boost-fusion",
     "boost-spirit",
     "fmt",
-    "gtest",
-    "nlohmann-json"
+    "catch2",
+    "nlohmann-json",
+    "tl-expected"
   ]
 }
