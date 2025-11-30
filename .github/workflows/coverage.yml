@@ -6,71 +6,39 @@ on:
   workflow_dispatch:       # Allows manual triggering of the workflow
   push:
     branches: [ "master" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'vcpkg.json'
+      - '.github/workflows/**'
   pull_request:
     branches: [ "master" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'vcpkg.json'
+      - '.github/workflows/**'
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
   group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
   cancel-in-progress: true
 
-env:
-  VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-
 jobs:
   build-and-coverage:
-    runs-on: ubuntu-24.04
-
     strategy:
+      fail-fast: false
       matrix:
         preset: [coverage]
         gcc-version: [13]
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup GCC ${{ matrix.gcc-version }}
-      run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-        sudo apt-get update
-        sudo apt-get install -y gcc-${{ matrix.gcc-version }} g++-${{ matrix.gcc-version }}
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ matrix.gcc-version }} 10
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ matrix.gcc-version }} 10
-        gcc --version
-        g++ --version
-
-    - name: Install CMake & Ninja & lcov
-      run: |
-        wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
-        sudo apt-get remove --purge --auto-remove cmake
-        sudo apt-get install -y cmake ninja-build lcov
-        cmake --version
-        echo ninja $(ninja --version)
-        lcov --version
-
-    - name: Setup vcpkg
-      run: |
-        git clone https://github.com/microsoft/vcpkg.git
-        ./vcpkg/bootstrap-vcpkg.sh 
-    
-    - name: Configure
-      run: cmake --preset ${{ matrix.preset }}
-
-    - name: Build
-      run: cmake --build --preset ${{ matrix.preset }}
-
-    - name: Test
-      run: ctest --preset ${{ matrix.preset }}
-
-    - name: Generate coverage report
-      run: |
-        lcov --capture --directory . --output-file coverage.info -rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch --demangle-cpp
-        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/build/*' --output-file coverage.info
-        lcov --list coverage.info
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: coverage.info
-        fail_ci_if_error: true
+    uses: ./.github/workflows/common.yml
+    with:
+      gcc-version: ${{ matrix.gcc-version }}
+      preset: ${{ matrix.preset }}
+      coverage: true
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
