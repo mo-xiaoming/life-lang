@@ -25,12 +25,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build-and-tests-one:
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [ "debug-asan-ubsan" ]
+        gcc-version: [13]
+    uses: ./.github/workflows/common.yml
+    with:
+      gcc-version: ${{ matrix.gcc-version }}
+      preset: ${{ matrix.preset }}
+
   build-and-tests:
+    needs: build-and-tests-one
     strategy:
       fail-fast: false
       matrix:
         preset: [ "debug", "release", "debug-asan-ubsan", "release-asan-ubsan" ]
-        gcc-version: [14]
+        gcc-version: [13, 14]
+        exclude:
+          - preset: "debug-asan-ubsan"
+            gcc-version: 13
     uses: ./.github/workflows/common.yml
     with:
       gcc-version: ${{ matrix.gcc-version }}
