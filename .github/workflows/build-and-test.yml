@@ -3,8 +3,22 @@ name: CI Build and Test
 on:
   push:
     branches: [ "master" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'vcpkg.json'
+      - '.github/workflows/**'
   pull_request:
     branches: [ "master" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'vcpkg.json'
+      - '.github/workflows/**'
 
 concurrency:
   group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
@@ -13,6 +27,7 @@ concurrency:
 jobs:
   build-and-tests-one:
     strategy:
+      fail-fast: false
       matrix:
         preset: [ "debug-asan-ubsan" ]
         gcc-version: [13]
@@ -24,6 +39,7 @@ jobs:
   build-and-tests:
     needs: build-and-tests-one
     strategy:
+      fail-fast: false
       matrix:
         preset: [ "debug", "release", "debug-asan-ubsan", "release-asan-ubsan" ]
         gcc-version: [13, 14]
