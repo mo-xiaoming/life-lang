@@ -1,38 +1,40 @@
 #ifndef RULES_HPP__
 #define RULES_HPP__
 
-#include <iosfwd>
 #include <string>
+#include <string_view>
 #include <tl/expected.hpp>
 
 #include "ast.hpp"
+#include "diagnostics.hpp"
 
 namespace life_lang::parser {
 using Iterator_Type = std::string::const_iterator;
 
 template <typename Ast>
-using Parse_Result = tl::expected<Ast, std::string>;
+using Parse_Result = tl::expected<Ast, Diagnostic_Engine>;
 
 // ============================================================================
 // PUBLIC API
 // ============================================================================
 
 // Parse a complete module (compilation unit)
-Parse_Result<ast::Module> parse(Iterator_Type& a_begin, Iterator_Type a_end, std::ostream& a_out);
+// Returns parsed module or diagnostic engine with errors
+tl::expected<ast::Module, Diagnostic_Engine> parse_module(
+    std::string_view a_source, std::string a_filename = "<input>"
+);
 }  // namespace life_lang::parser
 
 // ============================================================================
 // INTERNAL API - FOR TESTING ONLY
 // ============================================================================
 // These functions expose individual parsers for unit testing.
-// Production code should ONLY use parser::parse() above.
+// Production code should use parser::parse_module() above.
 
 namespace life_lang::internal {
 
-#define PARSE_FN_DECL(ast_type, fn_name)                                               \
-  parser::Parse_Result<ast::ast_type> parse_##fn_name(                                 \
-      parser::Iterator_Type& a_begin, parser::Iterator_Type a_end, std::ostream& a_out \
-  )
+#define PARSE_FN_DECL(ast_type, fn_name) \
+  parser::Parse_Result<ast::ast_type> parse_##fn_name(parser::Iterator_Type& a_begin, parser::Iterator_Type a_end)
 
 PARSE_FN_DECL(Path_Segment, path_segment);
 PARSE_FN_DECL(Path, path);

@@ -1,6 +1,7 @@
 #ifndef AST_HPP__
 #define AST_HPP__
 
+#include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 #include <boost/spirit/home/x3/support/ast/variant.hpp>
 #include <concepts>
 #include <nlohmann/json.hpp>
@@ -23,12 +24,12 @@ struct Block;
 // Type & Path System
 // ============================================================================
 
-struct Path {
+struct Path : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Path";
   std::vector<Path_Segment> segments;
 };
 
-struct Path_Segment {
+struct Path_Segment : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Path_Segment";
   std::string value;
   std::vector<Path> template_parameters;
@@ -38,12 +39,12 @@ struct Path_Segment {
 // Literal Types
 // ============================================================================
 
-struct String {
+struct String : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "String";
   std::string value;
 };
 
-struct Integer {
+struct Integer : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Integer";
   std::string value;
 };
@@ -52,13 +53,16 @@ struct Integer {
 // Expression Types
 // ============================================================================
 
-// Expr variant uses forward_ast for Function_Call_Expr to break circular dependency:
-// Expr contains Function_Call_Expr, which contains vector<Expr>
-// forward_ast wraps the type in shared_ptr to enable copying while deferring instantiation
-using Expr = boost::spirit::x3::variant<Path, boost::spirit::x3::forward_ast<Function_Call_Expr>, String, Integer>;
+struct Expr : boost::spirit::x3::variant<Path, boost::spirit::x3::forward_ast<Function_Call_Expr>, String, Integer>,
+              boost::spirit::x3::position_tagged {
+  using Base_Type =
+      boost::spirit::x3::variant<Path, boost::spirit::x3::forward_ast<Function_Call_Expr>, String, Integer>;
+  using Base_Type::Base_Type;
+  using Base_Type::operator=;
+};
 
-struct Function_Call_Expr {
-  static constexpr std::string_view k_name = "FunctionCallExpr";
+struct Function_Call_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Function_Call_Expr";
   Path name;
   std::vector<Expr> parameters;
 };
@@ -67,24 +71,28 @@ struct Function_Call_Expr {
 // Statement Types
 // ============================================================================
 
-struct Function_Call_Statement {
+struct Function_Call_Statement : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Function_Call_Statement";
   Function_Call_Expr expr;
 };
 
-struct Return_Statement {
+struct Return_Statement : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Return_Statement";
   Expr expr;
 };
 
-// Statement variant uses forward_ast for recursive types:
-// - Function_Definition contains Block (body), Block contains vector<Statement>
-// - Block directly contains vector<Statement>
-using Statement = boost::spirit::x3::variant<
-    boost::spirit::x3::forward_ast<Function_Definition>, Function_Call_Statement, Return_Statement,
-    boost::spirit::x3::forward_ast<Block>>;
+struct Statement : boost::spirit::x3::variant<
+                       boost::spirit::x3::forward_ast<Function_Definition>, Function_Call_Statement, Return_Statement,
+                       boost::spirit::x3::forward_ast<Block>>,
+                   boost::spirit::x3::position_tagged {
+  using Base_Type = boost::spirit::x3::variant<
+      boost::spirit::x3::forward_ast<Function_Definition>, Function_Call_Statement, Return_Statement,
+      boost::spirit::x3::forward_ast<Block>>;
+  using Base_Type::Base_Type;
+  using Base_Type::operator=;
+};
 
-struct Block {
+struct Block : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Block";
   std::vector<Statement> statements;
 };
@@ -93,20 +101,20 @@ struct Block {
 // Function Types
 // ============================================================================
 
-struct Function_Parameter {
+struct Function_Parameter : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Function_Parameter";
   std::string name;
   Path type;
 };
 
-struct Function_Declaration {
+struct Function_Declaration : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Function_Declaration";
   std::string name;
   std::vector<Function_Parameter> parameters;
   Path return_type;
 };
 
-struct Function_Definition {
+struct Function_Definition : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Function_Definition";
   Function_Declaration declaration;
   Block body;
@@ -116,13 +124,7 @@ struct Function_Definition {
 // Module Types
 // ============================================================================
 
-// Module represents a compilation unit (file/translation unit)
-// Contains top-level statements which can be:
-// - Function definitions
-// - Type definitions (struct, enum, etc.) - future
-// - Import/export statements - future
-// - Module-level constants - future
-struct Module {
+struct Module : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Module";
   std::vector<Statement> statements;
 };
@@ -131,24 +133,33 @@ struct Module {
 // Helper Functions for AST Construction
 // ============================================================================
 
+inline Path_Segment make_path_segment(std::string&& a_value, std::vector<Path>&& a_template_parameters) {
+  return Path_Segment{{}, std::move(a_value), std::move(a_template_parameters)};
+}
+
+inline Path_Segment make_path_segment(std::string&& a_value) { return make_path_segment(std::move(a_value), {}); }
+
 template <typename... Args>
   requires((std::same_as<Args, Path_Segment> || std::constructible_from<std::string, Args>) && ...)
 inline Path make_path(Args&&... a_args) {
   std::vector<Path_Segment> segments;
   segments.reserve(sizeof...(a_args));
-  (segments.emplace_back(std::forward<Args>(a_args)), ...);
-  return Path{.segments = std::move(segments)};
+  (
+      [&] {
+        if constexpr (std::same_as<std::remove_cvref_t<Args>, Path_Segment>) {
+          segments.push_back(std::forward<Args>(a_args));
+        } else {
+          segments.push_back(make_path_segment(std::string(std::forward<Args>(a_args))));
+        }
+      }(),
+      ...
+  );
+  return Path{{}, std::move(segments)};
 }
 
-inline Path_Segment make_path_segment(std::string&& a_value, std::vector<Path>&& a_template_parameters) {
-  return Path_Segment{.value = std::move(a_value), .template_parameters = std::move(a_template_parameters)};
-}
+inline String make_string(std::string&& a_value) { return String{{}, std::move(a_value)}; }
 
-inline Path_Segment make_path_segment(std::string&& a_value) { return make_path_segment(std::move(a_value), {}); }
-
-inline String make_string(std::string&& a_value) { return String{.value = std::move(a_value)}; }
-
-inline Integer make_integer(std::string a_value) noexcept { return Integer{.value = std::move(a_value)}; }
+inline Integer make_integer(std::string a_value) noexcept { return Integer{{}, std::move(a_value)}; }
 
 inline Expr make_expr(Path&& a_path) { return Expr{std::move(a_path)}; }
 inline Expr make_expr(String&& a_str) { return Expr{std::move(a_str)}; }
@@ -156,41 +167,37 @@ inline Expr make_expr(Integer&& a_integer) noexcept { return Expr{std::move(a_in
 inline Expr make_expr(Function_Call_Expr&& a_call) { return Expr{std::move(a_call)}; }
 
 inline Function_Call_Expr make_function_call_expr(Path&& a_name, std::vector<Expr>&& a_parameters) {
-  return Function_Call_Expr{.name = std::move(a_name), .parameters = std::move(a_parameters)};
+  return Function_Call_Expr{{}, std::move(a_name), std::move(a_parameters)};
 }
 
 inline Function_Call_Statement make_function_call_statement(Function_Call_Expr&& a_expr) {
-  return Function_Call_Statement{.expr = std::move(a_expr)};
+  return Function_Call_Statement{{}, std::move(a_expr)};
 }
 
-inline Return_Statement make_return_statement(Expr&& a_expr) { return Return_Statement{.expr = std::move(a_expr)}; }
+inline Return_Statement make_return_statement(Expr&& a_expr) { return Return_Statement{{}, std::move(a_expr)}; }
 
 inline Statement make_statement(Function_Call_Statement&& a_call) { return Statement{std::move(a_call)}; }
 inline Statement make_statement(Return_Statement&& a_ret) { return Statement{std::move(a_ret)}; }
 inline Statement make_statement(Block&& a_block) { return Statement{std::move(a_block)}; }
 inline Statement make_statement(Function_Definition&& a_def) { return Statement{std::move(a_def)}; }
 
-inline Block make_block(std::vector<Statement>&& a_statements) { return Block{.statements = std::move(a_statements)}; }
+inline Block make_block(std::vector<Statement>&& a_statements) { return Block{{}, std::move(a_statements)}; }
 
 inline Function_Parameter make_function_parameter(std::string&& a_name, Path&& a_type) {
-  return Function_Parameter{.name = std::move(a_name), .type = std::move(a_type)};
+  return Function_Parameter{{}, std::move(a_name), std::move(a_type)};
 }
 
 inline Function_Declaration make_function_declaration(
     std::string&& a_name, std::vector<Function_Parameter>&& a_parameters, Path&& a_return_type
 ) {
-  return Function_Declaration{
-      .name = std::move(a_name), .parameters = std::move(a_parameters), .return_type = std::move(a_return_type)
-  };
+  return Function_Declaration{{}, std::move(a_name), std::move(a_parameters), std::move(a_return_type)};
 }
 
 inline Function_Definition make_function_definition(Function_Declaration&& a_decl, Block&& a_body) {
-  return Function_Definition{.declaration = std::move(a_decl), .body = std::move(a_body)};
+  return Function_Definition{{}, std::move(a_decl), std::move(a_body)};
 }
 
-inline Module make_module(std::vector<Statement>&& a_statements) {
-  return Module{.statements = std::move(a_statements)};
-}
+inline Module make_module(std::vector<Statement>&& a_statements) { return Module{{}, std::move(a_statements)}; }
 
 // ============================================================================
 // JSON Serialization

@@ -35,14 +35,13 @@ TEST_CASE("Keyword Boundary Validation", "[parser][keywords]") {
   DYNAMIC_SECTION(test.name) {
     auto begin = test.input.cbegin();
     auto const end = test.input.cend();
-    std::ostringstream oss;
 
     if (test.is_return_stmt) {
-      auto const got = life_lang::internal::parse_return_statement(begin, end, oss);
+      auto const got = life_lang::internal::parse_return_statement(begin, end);
       CHECK(test.should_succeed == bool(got));
       CHECK(test.rest == std::string{begin, end});
     } else {
-      auto const got = life_lang::internal::parse_function_definition(begin, end, oss);
+      auto const got = life_lang::internal::parse_function_definition(begin, end);
       CHECK(test.should_succeed == bool(got));
       CHECK(test.rest == std::string{begin, end});
     }
@@ -76,9 +75,8 @@ TEST_CASE("Identifier vs Keyword Distinction", "[parser][keywords]") {
   DYNAMIC_SECTION(test.name) {
     auto begin = test.input.cbegin();
     auto const end = test.input.cend();
-    std::ostringstream oss;
 
-    auto const got = life_lang::internal::parse_path(begin, end, oss);
+    auto const got = life_lang::internal::parse_path(begin, end);
     REQUIRE(bool(got));
     CHECK((*got).segments.size() == 1);
     CHECK((*got).segments[0].value == test.expected_name);

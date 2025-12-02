@@ -1,15 +1,6 @@
 #include "utils.hpp"
 
-using life_lang::ast::make_block;
-using life_lang::ast::make_function_declaration;
-using life_lang::ast::make_function_definition;
-using life_lang::ast::make_module;
-using life_lang::ast::make_path;
-using life_lang::ast::make_return_statement;
-using life_lang::ast::make_statement;
-using life_lang::ast::Module;
-
-// Note: Module tests use the PUBLIC API (parser::parse), not internal parsers
+// Note: Module tests use the PUBLIC API (parser::parse_module), not internal parsers
 // This is because modules must consume ALL input - partial parses should fail
 
 TEST_CASE("Parse Module - Complete Input Validation", "[parser]") {
@@ -35,20 +26,13 @@ TEST_CASE("Parse Module - Complete Input Validation", "[parser]") {
   );
 
   DYNAMIC_SECTION(test.name) {
-    auto begin = test.input.cbegin();
-    auto const end = test.input.cend();
-    std::ostringstream error_stream;
-
-    auto const result = life_lang::parser::parse(begin, end, error_stream);
+    auto const result = life_lang::parser::parse_module(test.input, "test.life");
 
     CHECK(test.should_succeed == bool(result));
 
-    if (test.should_succeed && result) {
-      // Verify all input was consumed
-      CHECK(begin == end);
-    } else if (!test.should_succeed && !result) {
-      // Verify we got an error message
-      CHECK(!result.error().empty());
+    if (!test.should_succeed && !result) {
+      // Verify we got diagnostics with errors
+      CHECK(result.error().has_errors());
     }
   }
 }

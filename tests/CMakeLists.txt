@@ -8,12 +8,14 @@ add_executable(tests)
 target_sources(tests
     PRIVATE
         parser/test_block.cpp
+        parser/test_diagnostics.cpp
         parser/test_expr.cpp
         parser/test_function_call_statement.cpp
         parser/test_function_declaration.cpp
         parser/test_function_definition.cpp
         parser/test_function_parameter.cpp
         parser/test_integer.cpp
+        parser/test_internal_parse_errors.cpp
         parser/test_keywords.cpp
         parser/test_module.cpp
         parser/test_path_segment.cpp

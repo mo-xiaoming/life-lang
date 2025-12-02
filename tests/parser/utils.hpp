@@ -7,24 +7,29 @@
 #include <rules.hpp>
 #include <string_view>
 
-#define PARSE_TEST(AstType, fn_name)                                                          \
-  namespace {                                                                                 \
-  using AstType##_Params = Parse_Test_Params<AstType>;                                        \
-  void check_parse(AstType##_Params const& params) {                                          \
-    auto input_start = params.input.cbegin();                                                 \
-    auto const input_end = params.input.cend();                                               \
-    std::ostringstream error_msg;                                                             \
-    auto const got = life_lang::internal::parse_##fn_name(input_start, input_end, error_msg); \
-    CHECK(params.should_succeed == bool(got));                                                \
-    if (params.should_succeed != bool(got)) {                                                 \
-      UNSCOPED_INFO((got ? to_json_string(*got, 2) : error_msg.str()));                       \
-    }                                                                                         \
-    auto const rest = std::string_view{input_start, input_end};                               \
-    CHECK(params.rest == rest);                                                               \
-    if (got) {                                                                                \
-      CHECK(to_json_string(params.expected, 2) == to_json_string(*got, 2));                   \
-    }                                                                                         \
-  }                                                                                           \
+#define PARSE_TEST(AstType, fn_name)                                               \
+  namespace {                                                                      \
+  using AstType##_Params = Parse_Test_Params<AstType>;                             \
+  void check_parse(AstType##_Params const& params) {                               \
+    auto input_start = params.input.cbegin();                                      \
+    auto const input_end = params.input.cend();                                    \
+    auto const got = life_lang::internal::parse_##fn_name(input_start, input_end); \
+    CHECK(params.should_succeed == bool(got));                                     \
+    if (params.should_succeed != bool(got)) {                                      \
+      if (got) {                                                                   \
+        UNSCOPED_INFO(to_json_string(*got, 2));                                    \
+      } else {                                                                     \
+        std::ostringstream error_output;                                           \
+        got.error().print(error_output);                                           \
+        UNSCOPED_INFO(error_output.str());                                         \
+      }                                                                            \
+    }                                                                              \
+    auto const rest = std::string_view{input_start, input_end};                    \
+    CHECK(params.rest == rest);                                                    \
+    if (got) {                                                                     \
+      CHECK(to_json_string(params.expected, 2) == to_json_string(*got, 2));        \
+    }                                                                              \
+  }                                                                                \
   }  // namespace
 
 template <typename Ast_Type>
