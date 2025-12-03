@@ -1,50 +1,58 @@
 #ifndef RULES_HPP__
 #define RULES_HPP__
 
-#include <iosfwd>
 #include <string>
+#include <string_view>
+#include <tl/expected.hpp>
 
 #include "ast.hpp"
+#include "diagnostics.hpp"
 
 namespace life_lang::parser {
-using IteratorType = std::string::const_iterator;
+using Iterator_Type = std::string::const_iterator;
+
+template <typename Ast>
+using Parse_Result = tl::expected<Ast, Diagnostic_Engine>;
+
+// ============================================================================
+// PUBLIC API
+// ============================================================================
+
+// Parse a complete module (compilation unit)
+// Returns parsed module or diagnostic engine with errors
+tl::expected<ast::Module, Diagnostic_Engine> parse_module(
+    std::string_view a_source, std::string a_filename = "<input>"
+);
 }  // namespace life_lang::parser
 
+// ============================================================================
+// INTERNAL API - FOR TESTING ONLY
+// ============================================================================
+// These functions expose individual parsers for unit testing.
+// Production code should use parser::parse_module() above.
+
 namespace life_lang::internal {
-template <typename Ast>
-struct ParseResult {
-  ParseResult(bool success, Ast ast) : m_success(success), m_ast(std::move(ast)) {}
-  [[nodiscard]] constexpr explicit operator bool() const noexcept { return m_success; }
-  [[nodiscard]] Ast const &operator*() const noexcept { return m_ast; }
 
- private:
-  bool m_success;
-  Ast m_ast;
-};
+#define PARSE_FN_DECL(ast_type, fn_name) \
+  parser::Parse_Result<ast::ast_type> parse_##fn_name(parser::Iterator_Type& a_begin, parser::Iterator_Type a_end)
 
-#define PARSE_FN_DECLARATION(name)                                             \
-  ParseResult<life_lang::ast::name> Parse##name(                               \
-      parser::IteratorType &begin, parser::IteratorType end, std::ostream &out \
-  );
+PARSE_FN_DECL(Path_Segment, path_segment);
+PARSE_FN_DECL(Path, path);
+PARSE_FN_DECL(String, string);
+PARSE_FN_DECL(Integer, integer);
+PARSE_FN_DECL(Function_Parameter, function_parameter);
+PARSE_FN_DECL(Function_Declaration, function_declaration);
+PARSE_FN_DECL(Function_Definition, function_definition);
+PARSE_FN_DECL(Expr, expr);
+PARSE_FN_DECL(Function_Call_Expr, function_call_expr);
+PARSE_FN_DECL(Function_Call_Statement, function_call_statement);
+PARSE_FN_DECL(Return_Statement, return_statement);
+PARSE_FN_DECL(Statement, statement);
+PARSE_FN_DECL(Block, block);
+PARSE_FN_DECL(Module, module);
 
-PARSE_FN_DECLARATION(PathSegment)
-PARSE_FN_DECLARATION(Path)
-PARSE_FN_DECLARATION(String)
-PARSE_FN_DECLARATION(Integer)
-PARSE_FN_DECLARATION(FunctionParameter)
-PARSE_FN_DECLARATION(FunctionDeclaration)
-PARSE_FN_DECLARATION(Expr)
-PARSE_FN_DECLARATION(FunctionCallExpr)
-PARSE_FN_DECLARATION(FunctionCallStatement)
-PARSE_FN_DECLARATION(ReturnStatement)
-PARSE_FN_DECLARATION(Statement)
-PARSE_FN_DECLARATION(Block)
-PARSE_FN_DECLARATION(FunctionDefinition)
-#undef PARSE_FN_DECLARATION
+#undef PARSE_FN_DECL
+
 }  // namespace life_lang::internal
-
-namespace life_lang::parser {
-internal::ParseResult<ast::FunctionDefinition> parse(IteratorType &begin, IteratorType end, std::ostream &out);
-}
 
 #endif

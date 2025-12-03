@@ -3,7 +3,7 @@
   "version": 8,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 28,
+    "minor": 31,
     "patch": 0
   },
   "configurePresets": [
@@ -27,6 +27,39 @@
       "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
     },
     {
+      "name": "asan-ubsan-flags",
+      "inherits": "vcpkg",
+      "hidden": true,
+      "cacheVariables": {
+        "ENABLE_ASAN_AND_UBSAN": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      }
+    },
+    {
+      "name": "no-clang-tidy",
+      "inherits": "vcpkg",
+      "hidden": true,
+      "cacheVariables": {
+        "ENABLE_CLANG_TIDY": {
+          "type": "BOOL",
+          "value": "OFF"
+        }
+      }
+    },
+    {
+      "name": "coverage-flags",
+      "inherits": "vcpkg",
+      "hidden": true,
+      "cacheVariables": {
+        "ENABLE_COVERAGE": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      }
+    },
+    {
       "name": "debug",
       "inherits": "vcpkg",
       "cacheVariables": {
@@ -42,79 +75,69 @@
     },
     {
       "name": "debug-asan-ubsan",
-      "inherits": "debug",
-      "cacheVariables": {
-        "ENABLE_ASAN_AND_UBSAN": {
-          "type": "BOOL",
-          "value": "ON"
-        }
-      }
+      "inherits": [
+        "debug",
+        "asan-ubsan-flags"
+      ]
     },
     {
       "name": "release-asan-ubsan",
-      "inherits": "release",
-      "cacheVariables": {
-        "ENABLE_ASAN_AND_UBSAN": {
-          "type": "BOOL",
-          "value": "ON"
-        }
-      }
+      "inherits": [
+        "release",
+        "asan-ubsan-flags"
+      ]
     },
     {
       "name": "coverage",
-      "inherits": "debug",
-      "cacheVariables": {
-        "ENABLE_COVERAGE": {
-          "type": "BOOL",
-          "value": "ON"
-        },
-        "ENABLE_CLANG_TIDY": {
-          "type": "BOOL",
-          "value": "OFF"
-        }
-      }
+      "inherits": [
+        "debug",
+        "coverage-flags",
+        "no-clang-tidy"
+      ]
     },
     {
       "name": "dev",
-      "inherits": "debug",
-      "cacheVariables": {
-        "ENABLE_CLANG_TIDY": {
-          "type": "BOOL",
-          "value": "OFF"
-        }
-      }
+      "inherits": [
+        "debug",
+        "no-clang-tidy"
+      ]
     }
   ],
   "buildPresets": [
     {
-      "name": "debug",
-      "configurePreset": "debug",
+      "name": "common",
+      "hidden": true,
       "verbose": true
+    },
+    {
+      "name": "debug",
+      "inherits": "common",
+      "configurePreset": "debug"
     },
     {
       "name": "release",
-      "configurePreset": "release",
-      "verbose": true
+      "inherits": "common",
+      "configurePreset": "release"
     },
     {
       "name": "debug-asan-ubsan",
-      "configurePreset": "debug-asan-ubsan",
-      "verbose": true
+      "inherits": "common",
+      "configurePreset": "debug-asan-ubsan"
     },
     {
       "name": "release-asan-ubsan",
-      "configurePreset": "release-asan-ubsan",
-      "verbose": true
+      "inherits": "common",
+      "configurePreset": "release-asan-ubsan"
     },
     {
       "name": "coverage",
-      "configurePreset": "coverage",
-      "verbose": true
+      "inherits": "common",
+      "configurePreset": "coverage"
     },
     {
       "name": "dev",
-      "configurePreset": "dev",
-      "verbose": true
+      "inherits": "common",
+      "configurePreset": "dev"
     }
   ],
   "testPresets": [

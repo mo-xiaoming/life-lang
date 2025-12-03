@@ -1,57 +1,29 @@
 #include "utils.hpp"
 
 using life_lang::ast::Integer;
-using life_lang::ast::MakeInteger;
+using life_lang::ast::make_integer;
 
-PARSE_TEST(Integer)
+PARSE_TEST(Integer, integer)
 
-INSTANTIATE_TEST_SUITE_P(
-    , ParseIntegerTest,
-    ::testing::Values(
-        IntegerTestParamsType{
-            .name = "zero", .input = "0", .expected = MakeInteger("0"), .shouldSucceed = true, .rest = ""
-        },
-        IntegerTestParamsType{
-            .name = "oneTwoThree", .input = "123", .expected = MakeInteger("123"), .shouldSucceed = true, .rest = ""
-        },
-        IntegerTestParamsType{
-            .name = "startsWithZero",
-            .input = "0123",
-            .expected = MakeInteger(""),
-            .shouldSucceed = false,
-            .rest = "0123"
-        },
-        IntegerTestParamsType{
-            .name = "delimited", .input = "12_34_5", .expected = MakeInteger("12345"), .shouldSucceed = true, .rest = ""
-        },
-        IntegerTestParamsType{
-            .name = "zeroStartsWithUnderscore",
-            .input = "_0",
-            .expected = MakeInteger(""),
-            .shouldSucceed = false,
-            .rest = "_0"
-        },
-        IntegerTestParamsType{
-            .name = "zeroEndsWithUnderscore",
-            .input = "0_",
-            .expected = MakeInteger(""),
-            .shouldSucceed = false,
-            .rest = "0_"
-        },
-        IntegerTestParamsType{
-            .name = "startsWithUnderscore",
-            .input = "_12",
-            .expected = MakeInteger(""),
-            .shouldSucceed = false,
-            .rest = "_12"
-        },
-        IntegerTestParamsType{
-            .name = "endsWithUnderscore",
-            .input = "12_",
-            .expected = MakeInteger(""),
-            .shouldSucceed = false,
-            .rest = "12_"
-        }
-    ),
-    [](testing::TestParamInfo<IntegerTestParamsType> const& paramInfo) { return std::string{paramInfo.param.name}; }
-);
+TEST_CASE("Parse Integer", "[parser]") {
+  auto const params = GENERATE(
+      Catch::Generators::values<Integer_Params>({
+          {"zero", "0", make_integer("0"), true, ""},
+          {"simple number", "123", make_integer("123"), true, ""},
+          {"large number", "987654321", make_integer("987654321"), true, ""},
+          {"with underscores", "12_34_5", make_integer("12345"), true, ""},
+          {"multiple underscores", "1_2_3_4", make_integer("1234"), true, ""},
+          {"with trailing text", "42 abc", make_integer("42"), true, "abc"},
+          // Invalid cases
+          {"invalid - starts with zero", "0123", make_integer(""), false, "0123"},
+          {"invalid - starts with underscore", "_12", make_integer(""), false, "_12"},
+          {"invalid - ends with underscore", "12_", make_integer(""), false, "12_"},
+          {"invalid - zero with underscore", "0_", make_integer(""), false, "0_"},
+          {"invalid - underscore before zero", "_0", make_integer(""), false, "_0"},
+          {"invalid - empty", "", make_integer(""), false, ""},
+          {"invalid - letter", "abc", make_integer(""), false, "abc"},
+      })
+  );
+
+  DYNAMIC_SECTION(params.name) { check_parse(params); }
+}

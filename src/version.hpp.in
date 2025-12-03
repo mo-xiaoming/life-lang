@@ -1,0 +1,18 @@
+// Auto-generated file - DO NOT EDIT
+// This file is generated from version.hpp.in by CMake
+
+#ifndef VERSION_HPP__
+#define VERSION_HPP__
+
+#include <string_view>
+
+namespace life_lang {
+
+inline constexpr std::string_view k_version = "@PROJECT_VERSION@";
+inline constexpr int k_version_major = @PROJECT_VERSION_MAJOR@;
+inline constexpr int k_version_minor = @PROJECT_VERSION_MINOR@;
+inline constexpr int k_version_patch = @PROJECT_VERSION_PATCH@;
+
+}  // namespace life_lang
+
+#endif  // VERSION_HPP__

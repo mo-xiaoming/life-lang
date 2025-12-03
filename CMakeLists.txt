@@ -1,17 +1,21 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.31)
 
-project(life-lang LANGUAGES CXX)
+project(life-lang
+  VERSION 0.1.0
+  DESCRIPTION "A modern compiler for the life-lang programming language"
+  LANGUAGES CXX
+)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 14 AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15)
-        message(NOTICE "GCC 14 detected, CMAKE_CXX_SCAN_FOR_MODULES is set to OFF")
-
-        # Have to turn this off to stop gcc/ninja adding -fmodules-ts -fmoudle-mapper and -fdeps-format
-        # These flags are not recognized by the clang-tidy, it throws "unknow argument"
-        # and I don't know how to make clang-tidy ignore it
-        set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+# GCC 14+ workaround for clang-tidy compatibility
+block(SCOPE_FOR VARIABLES)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 14)
+      message(NOTICE "GCC 14+ detected, CMAKE_CXX_SCAN_FOR_MODULES is set to OFF")
+      # These flags are not recognized by clang-tidy
+      set(CMAKE_CXX_SCAN_FOR_MODULES OFF PARENT_SCOPE)
     endif()
-endif()
+  endif()
+endblock()
 
 # Default C++ project settings
 include(cmake/ProjectDefaults.cmake)
@@ -25,11 +29,10 @@ find_package(nlohmann_json CONFIG REQUIRED)
 # lib and binaries
 add_subdirectory(src)
 
-# Enable testing
-enable_testing()
-
-# Enable gtest_discover_tests
+# Testing configuration
 include(CTest)
-set(CTEST_NO_TESTS_ACTION "ERROR")
-set(CTEST_OUTPUT_ON_FAILURE TRUE)
-add_subdirectory(tests)
+if(BUILD_TESTING)
+  set(CTEST_NO_TESTS_ACTION "ERROR")
+  set(CTEST_OUTPUT_ON_FAILURE TRUE)
+  add_subdirectory(tests)
+endif()

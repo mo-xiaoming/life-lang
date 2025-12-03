@@ -9,6 +9,13 @@ on:
       preset:
         required: true
         type: string
+      coverage:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
 
 env:
   VCPKG_ROOT: ${{ github.workspace }}/vcpkg
@@ -31,6 +38,7 @@ jobs:
         g++ --version
 
     - name: Install CMake & Ninja
+      if: ${{ !inputs.coverage }}
       run: |
         wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
         sudo apt-get remove --purge --auto-remove cmake
@@ -38,12 +46,23 @@ jobs:
         cmake --version
         ninja --version
 
+    - name: Install CMake & Ninja & lcov
+      if: ${{ inputs.coverage }}
+      run: |
+        wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
+        sudo apt-get remove --purge --auto-remove cmake
+        sudo apt-get install -y cmake ninja-build lcov
+        cmake --version
+        echo ninja $(ninja --version)
+        lcov --version
+
     - name: Setup vcpkg
       run: |
         git clone https://github.com/microsoft/vcpkg.git
         ./vcpkg/bootstrap-vcpkg.sh 
     
     - name: Install LLVM
+      if: ${{ !inputs.coverage }}
       run: |
         sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
         sudo apt-get update
@@ -60,6 +79,21 @@ jobs:
 
     - name: Test
       run: ctest --preset ${{ inputs.preset }}
+
+    - name: Generate coverage report
+      if: ${{ inputs.coverage }}
+      run: |
+        lcov --capture --directory . --output-file coverage.info -rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch --demangle-cpp
+        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/build/*' --output-file coverage.info
+        lcov --list coverage.info
+
+    - name: Upload coverage to Codecov
+      if: ${{ inputs.coverage }}
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: coverage.info
+        fail_ci_if_error: true
 
     - name: Upload Test Results
       if: always()
