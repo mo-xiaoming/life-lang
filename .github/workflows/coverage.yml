@@ -34,7 +34,7 @@ jobs:
       fail-fast: false
       matrix:
         preset: [coverage]
-        gcc-version: [13]
+        gcc-version: [14]
     uses: ./.github/workflows/common.yml
     with:
       gcc-version: ${{ matrix.gcc-version }}
