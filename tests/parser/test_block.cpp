@@ -1,106 +1,253 @@
 #include "utils.hpp"
 
 using life_lang::ast::Block;
-using life_lang::ast::make_block;
-using life_lang::ast::make_expr;
-using life_lang::ast::make_function_call_expr;
-using life_lang::ast::make_function_call_statement;
-using life_lang::ast::make_integer;
-using life_lang::ast::make_path;
-using life_lang::ast::make_return_statement;
-using life_lang::ast::make_statement;
+using test_json::var_name;
 
 PARSE_TEST(Block, block)
 
 namespace {
 // Empty block
 constexpr auto k_empty_block_input = "{}";
+inline auto const k_empty_block_expected = R"({
+  "Block": {
+    "statements": []
+  }
+})";
 
 // Single statement blocks
 constexpr auto k_single_return_input = "{return hello;}";
-auto make_single_return_expected() {
-  return make_block({make_statement(make_return_statement(make_expr(make_path("hello"))))});
-}
+inline auto const k_single_return_expected = fmt::format(
+    R"({{
+  "Block": {{
+    "statements": [
+      {{
+        "Return_Statement": {{
+          "expr": {}
+        }}
+      }}
+    ]
+  }}
+}})",
+    var_name("hello")
+);
 
 constexpr auto k_single_function_call_input = "{foo();}";
-auto make_single_function_call_expected() {
-  return make_block({make_statement(make_function_call_statement(make_function_call_expr(make_path("foo"), {})))});
-}
+inline auto const k_single_function_call_expected = fmt::format(
+    R"({{
+  "Block": {{
+    "statements": [
+      {{
+        "Function_Call_Statement": {{
+          "expr": {{
+            "Function_Call_Expr": {{
+              "name": {},
+              "parameters": []
+            }}
+          }}
+        }}
+      }}
+    ]
+  }}
+}})",
+    var_name("foo")
+);
 
 // Multiple statements
 constexpr auto k_two_statements_input = "{hello.a(); return world;}";
-auto make_two_statements_expected() {
-  return make_block(
-      {make_statement(make_function_call_statement(make_function_call_expr(make_path("hello", "a"), {}))),
-       make_statement(make_return_statement(make_expr(make_path("world"))))}
-  );
-}
+inline auto const k_two_statements_expected = fmt::format(
+    R"({{
+  "Block": {{
+    "statements": [
+      {{
+        "Function_Call_Statement": {{
+          "expr": {{
+            "Function_Call_Expr": {{
+              "name": {{
+                "Variable_Name": {{
+                  "segments": [
+                    {{
+                      "Variable_Name_Segment": {{
+                        "value": "hello",
+                        "templateParameters": []
+                      }}
+                    }},
+                    {{
+                      "Variable_Name_Segment": {{
+                        "value": "a",
+                        "templateParameters": []
+                      }}
+                    }}
+                  ]
+                }}
+              }},
+              "parameters": []
+            }}
+          }}
+        }}
+      }},
+      {{
+        "Return_Statement": {{
+          "expr": {}
+        }}
+      }}
+    ]
+  }}
+}})",
+    var_name("world")
+);
 
 constexpr auto k_multiple_statements_input = "{foo(); bar(); return 0;}";
-auto make_multiple_statements_expected() {
-  return make_block(
-      {make_statement(make_function_call_statement(make_function_call_expr(make_path("foo"), {}))),
-       make_statement(make_function_call_statement(make_function_call_expr(make_path("bar"), {}))),
-       make_statement(make_return_statement(make_expr(make_integer("0"))))}
-  );
-}
+inline auto const k_multiple_statements_expected = fmt::format(
+    R"({{
+  "Block": {{
+    "statements": [
+      {{
+        "Function_Call_Statement": {{
+          "expr": {{
+            "Function_Call_Expr": {{
+              "name": {},
+              "parameters": []
+            }}
+          }}
+        }}
+      }},
+      {{
+        "Function_Call_Statement": {{
+          "expr": {{
+            "Function_Call_Expr": {{
+              "name": {},
+              "parameters": []
+            }}
+          }}
+        }}
+      }},
+      {{
+        "Return_Statement": {{
+          "expr": {{
+            "Integer": {{
+              "value": "0"
+            }}
+          }}
+        }}
+      }}
+    ]
+  }}
+}})",
+    var_name("foo"), var_name("bar")
+);
 
 // Nested blocks
 constexpr auto k_nested_block_input = "{hello(b); {return world;}}";
-auto make_nested_block_expected() {
-  return make_block(
-      {make_statement(
-           make_function_call_statement(make_function_call_expr(make_path("hello"), {make_expr(make_path("b"))}))
-       ),
-       make_statement(make_block({make_statement(make_return_statement(make_expr(make_path("world"))))}))}
-  );
-}
+inline auto const k_nested_block_expected = fmt::format(
+    R"({{
+  "Block": {{
+    "statements": [
+      {{
+        "Function_Call_Statement": {{
+          "expr": {{
+            "Function_Call_Expr": {{
+              "name": {},
+              "parameters": [
+                {}
+              ]
+            }}
+          }}
+        }}
+      }},
+      {{
+        "Block": {{
+          "statements": [
+            {{
+              "Return_Statement": {{
+                "expr": {}
+              }}
+            }}
+          ]
+        }}
+      }}
+    ]
+  }}
+}})",
+    var_name("hello"), var_name("b"), var_name("world")
+);
 
 // Whitespace handling
 constexpr auto k_with_spaces_input = "{  foo(  )  ;  }";
-auto make_with_spaces_expected() {
-  return make_block({make_statement(make_function_call_statement(make_function_call_expr(make_path("foo"), {})))});
-}
+inline auto const k_with_spaces_expected = fmt::format(
+    R"({{
+  "Block": {{
+    "statements": [
+      {{
+        "Function_Call_Statement": {{
+          "expr": {{
+            "Function_Call_Expr": {{
+              "name": {},
+              "parameters": []
+            }}
+          }}
+        }}
+      }}
+    ]
+  }}
+}})",
+    var_name("foo")
+);
 
 // Trailing content
 constexpr auto k_with_trailing_code_input = "{return x;} y";
-auto make_with_trailing_code_expected() {
-  return make_block({make_statement(make_return_statement(make_expr(make_path("x"))))});
-}
+inline auto const k_with_trailing_code_expected = fmt::format(
+    R"({{
+  "Block": {{
+    "statements": [
+      {{
+        "Return_Statement": {{
+          "expr": {}
+        }}
+      }}
+    ]
+  }}
+}})",
+    var_name("x")
+);
 
 // Invalid cases
 constexpr auto k_invalid_no_closing_brace_input = "{return x;";
 constexpr auto k_invalid_no_opening_brace_input = "return x;}";
 constexpr auto k_invalid_empty_input = "";
+inline auto const k_invalid_expected = R"({
+  "Block": {
+    "statements": []
+  }
+})";
 }  // namespace
 
 TEST_CASE("Parse Block", "[parser]") {
   auto const params = GENERATE(
       Catch::Generators::values<Block_Params>({
           // Empty block
-          {"empty block", k_empty_block_input, make_block({}), true, ""},
+          {"empty block", k_empty_block_input, k_empty_block_expected, true, ""},
 
           // Single statement blocks
-          {"single return", k_single_return_input, make_single_return_expected(), true, ""},
-          {"single function call", k_single_function_call_input, make_single_function_call_expected(), true, ""},
+          {"single return", k_single_return_input, k_single_return_expected, true, ""},
+          {"single function call", k_single_function_call_input, k_single_function_call_expected, true, ""},
 
           // Multiple statements
-          {"two statements", k_two_statements_input, make_two_statements_expected(), true, ""},
-          {"multiple statements", k_multiple_statements_input, make_multiple_statements_expected(), true, ""},
+          {"two statements", k_two_statements_input, k_two_statements_expected, true, ""},
+          {"multiple statements", k_multiple_statements_input, k_multiple_statements_expected, true, ""},
 
           // Nested blocks
-          {"nested block", k_nested_block_input, make_nested_block_expected(), true, ""},
+          {"nested block", k_nested_block_input, k_nested_block_expected, true, ""},
 
           // Whitespace handling
-          {"with spaces", k_with_spaces_input, make_with_spaces_expected(), true, ""},
+          {"with spaces", k_with_spaces_input, k_with_spaces_expected, true, ""},
 
           // Trailing content
-          {"with trailing code", k_with_trailing_code_input, make_with_trailing_code_expected(), true, "y"},
+          {"with trailing code", k_with_trailing_code_input, k_with_trailing_code_expected, true, "y"},
 
           // Invalid cases
-          {"invalid - no closing brace", k_invalid_no_closing_brace_input, make_block({}), false, ""},
-          {"invalid - no opening brace", k_invalid_no_opening_brace_input, make_block({}), false, "return x;}"},
-          {"invalid - empty", k_invalid_empty_input, make_block({}), false, ""},
+          {"invalid - no closing brace", k_invalid_no_closing_brace_input, k_invalid_expected, false, ""},
+          {"invalid - no opening brace", k_invalid_no_opening_brace_input, k_invalid_expected, false, "return x;}"},
+          {"invalid - empty", k_invalid_empty_input, k_invalid_expected, false, ""},
       })
   );
 

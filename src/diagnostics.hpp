@@ -92,6 +92,11 @@ class Diagnostic_Engine {
   // Format all diagnostics in clang style
   void print(std::ostream& a_out) const;
 
+  friend std::ostream& operator<<(std::ostream& a_out, Diagnostic_Engine const& a_engine) {
+    a_engine.print(a_out);
+    return a_out;
+  }
+
  private:
   std::string m_filename;
   std::string m_source;

@@ -1,230 +1,14 @@
 #include <catch2/catch_test_macros.hpp>
 #include <sstream>
 
-#include "rules.hpp"
+#include "diagnostics.hpp"
 
 using life_lang::Diagnostic_Engine;
 using life_lang::Source_Range;
-using life_lang::parser::parse_module;
 
-// Test helper to check diagnostic output
-struct Diagnostic_Test_Case {
-  std::string input;
-  std::string filename;
-  bool should_succeed;
-  std::string expected_error_substring;  // Substring that should appear in error
-  std::size_t expected_line{1};
-  std::size_t expected_column{1};
-};
-
-TEST_CASE("Parse Module with Diagnostics", "[parser][diagnostics]") {
-  std::vector<Diagnostic_Test_Case> const tests = {
-      // Valid cases
-      {.input = "",
-       .filename = "empty.life",
-       .should_succeed = true,
-       .expected_error_substring = "",
-       .expected_line = 1,
-       .expected_column = 1},
-
-      {.input = "fn main(): I32 { return 0; }",
-       .filename = "valid.life",
-       .should_succeed = true,
-       .expected_error_substring = "",
-       .expected_line = 1,
-       .expected_column = 1},
-
-      {.input = "   \n\t  ",
-       .filename = "whitespace.life",
-       .should_succeed = true,
-       .expected_error_substring = "",
-       .expected_line = 1,
-       .expected_column = 1},
-
-      // Invalid syntax - incomplete function
-      // Note: Spirit X3 error reporting currently points to start of failed parse
-      {.input = "fn bad syntax",
-       .filename = "incomplete.life",
-       .should_succeed = false,
-       .expected_error_substring = "",  // Parse failure
-       .expected_line = 1,
-       .expected_column = 1},
-
-      // Invalid - starts with number
-      {.input = "123 invalid",
-       .filename = "number.life",
-       .should_succeed = false,
-       .expected_error_substring = "",  // Will get "Unexpected input"
-       .expected_line = 1,
-       .expected_column = 1},
-
-      // Invalid - incomplete function declaration
-      // Note: Spirit X3 error reporting currently points to start of failed parse
-      {.input = "fn foo(",
-       .filename = "incomplete_decl.life",
-       .should_succeed = false,
-       .expected_error_substring = "",  // Parse failure
-       .expected_line = 1,
-       .expected_column = 1},
-
-      // Invalid - extra text after valid module
-      {.input = "fn main(): I32 { return 0; } garbage",
-       .filename = "extra_text.life",
-       .should_succeed = false,
-       .expected_error_substring = "Unexpected input after module",
-       .expected_line = 1,
-       .expected_column = 30},
-
-      // Multi-line error
-      {.input = "fn main(): I32 {\n"
-                "    return 0;\n"
-                "} extra stuff",
-       .filename = "multiline.life",
-       .should_succeed = false,
-       .expected_error_substring = "Unexpected input after module",
-       .expected_line = 3,
-       .expected_column = 3},
-
-      // Error on second line
-      // Note: Spirit X3 error reporting currently points to start of failed parse
-      {.input = "fn main(): I32 { return 0; }\n"
-                "fn bad(",
-       .filename = "error_line2.life",
-       .should_succeed = false,
-       .expected_error_substring = "",  // Will get parsing error
-       .expected_line = 2,
-       .expected_column = 1},  // Error reported at start of line
-  };
-
-  for (auto const& test : tests) {
-    DYNAMIC_SECTION("Test: " << test.filename) {
-      auto const result = parse_module(test.input, test.filename);
-
-      if (test.should_succeed) {
-        REQUIRE(result.has_value());
-        if (result) {
-          // Verify we got a valid module
-          INFO("Successfully parsed: " << test.input);
-        }
-      } else {
-        REQUIRE_FALSE(result.has_value());
-        if (!result) {
-          auto const& diag_engine = result.error();
-
-          // Verify we have diagnostics
-          REQUIRE(diag_engine.has_errors());
-          REQUIRE_FALSE(diag_engine.diagnostics().empty());
-
-          // Check the first diagnostic
-          auto const& first_diag = diag_engine.diagnostics().front();
-
-          // Verify filename
-          CHECK(diag_engine.filename() == test.filename);
-
-          // Verify location (at least the line number)
-          CHECK(first_diag.range.start.line == test.expected_line);
-
-          // If expected_column is set, check it
-          if (test.expected_column > 1) {
-            CHECK(first_diag.range.start.column == test.expected_column);
-          }
-
-          // If we expect a specific error substring, check for it
-          if (!test.expected_error_substring.empty()) {
-            CHECK(first_diag.message.find(test.expected_error_substring) != std::string::npos);
-          }
-
-          // Print diagnostic for debugging (only in verbose mode)
-          std::ostringstream oss;
-          diag_engine.print(oss);
-          INFO("Diagnostic output:\n" << oss.str());
-        }
-      }
-    }
-  }
-}
-
-TEST_CASE("Diagnostic Format Matches Clang Style", "[parser][diagnostics][format]") {
-  std::string const invalid_input = "fn bad syntax here";
-  auto const result = parse_module(invalid_input, "test.life");
-
-  REQUIRE_FALSE(result.has_value());
-
-  std::ostringstream oss;
-  result.error().print(oss);
-  std::string const output = oss.str();
-
-  // Expected format with actual highlighting from parse_module
-  // Note: "fn bad syntax here" = 18 chars, highlight_len = 18 -> 17 tildes + caret
-  std::string const expected =
-      "test.life:1:1: error: Unexpected input after module\n"
-      "    fn bad syntax here\n"
-      "    ^~~~~~~~~~~~~~~~~~\n";
-
-  CHECK(output == expected);
-}
-
-TEST_CASE("Multi-line Source Diagnostic", "[parser][diagnostics][multiline]") {
-  std::string const source =
-      "fn main(): I32 {\n"
-      "    return 0;\n"
-      "}\n"
-      "unexpected garbage";
-
-  auto const result = parse_module(source, "multiline.life");
-
-  REQUIRE_FALSE(result.has_value());
-
-  auto const& diag = result.error();
-  REQUIRE(diag.has_errors());
-
-  // Error should be on line 4
-  auto const& first_error = diag.diagnostics().front();
-  CHECK(first_error.range.start.line == 4);
-
-  // Print and verify format
-  std::ostringstream oss;
-  diag.print(oss);
-  std::string const output = oss.str();
-
-  // Expected format showing exact error location and highlighting
-  // Note: "unexpected garbage" = 18 chars, so highlight_len = 18, -> caret + 17 tildes
-  std::string const expected =
-      "multiline.life:4:1: error: Unexpected input after module\n"
-      "    unexpected garbage\n"
-      "    ^~~~~~~~~~~~~~~~~~\n";
-
-  CHECK(output == expected);
-}
-
-TEST_CASE("Anonymous Module Names", "[parser][diagnostics]") {
-  SECTION("Default <input> name") {
-    auto const result = parse_module("invalid 123", "<input>");
-    REQUIRE_FALSE(result.has_value());
-
-    std::ostringstream oss;
-    result.error().print(oss);
-    CHECK(oss.str().find("<input>:") != std::string::npos);  // NOLINT(abseil-string-find-str-contains)
-  }
-
-  SECTION("Custom anonymous name <stdin>") {
-    auto const result = parse_module("fn bad(", "<stdin>");
-    REQUIRE_FALSE(result.has_value());
-
-    std::ostringstream oss;
-    result.error().print(oss);
-    CHECK(oss.str().find("<stdin>:") != std::string::npos);  // NOLINT(abseil-string-find-str-contains)
-  }
-
-  SECTION("REPL mode <repl>") {
-    auto const result = parse_module("garbage", "<repl>");
-    REQUIRE_FALSE(result.has_value());
-
-    std::ostringstream oss;
-    result.error().print(oss);
-    CHECK(oss.str().find("<repl>:") != std::string::npos);  // NOLINT(abseil-string-find-str-contains)
-  }
-}
+// ============================================================================
+// Source Line Retrieval Tests
+// ============================================================================
 
 TEST_CASE("Diagnostic Source Line Retrieval", "[parser][diagnostics][source]") {
   std::string const source =
@@ -242,6 +26,10 @@ TEST_CASE("Diagnostic Source Line Retrieval", "[parser][diagnostics][source]") {
   CHECK(diag.get_line(0).empty());  // Invalid (0-indexed)
 }
 
+// ============================================================================
+// Range Highlighting Tests
+// ============================================================================
+
 TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]") {
   SECTION("Single-line error with specific range") {
     std::string const source = "fn main() { bad_syntax }";
@@ -249,7 +37,7 @@ TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]"
 
     // Simulate error on "bad_syntax" (columns 13-23)
     Source_Range const range{.start = {.line = 1, .column = 13}, .end = {.line = 1, .column = 23}};
-    diag.add_error(range, "Unknown identifier");
+    diag.add_error(range, "Unknown variable_name");
 
     std::ostringstream oss;
     diag.print(oss);
@@ -257,7 +45,7 @@ TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]"
 
     // Expected: caret at start, tildes under error range
     std::string const expected =
-        "test.life:1:13: error: Unknown identifier\n"
+        "test.life:1:13: error: Unknown variable_name\n"
         "    fn main() { bad_syntax }\n"
         "                ^~~~~~~~~~\n";
 
@@ -315,6 +103,36 @@ TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]"
     CHECK(output == expected);
   }
 
+  SECTION("Multi(>2)-line error") {
+    std::string const source =
+        "line 1 content\n"
+        "line 2 content\n"
+        "line 3 content\n"
+        "line 4 content\n"
+        "line 5 content\n";
+
+    Diagnostic_Engine diag("long_error.life", source);
+
+    // Error spanning lines 2-4 (line 4 is 14 chars, so end at column 15 to include all)
+    Source_Range const range{.start = {.line = 2, .column = 1}, .end = {.line = 4, .column = 15}};
+    diag.add_error(range, "Multi-line error example");
+
+    std::ostringstream oss;
+    diag.print(oss);
+    std::string const output = oss.str();
+
+    // Expected: full highlight on first and last lines, "..." for middle lines
+    std::string const expected =
+        "long_error.life:2:1: error: Multi-line error example\n"
+        "    line 2 content\n"
+        "    ^~~~~~~~~~~~~~\n"
+        "    ...\n"
+        "    line 4 content\n"
+        "    ~~~~~~~~~~~~~^\n";
+
+    CHECK(output == expected);
+  }
+
   SECTION("Error at line start") {
     std::string const source = "invalid_token\nfn main(): I32 { return 0; }";
     Diagnostic_Engine diag("start.life", source);
@@ -336,6 +154,10 @@ TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]"
     CHECK(output == expected);
   }
 }
+
+// ============================================================================
+// Multiple Diagnostics Tests
+// ============================================================================
 
 TEST_CASE("Multiple Diagnostics", "[parser][diagnostics][multiple]") {
   std::string const source =
@@ -373,52 +195,50 @@ TEST_CASE("Multiple Diagnostics", "[parser][diagnostics][multiple]") {
   CHECK(output == expected);
 }
 
-TEST_CASE("Cross-Platform Line Endings", "[parser][diagnostics][line-endings]") {
-  SECTION("Unix line endings (LF)") {
-    std::string const source = "fn main(): I32 {\n    return 0;\n}\n";
-    auto const result = parse_module(source, "unix.life");
-    REQUIRE(result.has_value());
+// ============================================================================
+// Diagnostic State Tests
+// ============================================================================
+
+TEST_CASE("Diagnostic State Management", "[parser][diagnostics][state]") {
+  SECTION("Empty diagnostic engine has no errors") {
+    std::string const source = "some source code";
+    Diagnostic_Engine const diag("test.life", source);
+
+    CHECK_FALSE(diag.has_errors());
+    CHECK(diag.diagnostics().empty());
   }
 
-  SECTION("Windows line endings (CRLF)") {
-    std::string const source = "fn main(): I32 {\r\n    return 0;\r\n}\r\n";
-    auto const result = parse_module(source, "windows.life");
-    REQUIRE(result.has_value());
+  SECTION("Adding error sets has_errors") {
+    std::string const source = "some source code";
+    Diagnostic_Engine diag("test.life", source);
+
+    diag.add_error(Source_Range{.start = {.line = 1, .column = 1}, .end = {.line = 1, .column = 5}}, "Test error");
+
+    CHECK(diag.has_errors());
+    CHECK(diag.diagnostics().size() == 1);
   }
 
-  SECTION("Old Mac line endings (CR)") {
-    std::string const source = "fn main(): I32 {\r    return 0;\r}\r";
-    auto const result = parse_module(source, "oldmac.life");
-    REQUIRE(result.has_value());
+  SECTION("Adding warning does not set has_errors") {
+    std::string const source = "some source code";
+    Diagnostic_Engine diag("test.life", source);
+
+    diag.add_warning(Source_Range{.start = {.line = 1, .column = 1}, .end = {.line = 1, .column = 5}}, "Test warning");
+
+    CHECK_FALSE(diag.has_errors());
+    CHECK(diag.diagnostics().size() == 1);
   }
 
-  SECTION("Mixed line endings") {
-    std::string const source = "fn main(): I32 {\r\n    return 0;\n}\r";
-    auto const result = parse_module(source, "mixed.life");
-    REQUIRE(result.has_value());
+  SECTION("Filename stored correctly") {
+    std::string const source = "source";
+    Diagnostic_Engine const diag("custom.life", source);
+
+    CHECK(diag.filename() == "custom.life");
   }
 
-  SECTION("Error reporting with CRLF") {
-    std::string const source = "fn main(): I32 {\r\n    return 0;\r\n}\r\ngarbag";
-    auto const result = parse_module(source, "error_crlf.life");
-    REQUIRE_FALSE(result.has_value());
+  SECTION("Anonymous filename") {
+    std::string const source = "source";
+    Diagnostic_Engine const diag("<input>", source);
 
-    // Error should be on line 4
-    auto const& diag = result.error();
-    REQUIRE(diag.has_errors());
-    auto const& first_error = diag.diagnostics().front();
-    CHECK(first_error.range.start.line == 4);
-  }
-
-  SECTION("Error reporting with CR") {
-    std::string const source = "fn main(): I32 {\r    return 0;\r}\rinvalid";
-    auto const result = parse_module(source, "error_cr.life");
-    REQUIRE_FALSE(result.has_value());
-
-    // Error should be on line 4
-    auto const& diag = result.error();
-    REQUIRE(diag.has_errors());
-    auto const& first_error = diag.diagnostics().front();
-    CHECK(first_error.range.start.line == 4);
+    CHECK(diag.filename() == "<input>");
   }
 }

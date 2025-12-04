@@ -20,7 +20,19 @@ int main(int argc, char* argv[]) {
       fmt::print("Options:\n");
       fmt::print("  -v, --version    Show version information\n");
       fmt::print("  -h, --help       Show this help message\n");
+      fmt::print("  --stdin          Read source from stdin\n");
       return 0;
+    }
+    if (arg == "--stdin") {
+      std::string const input((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
+
+      auto const result = life_lang::parser::parse_module(input, "<stdin>");
+      if (result) {
+        fmt::print("{}\n", to_json_string(*result, 2));
+        return 0;
+      }
+      result.error().print(std::cerr);
+      return 1;
     }
   }
 

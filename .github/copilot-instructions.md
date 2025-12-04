@@ -7,20 +7,44 @@ High-level guidance for AI assistance on this C++20 compiler project using Boost
 Parser (Boost.Spirit X3) → AST (position-tagged nodes) → JSON serialization  
 Use `dev` preset for fast iteration (clang-tidy disabled), `debug` for strict checks.
 
+## Language Design Principles
+
+### Type System
+- **Value semantics**: Immutable by default, modifications return new values
+- **No destructors initially**: Simplifies memory model during bootstrap
+- **Structs**: Records with named fields, public by default
+  - Fields: `struct Point { x: I32, y: I32 }`
+  - Literals: `Point { x: 1, y: 2 }` (trailing comma optional)
+  - Access: `point.x`, `obj.field.nested` (chained field access)
+
+### Functions and Methods
+- **Keywords**: `fn` for functions, `self` reserved keyword for UFCS parameter
+- **UFCS Supported**: Functions with `self` parameter can be used like methods
+  - Define: `fn distance(self: Point): I32 { return 42; }`
+  - Call syntax: `obj.method()` desugars to `method(obj)` (semantic analysis phase, not parser)
+  - `self` allowed as parameter/variable name despite being a keyword
+- **Mutation**: `mut self` for methods that modify receiver (future feature)
+- **No implicit `this`**: Explicit `self` parameter required
+
+### Values and Scoping
+- **No special "constant" concept**: Everything is immutable by default (value semantics)
+- **Module-level values**: Use functions instead of constants
+  - `fn max_size(): I32 { return 100; }`
+  - `fn default_config(): Config { return Config { timeout: 30 }; }`
+- **Rationale**: Simpler design, no need for separate constant category in value semantics
+
 ## Key Files
 - **src/ast.hpp**: All AST nodes inherit from `x3::position_tagged` with `k_name` constant
 - **src/rules.cpp**: Spirit X3 parsers use `BOOST_SPIRIT_DEFINE()` + `BOOST_SPIRIT_INSTANTIATE()`
   - Keywords: `struct Keyword_Symbols : x3::symbols<>` (canonical Spirit X3 pattern)
   - Tag structs: `struct Tag : x3::annotate_on_success, Error_Handler {}` (both required)
   - Error handling: Done in `parse_with_rule()`, extracts from `x3::error_handler` stream
-- **tests/parser/**: Catch2 tests using `PARSE_TEST()` macro from `utils.hpp`
 
 ## Critical Patterns
 
 ### AST Construction (C++20 + position_tagged)
 - **Cannot use designated initializers** with `position_tagged` base class
 - **Must use**: `return Type{{}, member1, member2};` (empty braces for base)
-- **NOT**: `return Type{.member = value};` (compile error)
 
 ### Recursive AST Nodes
 - Use `x3::forward_ast<T>` to break circular dependencies (wraps in `shared_ptr`)
@@ -50,8 +74,8 @@ struct Expr : x3::variant<...>, x3::position_tagged {
 - GCC 14+ requires `CMAKE_CXX_SCAN_FOR_MODULES OFF` for clang-tidy compatibility
 
 ## Naming Conventions
-**Enforced by `.clang-tidy` - see that file for complete rules.**
 
+### C++ Implementation (Enforced by `.clang-tidy`)
 - **Types**: `Camel_Snake_Case` (e.g., `Path_Segment`, `Iterator_Type`)
 - **Functions/variables**: `lower_case`
 - **Parameters**: `a_` prefix (e.g., `a_begin`, `a_value`)
@@ -59,6 +83,26 @@ struct Expr : x3::variant<...>, x3::position_tagged {
 - **Global constants**: `k_` prefix (e.g., `k_path_rule`, `k_kw_fn`)
 - **Parser rule pattern**: `k_<name>_rule` for public rules with `PARSE_FN_DECL()`
 - **Test files**: `test_<lowercase_ast_node>.cpp`
+
+### life-lang Language (Parser enforces via rules)
+- **`snake_case`**: Variables, functions, struct fields, function parameters
+  - Example: `my_var`, `calculate_sum`, `field_name`, `param_value`
+  - Validated by: `k_snake_case` parser rule (lowercase start, allows `_` and digits)
+  - Semantic: Object-related identifiers (runtime values, behaviors on objects)
+
+- **`Camel_Snake_Case`**: Types, struct names, modules
+  - Example: `Point`, `User_Profile`, `Std`, `Http_Request`
+  - Validated by: `k_camel_snake_case` parser rule (uppercase start, allows `_` and digits)
+  - Semantic: Type and module identifiers (compile-time namespace/organization)
+
+**Note:** No separate "constant" naming convention needed. In a value semantics system, everything is immutable by default. Use functions for module-level values: `fn max_size(): I32 { return 100; }`
+
+### Expression Context Rules
+- **Paths with dots**: Only in type positions and function call names
+  - `Std.IO.print()` → function call with qualified name
+  - `param: Std.String` → type annotation with qualified path
+- **Field access**: Dots in expression positions are always field access
+  - `obj.field.nested` → parsed as `Field_Access_Expr` chain
 
 ## Adding New AST Nodes
 1. Define struct in `ast.hpp` inheriting from `x3::position_tagged` with `k_name`
