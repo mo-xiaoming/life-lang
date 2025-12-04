@@ -7,6 +7,7 @@ add_executable(tests)
 
 target_sources(tests
     PRIVATE
+        # Unit tests - test individual parser rules and components
         parser/test_block.cpp
         parser/test_diagnostics.cpp
         parser/test_expr.cpp
@@ -17,11 +18,18 @@ target_sources(tests
         parser/test_integer.cpp
         parser/test_internal_parse_errors.cpp
         parser/test_keywords.cpp
-        parser/test_module.cpp
-        parser/test_path_segment.cpp
-        parser/test_path.cpp
+        parser/test_qualified_name_segment.cpp
+        parser/test_qualified_name.cpp
         parser/test_return_statement.cpp
         parser/test_string.cpp
+        parser/test_struct_definition.cpp
+        parser/test_struct_field.cpp
+        parser/test_struct_literal.cpp
+        parser/test_field_access.cpp
+        parser/test_ufcs_function.cpp
+        
+        # Integration tests - test complete parse_module workflows
+        integration/test_parse_module_integration.cpp
 )
 
 target_link_libraries(tests

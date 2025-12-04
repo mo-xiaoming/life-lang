@@ -1,60 +1,137 @@
 #include "utils.hpp"
 
 using life_lang::ast::Function_Definition;
-using life_lang::ast::make_block;
-using life_lang::ast::make_expr;
-using life_lang::ast::make_function_call_expr;
-using life_lang::ast::make_function_call_statement;
-using life_lang::ast::make_function_declaration;
-using life_lang::ast::make_function_definition;
-using life_lang::ast::make_function_parameter;
-using life_lang::ast::make_integer;
-using life_lang::ast::make_path;
-using life_lang::ast::make_path_segment;
-using life_lang::ast::make_return_statement;
-using life_lang::ast::make_statement;
-using life_lang::ast::make_string;
+using test_json::type_name;
+using test_json::var_name;
 
 PARSE_TEST(Function_Definition, function_definition)
 
 namespace {
 // Simple function definitions
 constexpr auto k_empty_body_input = "fn hello(): Int {}";
-auto make_empty_body_expected() {
-  return make_function_definition(make_function_declaration("hello", {}, make_path("Int")), make_block({}));
-}
+inline auto const k_empty_body_expected = fmt::format(
+    R"({{
+  "Function_Definition": {{
+    "declaration": {{
+      "Function_Declaration": {{
+        "name": "hello",
+        "parameters": [],
+        "returnType": {}
+      }}
+    }},
+    "body": {{
+      "Block": {{
+        "statements": []
+      }}
+    }}
+  }}
+}})",
+    type_name("Int")
+);
 
 // Functions with parameters
 constexpr auto k_with_parameters_input = "fn hello(a: Int, b: Double): Int {}";
-auto make_with_parameters_expected() {
-  return make_function_definition(
-      make_function_declaration(
-          "hello", {make_function_parameter("a", make_path("Int")), make_function_parameter("b", make_path("Double"))},
-          make_path("Int")
-      ),
-      make_block({})
-  );
-}
+inline auto const k_with_parameters_expected = fmt::format(
+    R"({{
+  "Function_Definition": {{
+    "declaration": {{
+      "Function_Declaration": {{
+        "name": "hello",
+        "parameters": [
+          {{
+            "Function_Parameter": {{
+              "name": "a",
+              "type": {}
+            }}
+          }},
+          {{
+            "Function_Parameter": {{
+              "name": "b",
+              "type": {}
+            }}
+          }}
+        ],
+        "returnType": {}
+      }}
+    }},
+    "body": {{
+      "Block": {{
+        "statements": []
+      }}
+    }}
+  }}
+}})",
+    type_name("Int"), type_name("Double"), type_name("Int")
+);
 
 // Functions with statements
 constexpr auto k_with_return_input = "fn hello(): Int {return world;}";
-auto make_with_return_expected() {
-  return make_function_definition(
-      make_function_declaration("hello", {}, make_path("Int")),
-      make_block({make_statement(make_return_statement(make_expr(make_path("world"))))})
-  );
-}
+inline auto const k_with_return_expected = fmt::format(
+    R"({{
+  "Function_Definition": {{
+    "declaration": {{
+      "Function_Declaration": {{
+        "name": "hello",
+        "parameters": [],
+        "returnType": {}
+      }}
+    }},
+    "body": {{
+      "Block": {{
+        "statements": [
+          {{
+            "Return_Statement": {{
+              "expr": {}
+            }}
+          }}
+        ]
+      }}
+    }}
+  }}
+}})",
+    type_name("Int"), var_name("world")
+);
 
 constexpr auto k_with_statements_input = "fn hello(): Int {foo(); return 0;}";
-auto make_with_statements_expected() {
-  return make_function_definition(
-      make_function_declaration("hello", {}, make_path("Int")),
-      make_block(
-          {make_statement(make_function_call_statement(make_function_call_expr(make_path("foo"), {}))),
-           make_statement(make_return_statement(make_expr(make_integer("0"))))}
-      )
-  );
-}
+inline auto const k_with_statements_expected = fmt::format(
+    R"({{
+  "Function_Definition": {{
+    "declaration": {{
+      "Function_Declaration": {{
+        "name": "hello",
+        "parameters": [],
+        "returnType": {}
+      }}
+    }},
+    "body": {{
+      "Block": {{
+        "statements": [
+          {{
+            "Function_Call_Statement": {{
+              "expr": {{
+                "Function_Call_Expr": {{
+                  "name": {},
+                  "parameters": []
+                }}
+              }}
+            }}
+          }},
+          {{
+            "Return_Statement": {{
+              "expr": {{
+                "Integer": {{
+                  "value": "0"
+                }}
+              }}
+            }}
+          }}
+        ]
+      }}
+    }}
+  }}
+}})",
+    type_name("Int"), var_name("foo")
+);
 
 // Nested constructs
 constexpr auto k_nested_block_input = R"(fn hello(a: Int): Int {
@@ -63,15 +140,54 @@ constexpr auto k_nested_block_input = R"(fn hello(a: Int): Int {
         return world;
     }
 })";
-auto make_nested_block_expected() {
-  return make_function_definition(
-      make_function_declaration("hello", {make_function_parameter("a", make_path("Int"))}, make_path("Int")),
-      make_block(
-          {make_statement(make_function_call_statement(make_function_call_expr(make_path("hello"), {}))),
-           make_statement(make_block({make_statement(make_return_statement(make_expr(make_path("world"))))}))}
-      )
-  );
-}
+inline auto const k_nested_block_expected = fmt::format(
+    R"({{
+  "Function_Definition": {{
+    "declaration": {{
+      "Function_Declaration": {{
+        "name": "hello",
+        "parameters": [
+          {{
+            "Function_Parameter": {{
+              "name": "a",
+              "type": {}
+            }}
+          }}
+        ],
+        "returnType": {}
+      }}
+    }},
+    "body": {{
+      "Block": {{
+        "statements": [
+          {{
+            "Function_Call_Statement": {{
+              "expr": {{
+                "Function_Call_Expr": {{
+                  "name": {},
+                  "parameters": []
+                }}
+              }}
+            }}
+          }},
+          {{
+            "Block": {{
+              "statements": [
+                {{
+                  "Return_Statement": {{
+                    "expr": {}
+                  }}
+                }}
+              ]
+            }}
+          }}
+        ]
+      }}
+    }}
+  }}
+}})",
+    type_name("Int"), type_name("Int"), var_name("hello"), var_name("world")
+);
 
 constexpr auto k_nested_function_input = R"(fn hello(): Int {
     fn world(): Int {
@@ -79,52 +195,227 @@ constexpr auto k_nested_function_input = R"(fn hello(): Int {
     }
     return world();
 })";
-auto make_nested_function_expected() {
-  return make_function_definition(
-      make_function_declaration("hello", {}, make_path("Int")),
-      make_block(
-          {make_statement(make_function_definition(
-               make_function_declaration("world", {}, make_path("Int")),
-               make_block({make_statement(make_return_statement(make_expr(make_integer("0"))))})
-           )),
-           make_statement(make_return_statement(make_expr(make_function_call_expr(make_path("world"), {}))))}
-      )
-  );
-}
+inline auto const k_nested_function_expected = fmt::format(
+    R"({{
+  "Function_Definition": {{
+    "declaration": {{
+      "Function_Declaration": {{
+        "name": "hello",
+        "parameters": [],
+        "returnType": {}
+      }}
+    }},
+    "body": {{
+      "Block": {{
+        "statements": [
+          {{
+            "Function_Definition": {{
+              "declaration": {{
+                "Function_Declaration": {{
+                  "name": "world",
+                  "parameters": [],
+                  "returnType": {}
+                }}
+              }},
+              "body": {{
+                "Block": {{
+                  "statements": [
+                    {{
+                      "Return_Statement": {{
+                        "expr": {{
+                          "Integer": {{
+                            "value": "0"
+                          }}
+                        }}
+                      }}
+                    }}
+                  ]
+                }}
+              }}
+            }}
+          }},
+          {{
+            "Return_Statement": {{
+              "expr": {{
+                "Function_Call_Expr": {{
+                  "name": {},
+                  "parameters": []
+                }}
+              }}
+            }}
+          }}
+        ]
+      }}
+    }}
+  }}
+}})",
+    type_name("Int"), type_name("Int"), var_name("world")
+);
 
 // Complex real-world examples
 constexpr auto k_hello_world_input = R"(fn main(args: Std.Array<Std.String>): I32 {
     Std.print("Hello, world!");
     return 0;
 })";
-auto make_hello_world_expected() {
-  return make_function_definition(
-      make_function_declaration(
-          "main",
-          {make_function_parameter("args", make_path("Std", make_path_segment("Array", {make_path("Std", "String")})))},
-          make_path("I32")
-      ),
-      make_block(
-          {make_statement(make_function_call_statement(
-               make_function_call_expr(make_path("Std", "print"), {make_expr(make_string("\"Hello, world!\""))})
-           )),
-           make_statement(make_return_statement(make_expr(make_integer("0"))))}
-      )
-  );
-}
+inline auto const k_hello_world_expected = R"({
+  "Function_Definition": {
+    "declaration": {
+      "Function_Declaration": {
+        "name": "main",
+        "parameters": [
+          {
+            "Function_Parameter": {
+              "name": "args",
+              "type": {
+                "Type_Name": {
+                  "segments": [
+                    {
+                      "Type_Name_Segment": {
+                        "value": "Std",
+                        "templateParameters": []
+                      }
+                    },
+                    {
+                      "Type_Name_Segment": {
+                        "value": "Array",
+                        "templateParameters": [
+                          {
+                            "Type_Name": {
+                              "segments": [
+                                {
+                                  "Type_Name_Segment": {
+                                    "value": "Std",
+                                    "templateParameters": []
+                                  }
+                                },
+                                {
+                                  "Type_Name_Segment": {
+                                    "value": "String",
+                                    "templateParameters": []
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "returnType": {
+          "Type_Name": {
+            "segments": [
+              {
+                "Type_Name_Segment": {
+                  "value": "I32",
+                  "templateParameters": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "body": {
+      "Block": {
+        "statements": [
+          {
+            "Function_Call_Statement": {
+              "expr": {
+                "Function_Call_Expr": {
+                  "name": {
+                    "Variable_Name": {
+                      "segments": [
+                        {
+                          "Variable_Name_Segment": {
+                            "value": "Std",
+                            "templateParameters": []
+                          }
+                        },
+                        {
+                          "Variable_Name_Segment": {
+                            "value": "print",
+                            "templateParameters": []
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "parameters": [
+                    {
+                      "String": {
+                        "value": "\"Hello, world!\""
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "Return_Statement": {
+              "expr": {
+                "Integer": {
+                  "value": "0"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+})";
 
 // Trailing content
 constexpr auto k_with_trailing_code_input = "fn foo(): Int {} bar";
-auto make_with_trailing_code_expected() {
-  return make_function_definition(make_function_declaration("foo", {}, make_path("Int")), make_block({}));
-}
+inline auto const k_with_trailing_code_expected = fmt::format(
+    R"({{
+  "Function_Definition": {{
+    "declaration": {{
+      "Function_Declaration": {{
+        "name": "foo",
+        "parameters": [],
+        "returnType": {}
+      }}
+    }},
+    "body": {{
+      "Block": {{
+        "statements": []
+      }}
+    }}
+  }}
+}})",
+    type_name("Int")
+);
 
 // Invalid cases
 constexpr auto k_invalid_no_fn_keyword_input = "hello(): Int {}";
 constexpr auto k_invalid_empty_input = "";
-auto make_invalid_expected() {
-  return make_function_definition(make_function_declaration("", {}, make_path()), make_block({}));
-}
+inline auto const k_invalid_expected = R"({
+  "Function_Definition": {
+    "declaration": {
+      "Function_Declaration": {
+        "name": "",
+        "parameters": [],
+        "returnType": {
+          "Type_Name": {
+            "segments": []
+          }
+        }
+      }
+    },
+    "body": {
+      "Block": {
+        "statements": []
+      }
+    }
+  }
+})";
 
 }  // namespace
 
@@ -132,28 +423,28 @@ TEST_CASE("Parse Function_Definition", "[parser]") {
   auto const params = GENERATE(
       Catch::Generators::values<Function_Definition_Params>({
           // Simple function definitions
-          {"empty body", k_empty_body_input, make_empty_body_expected(), true, ""},
+          {"empty body", k_empty_body_input, k_empty_body_expected, true, ""},
 
           // Functions with parameters
-          {"with parameters", k_with_parameters_input, make_with_parameters_expected(), true, ""},
+          {"with parameters", k_with_parameters_input, k_with_parameters_expected, true, ""},
 
           // Functions with statements
-          {"with return", k_with_return_input, make_with_return_expected(), true, ""},
-          {"with statements", k_with_statements_input, make_with_statements_expected(), true, ""},
+          {"with return", k_with_return_input, k_with_return_expected, true, ""},
+          {"with statements", k_with_statements_input, k_with_statements_expected, true, ""},
 
           // Nested constructs
-          {"nested block", k_nested_block_input, make_nested_block_expected(), true, ""},
-          {"nested function", k_nested_function_input, make_nested_function_expected(), true, ""},
+          {"nested block", k_nested_block_input, k_nested_block_expected, true, ""},
+          {"nested function", k_nested_function_input, k_nested_function_expected, true, ""},
 
           // Complex real-world examples
-          {"hello world", k_hello_world_input, make_hello_world_expected(), true, ""},
+          {"hello world", k_hello_world_input, k_hello_world_expected, true, ""},
 
           // Trailing content
-          {"with trailing code", k_with_trailing_code_input, make_with_trailing_code_expected(), true, "bar"},
+          {"with trailing code", k_with_trailing_code_input, k_with_trailing_code_expected, true, "bar"},
 
           // Invalid cases
-          {"invalid - no fn keyword", k_invalid_no_fn_keyword_input, make_invalid_expected(), false, "hello(): Int {}"},
-          {"invalid - empty", k_invalid_empty_input, make_invalid_expected(), false, ""},
+          {"invalid - no fn keyword", k_invalid_no_fn_keyword_input, k_invalid_expected, false, "hello(): Int {}"},
+          {"invalid - empty", k_invalid_empty_input, k_invalid_expected, false, ""},
       })
   );
 

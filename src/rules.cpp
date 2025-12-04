@@ -10,6 +10,10 @@
 namespace life_lang::parser {
 namespace x3 = boost::spirit::x3;
 
+// Marker string used in Spirit X3 error messages to identify expectation failures
+// This prefix is added by Error_Handler::on_error() and searched for during error extraction
+inline constexpr std::string_view k_spirit_error_marker = "[PARSE_ERROR]";
+
 using Space_Type = x3::ascii::space_type;
 using Error_Handler_Type = x3::error_handler<Iterator_Type>;
 using Phrase_Context_Type = x3::phrase_parse_context<Space_Type>::type;
@@ -24,7 +28,7 @@ struct Error_Handler {
       Iterator& /*a_first*/, Iterator const& /*a_last*/, Exception const& a_ex, Context const& a_context
   ) {
     auto& error_handler = x3::get<x3::error_handler_tag>(a_context);
-    std::string const message = fmt::format("Error! Expecting: {} here:", a_ex.which());
+    std::string const message = fmt::format("{} Expecting: {} here:", k_spirit_error_marker, a_ex.which());
     error_handler(a_ex.where(), message);
     return x3::error_handler_result::fail;
   }
@@ -37,33 +41,46 @@ using x3::ascii::alpha;
 using x3::ascii::char_;
 using x3::ascii::digit;
 using x3::ascii::lit;
-using x3::ascii::lower;
 
 struct Keyword_Symbols : x3::symbols<> {
-  Keyword_Symbols() { add("fn")("let")("return"); }
+  Keyword_Symbols() { add("fn")("let")("return")("struct")("self"); }
 } const k_keywords;
 
 // Individual keyword parsers for specific grammar rules (improves error messages)
 auto const k_kw_fn = lexeme[lit("fn") >> !(alnum | '_')];
 [[maybe_unused]] auto const k_kw_let = lexeme[lit("let") >> !(alnum | '_')];
 auto const k_kw_return = lexeme[lit("return") >> !(alnum | '_')];
+auto const k_kw_struct = lexeme[lit("struct") >> !(alnum | '_')];
+auto const k_kw_self = lexeme[lit("self") >> !(alnum | '_')];
 
 // Reserved word rule: matches any registered keyword (for identifier validation)
 auto const k_reserved = lexeme[k_keywords >> !(alnum | '_')];
 
-// Identifier patterns (exclude keywords to prevent using reserved words as identifiers)
-auto const k_snake_case = raw[lexeme[lower >> *(lower | digit | '_') >> !(alnum | '_')]] - k_reserved;
+// Parse segment name: alphanumeric identifier starting with letter (not a keyword, except 'self')
+// Accepts any valid identifier pattern (snake_case, Camel_Snake_Case, or mixed)
+// Naming convention enforcement is deferred to semantic analysis phase:
+//   - Variables/functions should be snake_case
+//   - Types/modules should be Camel_Snake_Case
+// Note: 'self' is a reserved keyword but allowed as identifier for UFCS (parameter/variable name)
+// Examples: "Vec", "Array", "foo", "MyType123", "IO", "my_var", "HTTP_Server", "self"
+x3::rule<struct segment_name_tag, std::string> const k_segment_name = "segment name";
+auto const k_segment_name_def = raw[lexeme[alpha >> *(alnum | '_')]] - (k_reserved - k_kw_self);
+BOOST_SPIRIT_DEFINE(k_segment_name)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_segment_name), Iterator_Type, Context_Type)
 
-// === Path Rules ===
-// Paths represent type names, namespaces, or qualified identifiers
+// === Type Name Rules ===
+// Type names represent type annotations with optional template parameters
 // Examples:
+// **IMPORTANT** Some examples are not valid for later semantic analysis,
+// but are included here to demonstrate parsing capabilities.
+//
 //   Simple:            "Int", "String", "MyClass"
 //   Qualified:         "Std.String", "Std.Collections.Array"
 //   Simple Template:   "Array<Int>", "Map<String, Int>"
 //   Nested Templates:  "Vec<Vec<Int>>", "Option<Result<T, Error>>"
-//   Qualified Paths in Templates:
+//   Qualified Names in Templates:
 //                      "Map<Std.String, Int>"                    - qualified type as template param
-//                      "Array<Data.Model.User>"                  - deeply nested path as param
+//                      "Array<Data.Model.User>"                  - deeply nested qualified name as param
 //                      "Result<IO.Error, Data.Value>"            - multiple qualified params
 //   Complex Mixed:     "Std.Collections.Map<Key.Type, Value.Type>"
 //                      "Network.Protocol<Http.Request, Http.Response>"  - nested qualified templates
@@ -74,56 +91,49 @@ auto const k_snake_case = raw[lexeme[lower >> *(lower | digit | '_') >> !(alnum 
 //                      "Parser<Token>.Result<AST>.Error<String>" - chained templated segments
 
 // Forward declarations for mutually recursive rules
-struct Path_Tag : x3::annotate_on_success, Error_Handler {};
-struct Path_Segment_Tag : x3::annotate_on_success, Error_Handler {};
-x3::rule<Path_Tag, ast::Path> const k_path_rule = "type path";
-x3::rule<Path_Segment_Tag, ast::Path_Segment> const k_path_segment_rule = "type path segment";
+struct Type_Name_Tag : x3::annotate_on_success, Error_Handler {};
+struct Type_Name_Segment_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Type_Name_Tag, ast::Type_Name> const k_type_name_rule = "type name";
+x3::rule<Type_Name_Segment_Tag, ast::Type_Name_Segment> const k_type_name_segment_rule = "type name segment";
 
-// Parse segment name: alphanumeric identifier starting with letter (but not a keyword)
-// Examples: "Vec", "Array", "foo_bar", "MyType123", "IO", "Iterator", "Column"
-x3::rule<struct segment_name_tag, std::string> const k_segment_name = "segment name";
-auto const k_segment_name_def = raw[lexeme[alpha >> *(alnum | '_')]] - k_reserved;
-BOOST_SPIRIT_DEFINE(k_segment_name)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_segment_name), Iterator_Type, Context_Type)
-
-// Parse template parameters: angle-bracketed comma-separated paths
-// Each parameter can itself be a full qualified path with templates
+// Parse template parameters: angle-bracketed comma-separated qualified names
+// Each parameter can itself be a full qualified name with templates
 // Examples:
 //   "<Int>"                                      - simple type
 //   "<Key, Value>"                               - multiple simple types
 //   "<Array<Int>>"                               - nested template
-//   "<Data.Model.User, Config.Settings>"         - qualified paths as params
+//   "<Data.Model.User, Config.Settings>"         - qualified names as params
 //   "<Std.String, IO.Error>"                     - multiple qualified params
-//   "<Parser<Token.Type>, Result<AST.Node, E>>"  - complex nested with qualified paths
-x3::rule<struct template_params_tag, std::vector<ast::Path>> const k_template_params = "template parameters";
-auto const k_template_params_def = (lit('<') > (k_path_rule % ',')) > lit('>');
+//   "<Parser<Token.Type>, Result<AST.Node, E>>"  - complex nested with qualified names
+x3::rule<struct template_params_tag, std::vector<ast::Type_Name>> const k_template_params = "template parameters";
+auto const k_template_params_def = (lit('<') > (k_type_name_rule % ',')) > lit('>');
 BOOST_SPIRIT_DEFINE(k_template_params)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_template_params), Iterator_Type, Context_Type)
 
-// Parse path segment: name with optional template parameters
-// A segment can have template parameters that are full paths (including qualified)
+// Parse qualified name segment: name with optional template parameters
+// A segment can have template parameters that are full qualified names (including multi-segment)
 // Examples:
 //   "Array"                                  - simple name
 //   "Array<Int>"                             - simple template
 //   "Map<String, Int>"                       - multi-param template
-//   "Table<Data.Model.User>"                 - template with qualified path
-//   "Result<IO.Error, Data.Value>"           - template with multiple qualified paths
+//   "Table<Data.Model.User>"                 - template with qualified name
+//   "Result<IO.Error, Data.Value>"           - template with multiple qualified names
 //   "Container<Int>"                         - templated segment (can be followed by more segments)
-auto const k_path_segment_rule_def = (k_segment_name >> -k_template_params)[([](auto& a_ctx) {
+auto const k_type_name_segment_rule_def = (k_segment_name >> -k_template_params)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
-  x3::_val(a_ctx) = ast::make_path_segment(
-      std::move(boost::fusion::at_c<0>(attr)), boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Path>{})
+  x3::_val(a_ctx) = ast::make_type_name_segment(
+      std::move(boost::fusion::at_c<0>(attr)), boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{})
   );
 })];
-BOOST_SPIRIT_DEFINE(k_path_segment_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_path_segment_rule), Iterator_Type, Context_Type)
+BOOST_SPIRIT_DEFINE(k_type_name_segment_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_segment_rule), Iterator_Type, Context_Type)
 
-// Parse full path: dot-separated path segments
-// Any segment in the path can have template parameters, not just the last one!
-// This allows paths like "Container<T>.Iterator<Forward>" where intermediate segments are templated.
+// Parse full qualified name: dot-separated qualified name segments
+// Any segment can have template parameters, not just the last one!
+// This allows names like "Container<T>.Iterator<Forward>" where intermediate segments are templated.
 // Examples:
-//   "Int"                                              - simple path
-//   "Std.String"                                       - qualified path
+//   "Int"                                              - simple qualified name
+//   "Std.String"                                       - multi-segment qualified name
 //   "Std.Collections.Array<T>"                         - qualified with template on last segment
 //   "Std.Collections.Map<Key.Type, Value>"             - qualified segment with qualified template param
 //   "Container<Int>.Iterator<Forward>"                 - multiple segments with templates
@@ -131,10 +141,56 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_path_segment_rule), Iterator_Type, Context_T
 //   "Parser<Token>.Result<AST>.Error<String>"          - multiple templated segments in chain
 //   "Network.Protocol<Http.Request, Http.Response>"    - deeply nested qualified templates
 //   "IO.Result<Data.Error, Parser.AST>"                - multiple qualified params
-auto const k_path_rule_def =
-    (k_path_segment_rule % '.')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::Path{{}, x3::_attr(a_ctx)}; })];
-BOOST_SPIRIT_DEFINE(k_path_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_path_rule), Iterator_Type, Context_Type)
+auto const k_type_name_rule_def =
+    (k_type_name_segment_rule %
+     '.')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_type_name(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_type_name_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_rule), Iterator_Type, Context_Type)
+
+// === Variable Name Rules ===
+// Variable and function names with optional template parameters
+// Parser is flexible - accepts any identifier pattern
+// Naming conventions enforced at semantic analysis:
+//   - Variables/functions: snake_case
+//   - Modules: Camel_Snake_Case
+
+// Forward declarations for mutually recursive rules
+struct Variable_Name_Tag : x3::annotate_on_success, Error_Handler {};
+struct Variable_Name_Segment_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Variable_Name_Tag, ast::Variable_Name> const k_variable_name_rule = "variable name";
+x3::rule<Variable_Name_Segment_Tag, ast::Variable_Name_Segment> const k_variable_name_segment_rule =
+    "variable name segment";
+
+// Parse variable name segment with optional template parameters
+// Examples: "foo", "map<Int, String>", "Vec<T>"
+auto const k_variable_name_segment_rule_def = (k_segment_name >> -k_template_params)[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  x3::_val(a_ctx) = ast::make_variable_name_segment(
+      std::move(boost::fusion::at_c<0>(attr)), boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{})
+  );
+})];
+BOOST_SPIRIT_DEFINE(k_variable_name_segment_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_variable_name_segment_rule), Iterator_Type, Context_Type)
+
+// Parse variable name: single segment for variable references in expressions
+// Examples: "foo", "my_var", "x", "map<Int>"
+// Field access handles dotted expressions: "obj.field" → Field_Access_Expr
+auto const k_variable_name_rule_def = k_variable_name_segment_rule[([](auto& a_ctx) {
+  x3::_val(a_ctx) = ast::make_variable_name(std::move(x3::_attr(a_ctx)));
+})];
+BOOST_SPIRIT_DEFINE(k_variable_name_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_variable_name_rule), Iterator_Type, Context_Type)
+
+// Parse qualified variable name: dotted path for function calls
+// Supports module-qualified function names with templates: "Std.print", "Vec<Int>.new"
+// Examples: "foo", "Std.print", "A.B.func<T, U>"
+x3::rule<struct qualified_variable_name_tag, ast::Variable_Name> const k_qualified_variable_name_rule =
+    "qualified variable name";
+auto const k_qualified_variable_name_rule_def =
+    (k_variable_name_segment_rule %
+     '.')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_variable_name(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_qualified_variable_name_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_qualified_variable_name_rule), Iterator_Type, Context_Type)
 
 // === String Literal Rules ===
 // String literals with escape sequences
@@ -192,15 +248,15 @@ x3::rule<Function_Parameter_Tag, ast::Function_Parameter> const k_function_param
 x3::rule<Function_Declaration_Tag, ast::Function_Declaration> const k_function_declaration_rule =
     "function declaration";
 
-// Parse parameter name: snake_case identifier
+// Parse parameter name: any identifier (naming convention checked at semantic analysis)
 x3::rule<struct param_name_tag, std::string> const k_param_name = "parameter name";
-auto const k_param_name_def = k_snake_case;
+auto const k_param_name_def = k_segment_name;
 BOOST_SPIRIT_DEFINE(k_param_name)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_param_name), Iterator_Type, Context_Type)
 
-// Parse parameter type: path expression
-x3::rule<struct param_type_tag, ast::Path> const k_param_type = "parameter type";
-auto const k_param_type_def = k_path_rule;
+// Parse parameter type: type name
+x3::rule<struct param_type_tag, ast::Type_Name> const k_param_type = "parameter type";
+auto const k_param_type_def = k_type_name_rule;
 BOOST_SPIRIT_DEFINE(k_param_type)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_param_type), Iterator_Type, Context_Type)
 
@@ -214,9 +270,9 @@ auto const k_function_parameter_rule_def = ((k_param_name > ':') > k_param_type)
 BOOST_SPIRIT_DEFINE(k_function_parameter_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_function_parameter_rule), Iterator_Type, Context_Type)
 
-// Parse function name: snake_case identifier
+// Parse function name: any identifier
 x3::rule<struct func_name_tag, std::string> const k_func_name = "function name";
-auto const k_func_name_def = k_snake_case;
+auto const k_func_name_def = k_segment_name;
 BOOST_SPIRIT_DEFINE(k_func_name)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_func_name), Iterator_Type, Context_Type)
 
@@ -226,9 +282,9 @@ auto const k_func_params_def = k_function_parameter_rule % ',';
 BOOST_SPIRIT_DEFINE(k_func_params)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_func_params), Iterator_Type, Context_Type)
 
-// Parse function return type: path expression
-x3::rule<struct func_return_type_tag, ast::Path> const k_func_return_type = "function return type";
-auto const k_func_return_type_def = k_path_rule;
+// Parse function return type: type name
+x3::rule<struct func_return_type_tag, ast::Type_Name> const k_func_return_type = "return type";
+auto const k_func_return_type_def = k_type_name_rule;
 BOOST_SPIRIT_DEFINE(k_func_return_type)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_func_return_type), Iterator_Type, Context_Type)
 
@@ -262,9 +318,9 @@ struct Function_Call_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Expr_Tag, ast::Expr> const k_expr_rule = "expression";
 x3::rule<Function_Call_Expr_Tag, ast::Function_Call_Expr> const k_function_call_expr_rule = "function call expression";
 
-// Parse function call name: path expression
-x3::rule<struct call_name_tag, ast::Path> const k_call_name = "function name";
-auto const k_call_name_def = k_path_rule;
+// Parse function call name: qualified variable name (supports module paths)
+x3::rule<struct call_name_tag, ast::Variable_Name> const k_call_name = "function name";
+auto const k_call_name_def = k_qualified_variable_name_rule;
 BOOST_SPIRIT_DEFINE(k_call_name)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_call_name), Iterator_Type, Context_Type)
 
@@ -288,8 +344,96 @@ auto const k_function_call_expr_rule_def = (((k_call_name >> '(') > -k_call_args
 BOOST_SPIRIT_DEFINE(k_function_call_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_function_call_expr_rule), Iterator_Type, Context_Type)
 
+// Parse struct literal: "TypeName { field: expr, field: expr }"
+// Examples:
+//   Empty:        Point { }
+//   With fields:  Point { x: 1, y: 2 }
+//   Nested:       Line { start: Point { x: 0, y: 0 }, end: Point { x: 1, y: 1 } }
+struct Field_Initializer_Tag : x3::annotate_on_success, Error_Handler {};
+struct Struct_Literal_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Field_Initializer_Tag, ast::Field_Initializer> const k_field_initializer_rule = "field initializer";
+x3::rule<Struct_Literal_Tag, ast::Struct_Literal> const k_struct_literal_rule = "struct literal";
+
+// Parse field name in initializer: any identifier (naming convention checked at semantic analysis)
+x3::rule<struct field_init_name_tag, std::string> const k_field_init_name = "field name";
+auto const k_field_init_name_def = k_segment_name;
+BOOST_SPIRIT_DEFINE(k_field_init_name)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_field_init_name), Iterator_Type, Context_Type)
+
+// Parse field initializer: "name: expr"
+auto const k_field_initializer_rule_def = ((k_field_init_name > ':') > k_expr_rule)[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  x3::_val(a_ctx) =
+      ast::make_field_initializer(std::move(boost::fusion::at_c<0>(attr)), std::move(boost::fusion::at_c<1>(attr)));
+})];
+BOOST_SPIRIT_DEFINE(k_field_initializer_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_field_initializer_rule), Iterator_Type, Context_Type)
+
+// Parse field initializers: comma-separated with optional trailing comma
+x3::rule<struct field_initializers_tag, std::vector<ast::Field_Initializer>> const k_field_initializers =
+    "field initializers";
+auto const k_field_initializers_def = (k_field_initializer_rule % ',') >> -lit(',');
+BOOST_SPIRIT_DEFINE(k_field_initializers)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_field_initializers), Iterator_Type, Context_Type)
+
+// Parse struct literal: "TypeName { fields }"
+// Type name: any identifier (naming convention checked at semantic analysis)
+x3::rule<struct struct_literal_type_tag, std::string> const k_struct_literal_type = "struct type name";
+auto const k_struct_literal_type_def = k_segment_name;
+BOOST_SPIRIT_DEFINE(k_struct_literal_type)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_literal_type), Iterator_Type, Context_Type)
+
+auto const k_struct_literal_rule_def =
+    (((k_struct_literal_type >> '{') > -k_field_initializers) > '}')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) = ast::make_struct_literal(
+          std::move(boost::fusion::at_c<0>(attr)),
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Field_Initializer>{})
+      );
+    })];
+BOOST_SPIRIT_DEFINE(k_struct_literal_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_literal_rule), Iterator_Type, Context_Type)
+
+// Parse field access: "expr.field"
+// Examples:
+//   Simple:   p.x
+//   Chained:  p.start.x
+// Note: Returns Expr (not Field_Access_Expr) to handle chaining properly
+struct Field_Access_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Field_Access_Expr_Tag, ast::Expr> const k_field_access_expr_rule = "field access";
+
+// Parse field name in field access: any identifier (naming convention checked at semantic analysis)
+// Rule wrapper needed for proper attribute extraction in semantic action
+x3::rule<struct field_access_name_tag, std::string> const k_field_access_name = "field name";
+auto const k_field_access_name_def = k_segment_name;
+BOOST_SPIRIT_DEFINE(k_field_access_name)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_field_access_name), Iterator_Type, Context_Type)
+
+// Primary expressions (before field access)
+x3::rule<struct primary_expr_tag, ast::Expr> const k_primary_expr = "primary expression";
+auto const k_primary_expr_def =
+    k_struct_literal_rule | k_function_call_expr_rule | k_string_rule | k_variable_name_rule | k_integer_rule;
+BOOST_SPIRIT_DEFINE(k_primary_expr)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_primary_expr), Iterator_Type, Context_Type)
+
+// Field access is left-associative: expr.field.field...
+auto const k_field_access_expr_rule_def = (k_primary_expr >> +('.' > k_field_access_name))[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  ast::Expr expr = std::move(boost::fusion::at_c<0>(attr));
+  auto const& fields = boost::fusion::at_c<1>(attr);
+
+  // Build left-associative chain: ((expr.f1).f2).f3...
+  for (auto const& field : fields) {
+    expr = ast::make_expr(ast::make_field_access_expr(std::move(expr), std::string(field)));
+  }
+  x3::_val(a_ctx) = std::move(expr);
+})];
+BOOST_SPIRIT_DEFINE(k_field_access_expr_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_field_access_expr_rule), Iterator_Type, Context_Type)
+
 // Parse expression: variant of different expression types
-auto const k_expr_rule_def = k_function_call_expr_rule | k_string_rule | k_path_rule | k_integer_rule;
+// Try field access first (longer match), then fall back to primary expressions
+auto const k_expr_rule_def = k_field_access_expr_rule | k_primary_expr;
 BOOST_SPIRIT_DEFINE(k_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_expr_rule), Iterator_Type, Context_Type)
 
@@ -332,10 +476,14 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_function_call_statement_rule), Iterator_Type
 struct Statement_Tag : x3::annotate_on_success, Error_Handler {};
 struct Block_Tag : x3::annotate_on_success, Error_Handler {};
 struct Function_Definition_Tag : x3::annotate_on_success, Error_Handler {};
+struct Struct_Field_Tag : x3::annotate_on_success, Error_Handler {};
+struct Struct_Definition_Tag : x3::annotate_on_success, Error_Handler {};
 struct Module_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Statement_Tag, ast::Statement> const k_statement_rule = "statement";
 x3::rule<Block_Tag, ast::Block> const k_block_rule = "code block";
 x3::rule<Function_Definition_Tag, ast::Function_Definition> const k_function_definition_rule = "function definition";
+x3::rule<Struct_Field_Tag, ast::Struct_Field> const k_struct_field_rule = "struct field";
+x3::rule<Struct_Definition_Tag, ast::Struct_Definition> const k_struct_definition_rule = "struct definition";
 x3::rule<Module_Tag, ast::Module> const k_module_rule = "module";
 
 // Parse list of statements: zero or more statements
@@ -361,19 +509,71 @@ auto const k_function_definition_rule_def = (k_function_declaration_rule > k_blo
 BOOST_SPIRIT_DEFINE(k_function_definition_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_function_definition_rule), Iterator_Type, Context_Type)
 
+// === Struct Rules ===
+// Structs define user-defined data types with named fields
+// Examples:
+//   struct Point { x: I32, y: I32 }
+//   struct Person { name: String, age: I32 }
+//   struct Node { value: T, next: Option<Node> }
+
+// Parse struct field name: any identifier (naming convention checked at semantic analysis)
+x3::rule<struct struct_field_name_tag, std::string> const k_struct_field_name = "struct field name";
+auto const k_struct_field_name_def = k_segment_name;
+BOOST_SPIRIT_DEFINE(k_struct_field_name)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_field_name), Iterator_Type, Context_Type)
+
+// Parse struct field: "name: Type"
+// Examples: x: I32, name: String, items: Vec<T>
+auto const k_struct_field_rule_def = ((k_struct_field_name > ':') > k_type_name_rule)[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  x3::_val(a_ctx) =
+      ast::make_struct_field(std::move(boost::fusion::at_c<0>(attr)), std::move(boost::fusion::at_c<1>(attr)));
+})];
+BOOST_SPIRIT_DEFINE(k_struct_field_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_field_rule), Iterator_Type, Context_Type)
+
+// Parse struct fields: comma-separated list of fields with optional trailing comma
+// Examples: "x: I32, y: I32" or "x: I32, y: I32,"
+x3::rule<struct struct_fields_tag, std::vector<ast::Struct_Field>> const k_struct_fields = "struct fields";
+auto const k_struct_fields_def = (k_struct_field_rule % ',') >> -lit(',');
+BOOST_SPIRIT_DEFINE(k_struct_fields)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_fields), Iterator_Type, Context_Type)
+
+// Parse struct name: any identifier (naming convention checked at semantic analysis)
+// Rule wrapper needed for proper attribute extraction in semantic action
+x3::rule<struct struct_name_tag, std::string> const k_struct_name = "struct name";
+auto const k_struct_name_def = k_segment_name;
+BOOST_SPIRIT_DEFINE(k_struct_name)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_name), Iterator_Type, Context_Type)
+
+// Parse struct definition: "struct Name { fields }"
+// Examples:
+//   struct Point { x: I32, y: I32 }
+//   struct Empty { }
+//   struct Complex { field1: Type1, field2: Type2, field3: Type3 }
+auto const k_struct_definition_rule_def =
+    ((((k_kw_struct > k_struct_name) > '{') > -k_struct_fields) > '}')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) = ast::make_struct_definition(
+          std::move(boost::fusion::at_c<0>(attr)),
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Struct_Field>{})
+      );
+    })];
+BOOST_SPIRIT_DEFINE(k_struct_definition_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_definition_rule), Iterator_Type, Context_Type)
+
 // Parse statement: variant of different statement types
 // Order matters: try function definition first (longest match), then others
-auto const k_statement_rule_def =
-    k_function_definition_rule | k_function_call_statement_rule | k_block_rule | k_return_statement_rule;
+auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule |
+                                  k_function_call_statement_rule | k_block_rule | k_return_statement_rule;
 BOOST_SPIRIT_DEFINE(k_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_statement_rule), Iterator_Type, Context_Type)
 
 // Parse module: zero or more top-level statements
 // A module represents a complete compilation unit (file)
 // Top-level statements are currently only function definitions, but will include:
-// - Import/export statements
+// - Import statements
 // - Type definitions (struct, enum, trait, etc.)
-// - Module-level constants
 // Example:
 //   fn helper(): Void { }
 //   fn main(): I32 { return 0; }
@@ -404,7 +604,7 @@ class Position_Tracker {
     return {.line = line, .column = column};
   }
 
-  // Get range from iterator positions
+  // Get [start, end) Source_Position from iterator positions
   [[nodiscard]] Source_Range iterator_to_range(Iterator_Type a_begin, Iterator_Type a_end) const {
     auto const start_offset = static_cast<std::size_t>(a_begin - m_source_begin);
     auto const end_offset = static_cast<std::size_t>(a_end - m_source_begin);
@@ -466,7 +666,12 @@ parser::Parse_Result<Ast> parse_with_rule(
   Ast ast;
   bool const success = phrase_parse(a_begin, a_end, parser, parser::Space_Type{}, ast);
 
-  if (success) {
+  // Check if there were any errors logged during parsing, even if parse "succeeded"
+  // This handles cases like `*rule` matching zero items after an expectation failure
+  std::string const spirit_error = error_stream.str();
+  bool const has_logged_errors = !spirit_error.empty();
+
+  if (success && !has_logged_errors) {
     return ast;
   }
 
@@ -477,12 +682,11 @@ parser::Parse_Result<Ast> parse_with_rule(
   std::string error_msg = fmt::format("Failed to parse {}", a_rule.name);
 
   // Extract Spirit X3's error message text (without its formatting) if available
-  std::string const spirit_error = error_stream.str();
-  if (!spirit_error.empty()) {
-    // Find the error message line (starts with "Error!")
-    std::size_t const error_pos = spirit_error.find("Error!");
+  if (has_logged_errors) {
+    // Find the error message line (starts with k_spirit_error_marker)
+    std::size_t const error_pos = spirit_error.find(parser::k_spirit_error_marker);
     if (error_pos != std::string::npos) {
-      // Extract from "Error!" to the next newline
+      // Extract from marker to the next newline
       std::size_t const newline_pos = spirit_error.find('\n', error_pos);
       if (newline_pos != std::string::npos) {
         std::string const error_text = spirit_error.substr(error_pos, newline_pos - error_pos);
@@ -497,26 +701,33 @@ parser::Parse_Result<Ast> parse_with_rule(
 }  // namespace
 
 // Parse function implementations - generate diagnostics for errors
-#define PARSE_FN_IMPL(ast_type, fn_name, rule_name)                                                                  \
+#define PARSE_FN_IMPL(ast_type, fn_name)                                                                             \
   parser::Parse_Result<ast::ast_type> parse_##fn_name(parser::Iterator_Type& a_begin, parser::Iterator_Type a_end) { \
-    std::string_view const source(a_begin, a_end);                                                                   \
-    return parse_with_rule<decltype(parser::rule_name), ast::ast_type>(parser::rule_name, a_begin, a_end, source);   \
+    return parse_with_rule<decltype(parser::k_##fn_name##_rule), ast::ast_type>(                                     \
+        parser::k_##fn_name##_rule, a_begin, a_end, {a_begin, a_end}                                                 \
+    );                                                                                                               \
   }
 
-PARSE_FN_IMPL(Path_Segment, path_segment, k_path_segment_rule)
-PARSE_FN_IMPL(Path, path, k_path_rule)
-PARSE_FN_IMPL(String, string, k_string_rule)
-PARSE_FN_IMPL(Integer, integer, k_integer_rule)
-PARSE_FN_IMPL(Function_Parameter, function_parameter, k_function_parameter_rule)
-PARSE_FN_IMPL(Function_Declaration, function_declaration, k_function_declaration_rule)
-PARSE_FN_IMPL(Expr, expr, k_expr_rule)
-PARSE_FN_IMPL(Function_Call_Expr, function_call_expr, k_function_call_expr_rule)
-PARSE_FN_IMPL(Function_Call_Statement, function_call_statement, k_function_call_statement_rule)
-PARSE_FN_IMPL(Return_Statement, return_statement, k_return_statement_rule)
-PARSE_FN_IMPL(Statement, statement, k_statement_rule)
-PARSE_FN_IMPL(Block, block, k_block_rule)
-PARSE_FN_IMPL(Function_Definition, function_definition, k_function_definition_rule)
-PARSE_FN_IMPL(Module, module, k_module_rule)
+PARSE_FN_IMPL(Variable_Name, variable_name)                      // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Variable_Name_Segment, variable_name_segment)      // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Type_Name_Segment, type_name_segment)              // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Type_Name, type_name)                              // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(String, string)                                    // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Integer, integer)                                  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Function_Parameter, function_parameter)            // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Function_Declaration, function_declaration)        // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Struct_Field, struct_field)                        // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Struct_Definition, struct_definition)              // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Expr, expr)                                        // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Function_Call_Expr, function_call_expr)            // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Field_Initializer, field_initializer)              // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Struct_Literal, struct_literal)                    // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Function_Call_Statement, function_call_statement)  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Return_Statement, return_statement)                // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Statement, statement)                              // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Block, block)                                      // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Function_Definition, function_definition)          // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Module, module)                                    // NOLINT(misc-use-internal-linkage)
 #undef PARSE_FN_IMPL
 
 }  // namespace life_lang::internal
@@ -536,7 +747,15 @@ tl::expected<ast::Module, Diagnostic_Engine> parse_module(std::string_view a_sou
 
   // Check if parse succeeded
   if (!result) {
-    return tl::unexpected(std::move(result.error()));
+    // Copy diagnostics to our engine with correct filename
+    for (auto const& diag : result.error().diagnostics()) {
+      if (diag.level == Diagnostic_Level::Error) {
+        diagnostics.add_error(diag.range, diag.message);
+      } else {
+        diagnostics.add_warning(diag.range, diag.message);
+      }
+    }
+    return tl::unexpected(std::move(diagnostics));
   }
 
   // Parse succeeded - check if all input was consumed

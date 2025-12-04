@@ -1,3 +1,4 @@
+#include "internal_rules.hpp"
 #include "utils.hpp"
 
 // Specialized test for keyword boundary validation
@@ -19,7 +20,7 @@ TEST_CASE("Keyword Boundary Validation", "[parser][keywords]") {
           {"fn with newline", "fn\nhello() : Int {}", true, "", false},
           {"fn with tab", "fn\thello() : Int {}", true, "", false},
 
-          // Invalid - keywords followed by identifier characters
+          // Invalid - keywords followed by variable_name characters
           {"fn with underscore", "fn_hello() : Int {}", false, "fn_hello() : Int {}", false},
           {"fn with digit", "fn2() : Int {}", false, "fn2() : Int {}", false},
           {"fn with letter", "fnord() : Int {}", false, "fnord() : Int {}", false},
@@ -48,10 +49,10 @@ TEST_CASE("Keyword Boundary Validation", "[parser][keywords]") {
   }
 }
 
-// Test that identifiers cannot be keywords
+// Test that variable_names cannot be keywords
 // Note: This test has custom validation logic (checking segment name),
 // so it doesn't use PARSE_TEST which compares full AST structure.
-TEST_CASE("Identifier vs Keyword Distinction", "[parser][keywords]") {
+TEST_CASE("Variable_Name vs Keyword Distinction", "[parser][keywords]") {
   struct Test_Case {
     std::string name;
     std::string input;
@@ -60,12 +61,12 @@ TEST_CASE("Identifier vs Keyword Distinction", "[parser][keywords]") {
 
   auto const test = GENERATE(
       Catch::Generators::values<Test_Case>({
-          {"snake_case identifier", "hello_world", "hello_world"},
-          {"identifier starting with 'f'", "function", "function"},
-          {"identifier starting with 'r'", "ret", "ret"},
-          {"identifier with 'fn' inside", "confn", "confn"},
-          {"identifier ending with 'fn'", "defn", "defn"},
-          // These should parse as identifiers, not keywords
+          {"snake_case variable_name", "hello_world", "hello_world"},
+          {"variable_name starting with 'f'", "function", "function"},
+          {"variable_name starting with 'r'", "ret", "ret"},
+          {"variable_name with 'fn' inside", "confn", "confn"},
+          {"variable_name ending with 'fn'", "defn", "defn"},
+          // These should parse as variable_names, not keywords
           {"fn plus text", "fnord", "fnord"},
           {"return plus text", "returnvalue", "returnvalue"},
           {"let plus text", "letter", "letter"},
@@ -76,7 +77,7 @@ TEST_CASE("Identifier vs Keyword Distinction", "[parser][keywords]") {
     auto begin = test.input.cbegin();
     auto const end = test.input.cend();
 
-    auto const got = life_lang::internal::parse_path(begin, end);
+    auto const got = life_lang::internal::parse_type_name(begin, end);
     REQUIRE(bool(got));
     CHECK((*got).segments.size() == 1);
     CHECK((*got).segments[0].value == test.expected_name);

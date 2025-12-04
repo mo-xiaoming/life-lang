@@ -1,7 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
-#include <rules.hpp>
 #include <sstream>
+
+#include "internal_rules.hpp"
 
 // Tests to verify that internal parse_* functions produce clang-style diagnostics
 // when parsing fails, including file:line:column format and source context.
@@ -22,7 +23,7 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
 
     // Now shows only our clang-style diagnostic (Spirit X3's formatting suppressed)
     std::string const expected =
-        "<input>:1:2: error: Failed to parse function parameter: Error! Expecting: ':' here:\n"
+        "<input>:1:2: error: Failed to parse function parameter: [PARSE_ERROR] Expecting: ':' here:\n"
         "    x\n"
         "     ^\n";
 
@@ -44,7 +45,7 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
 
     // Now shows only our clang-style diagnostic (Spirit X3's formatting suppressed)
     std::string const expected =
-        "<input>:1:7: error: Failed to parse return statement: Error! Expecting: expression here:\n"
+        "<input>:1:7: error: Failed to parse return statement: [PARSE_ERROR] Expecting: expression here:\n"
         "    return\n"
         "          ^\n";
 
@@ -66,7 +67,7 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
 
     // Spirit X3's message extracted, formatted by our diagnostic engine
     std::string const expected =
-        "<input>:1:7: error: Failed to parse function parameter: Error! Expecting: ':' here:\n"
+        "<input>:1:7: error: Failed to parse function parameter: [PARSE_ERROR] Expecting: ':' here:\n"
         "    param Type\n"
         "          ^\n";
 
@@ -88,7 +89,7 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
 
     // Shows source line with caret (Spirit X3's formatting suppressed)
     std::string const expected =
-        "<input>:1:5: error: Failed to parse function parameter: Error! Expecting: ':' here:\n"
+        "<input>:1:5: error: Failed to parse function parameter: [PARSE_ERROR] Expecting: ':' here:\n"
         "    func(x: Int\n"
         "        ^\n";
 

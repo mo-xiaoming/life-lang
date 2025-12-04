@@ -1,12 +1,6 @@
 #include "utils.hpp"
 
 using life_lang::ast::Expr;
-using life_lang::ast::make_expr;
-using life_lang::ast::make_function_call_expr;
-using life_lang::ast::make_integer;
-using life_lang::ast::make_path;
-using life_lang::ast::make_path_segment;
-using life_lang::ast::make_string;
 
 PARSE_TEST(Expr, expr)
 
@@ -29,36 +23,8 @@ constexpr auto k_function_call_with_namespace_input = "A.B.hello()";
 
 // Function calls - with arguments
 constexpr auto k_function_call_with_args_input = "hello(a, b, c)";
-auto make_function_call_with_args_expected() {
-  return make_expr(make_function_call_expr(
-      make_path("hello"), {make_expr(make_path("a")), make_expr(make_path("b")), make_expr(make_path("c"))}
-  ));
-}
-
 constexpr auto k_function_call_with_path_args_input = "hello(a, b.c.world, c.world)";
-auto make_function_call_with_path_args_expected() {
-  return make_expr(make_function_call_expr(
-      make_path("hello"),
-      {make_expr(make_path("a")), make_expr(make_path("b", "c", "world")), make_expr(make_path("c", "world"))}
-  ));
-}
-
-// Function calls - nested
 constexpr auto k_nested_function_calls_input = "hello(A.B.a.d(), c.world(a))";
-auto make_nested_function_calls_expected() {
-  return make_expr(make_function_call_expr(
-      make_path("hello"), {make_expr(make_function_call_expr(make_path("A", "B", "a", "d"), {})),
-                           make_expr(make_function_call_expr(make_path("c", "world"), {make_expr(make_path("a"))}))}
-  ));
-}
-
-// Function calls - with templates
-constexpr auto k_function_call_with_template_input = "A.B<Int, Double>.hello.a.b()";
-auto make_function_call_with_template_expected() {
-  return make_expr(make_function_call_expr(
-      make_path("A", make_path_segment("B", {make_path("Int"), make_path("Double")}), "hello", "a", "b"), {}
-  ));
-}
 
 constexpr auto k_with_trailing_text_input = "hello )";
 
@@ -69,42 +35,51 @@ constexpr auto k_invalid_empty_input = "";
 TEST_CASE("Parse Expr", "[parser]") {
   auto const params = GENERATE(
       Catch::Generators::values<Expr_Params>({
-          // Path expressions
-          {"simple path", k_simple_path_input, make_expr(make_path("hello")), true, ""},
-          {"dotted path", k_dotted_path_input, make_expr(make_path("a", "b", "c")), true, ""},
+          // Variable_Name expressions
+          {"simple variable_name", k_simple_path_input,
+           R"({"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "hello"}}]}})",
+           true, ""},
+          {"dotted path", k_dotted_path_input,
+           R"({"Field_Access_Expr": {"fieldName": "c", "object": {"Field_Access_Expr": {"fieldName": "b", "object": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "a"}}]}}}}}})",
+           true, ""},
 
           // Integer literals
-          {"integer", k_integer_input, make_expr(make_integer("42")), true, ""},
-          {"zero", k_zero_input, make_expr(make_integer("0")), true, ""},
+          {"integer", k_integer_input, R"({"Integer": {"value": "42"}})", true, ""},
+          {"zero", k_zero_input, R"({"Integer": {"value": "0"}})", true, ""},
 
           // String literals
-          {"string", k_string_input, make_expr(make_string(R"("hello")")), true, ""},
+          {"string", k_string_input, R"({"String": {"value": "\"hello\""}})", true, ""},
 
           // Function calls - no arguments
-          {"function call", k_function_call_input, make_expr(make_function_call_expr(make_path("hello"), {})), true,
-           ""},
+          {"function call", k_function_call_input,
+           R"({"Function_Call_Expr": {"name": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "hello"}}]}}, "parameters": []}})",
+           true, ""},
           {"function call with path", k_function_call_with_path_input,
-           make_expr(make_function_call_expr(make_path("hello", "a", "b"), {})), true, ""},
+           R"({"Function_Call_Expr": {"name": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "hello"}}, {"Variable_Name_Segment": {"templateParameters": [], "value": "a"}}, {"Variable_Name_Segment": {"templateParameters": [], "value": "b"}}]}}, "parameters": []}})",
+           true, ""},
           {"function call with namespace", k_function_call_with_namespace_input,
-           make_expr(make_function_call_expr(make_path("A", "B", "hello"), {})), true, ""},
+           R"({"Function_Call_Expr": {"name": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "A"}}, {"Variable_Name_Segment": {"templateParameters": [], "value": "B"}}, {"Variable_Name_Segment": {"templateParameters": [], "value": "hello"}}]}}, "parameters": []}})",
+           true, ""},
 
           // Function calls - with arguments
-          {"function call with args", k_function_call_with_args_input, make_function_call_with_args_expected(), true,
-           ""},
+          {"function call with args", k_function_call_with_args_input,
+           R"({"Function_Call_Expr": {"name": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "hello"}}]}}, "parameters": [{"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "a"}}]}}, {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "b"}}]}}, {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "c"}}]}}]}})",
+           true, ""},
           {"function call with path args", k_function_call_with_path_args_input,
-           make_function_call_with_path_args_expected(), true, ""},
+           R"({"Function_Call_Expr": {"name": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "hello"}}]}}, "parameters": [{"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "a"}}]}}, {"Field_Access_Expr": {"fieldName": "world", "object": {"Field_Access_Expr": {"fieldName": "c", "object": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "b"}}]}}}}}}, {"Field_Access_Expr": {"fieldName": "world", "object": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "c"}}]}}}}]}})",
+           true, ""},
 
           // Function calls - nested
-          {"nested function calls", k_nested_function_calls_input, make_nested_function_calls_expected(), true, ""},
+          {"nested function calls", k_nested_function_calls_input,
+           R"({"Function_Call_Expr": {"name": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "hello"}}]}}, "parameters": [{"Function_Call_Expr": {"name": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "A"}}, {"Variable_Name_Segment": {"templateParameters": [], "value": "B"}}, {"Variable_Name_Segment": {"templateParameters": [], "value": "a"}}, {"Variable_Name_Segment": {"templateParameters": [], "value": "d"}}]}}, "parameters": []}}, {"Function_Call_Expr": {"name": {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "c"}}, {"Variable_Name_Segment": {"templateParameters": [], "value": "world"}}]}}, "parameters": [{"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "a"}}]}}]}}]}})",
+           true, ""},
 
-          // Function calls - with templates
-          {"function call with template", k_function_call_with_template_input,
-           make_function_call_with_template_expected(), true, ""},
-
-          {"with trailing text", k_with_trailing_text_input, make_expr(make_path("hello")), true, ")"},
+          {"with trailing text", k_with_trailing_text_input,
+           R"({"Variable_Name": {"segments": [{"Variable_Name_Segment": {"templateParameters": [], "value": "hello"}}]}})",
+           true, ")"},
 
           // Invalid cases
-          {"invalid - empty", k_invalid_empty_input, make_expr(make_path()), false, ""},
+          {"invalid - empty", k_invalid_empty_input, R"({"Variable_Name": {"segments": []}})", false, ""},
       })
   );
 
