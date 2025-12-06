@@ -162,9 +162,10 @@ struct Block : boost::spirit::x3::position_tagged {
 // Function Types
 // ============================================================================
 
-// Example: items: Std.Array<T> in function parameter list
+// Example: items: Std.Array<T> or mut self: Point in function parameter list
 struct Function_Parameter : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Function_Parameter";
+  bool is_mut;
   std::string name;
   Type_Name type;
 };
@@ -345,8 +346,8 @@ inline Statement make_statement(Struct_Definition&& a_def) { return Statement{st
 inline Block make_block(std::vector<Statement>&& a_statements) { return Block{{}, std::move(a_statements)}; }
 
 // Function helpers
-inline Function_Parameter make_function_parameter(std::string&& a_name, Type_Name&& a_type) {
-  return Function_Parameter{{}, std::move(a_name), std::move(a_type)};
+inline Function_Parameter make_function_parameter(bool a_is_mut, std::string&& a_name, Type_Name&& a_type) {
+  return Function_Parameter{{}, a_is_mut, std::move(a_name), std::move(a_type)};
 }
 
 inline Function_Declaration make_function_declaration(
@@ -535,6 +536,7 @@ inline void to_json(nlohmann::json& a_json, Block const& a_block) {
 // Function serialization
 inline void to_json(nlohmann::json& a_json, Function_Parameter const& a_param) {
   nlohmann::json obj;
+  obj["is_mut"] = a_param.is_mut;
   obj["name"] = a_param.name;
   nlohmann::json type_json;
   to_json(type_json, a_param.type);
