@@ -20,6 +20,7 @@ struct Type_Name;
 struct Variable_Name_Segment;
 struct Function_Call_Expr;
 struct Field_Access_Expr;
+struct Binary_Expr;
 struct Function_Definition;
 struct Block;
 struct Struct_Definition;
@@ -94,17 +95,58 @@ struct Struct_Literal : boost::spirit::x3::position_tagged {
 };
 
 // ============================================================================
+// Binary Operators
+// ============================================================================
+
+// Operator precedence (from lowest to highest):
+// Logical: ||
+// Logical: &&
+// Comparison: ==, !=, <, >, <=, >=
+// Additive: +, -
+// Multiplicative: *, /, %
+enum class Binary_Op : std::uint8_t {
+  // Arithmetic operators
+  Add,  // +
+  Sub,  // -
+  Mul,  // *
+  Div,  // /
+  Mod,  // %
+
+  // Comparison operators
+  Eq,  // ==
+  Ne,  // !=
+  Lt,  // <
+  Gt,  // >
+  Le,  // <=
+  Ge,  // >=
+
+  // Logical operators
+  And,  // &&
+  Or,   // ||
+};
+
+// Example: x + y, a * (b - c), value == 42
+struct Binary_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Binary_Expr";
+  boost::spirit::x3::forward_ast<Expr> lhs;
+  Binary_Op op;
+  boost::spirit::x3::forward_ast<Expr> rhs;
+};
+
+// ============================================================================
 // Expression Types
 // ============================================================================
 
 // Example: foo.bar.baz() or Point { x: 1 + 2, y: calculate(z) }
 struct Expr : boost::spirit::x3::variant<
                   Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
-                  boost::spirit::x3::forward_ast<Field_Access_Expr>, Struct_Literal, String, Integer>,
+                  boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
+                  Struct_Literal, String, Integer>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
-      boost::spirit::x3::forward_ast<Field_Access_Expr>, Struct_Literal, String, Integer>;
+      boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>, Struct_Literal,
+      String, Integer>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -320,6 +362,7 @@ inline Expr make_expr(String&& a_str) { return Expr{std::move(a_str)}; }
 inline Expr make_expr(Integer&& a_integer) noexcept { return Expr{std::move(a_integer)}; }
 inline Expr make_expr(Function_Call_Expr&& a_call) { return Expr{std::move(a_call)}; }
 inline Expr make_expr(Field_Access_Expr&& a_access) { return Expr{std::move(a_access)}; }
+inline Expr make_expr(Binary_Expr&& a_binary) { return Expr{std::move(a_binary)}; }
 inline Expr make_expr(Struct_Literal&& a_literal) { return Expr{std::move(a_literal)}; }
 
 inline Function_Call_Expr make_function_call_expr(Variable_Name&& a_name, std::vector<Expr>&& a_parameters) {
@@ -344,6 +387,11 @@ inline Statement make_statement(Function_Definition&& a_def) { return Statement{
 inline Statement make_statement(Struct_Definition&& a_def) { return Statement{std::move(a_def)}; }
 
 inline Block make_block(std::vector<Statement>&& a_statements) { return Block{{}, std::move(a_statements)}; }
+
+// Binary expression helper
+inline Binary_Expr make_binary_expr(Expr&& a_lhs, Binary_Op a_op, Expr&& a_rhs) {
+  return Binary_Expr{{}, std::move(a_lhs), a_op, std::move(a_rhs)};
+}
 
 // Function helpers
 inline Function_Parameter make_function_parameter(bool a_is_mut, std::string&& a_name, Type_Name&& a_type) {
@@ -380,6 +428,7 @@ inline Module make_module(std::vector<Statement>&& a_statements) { return Module
 void to_json(nlohmann::json& a_json, Type_Name_Segment const& a_segment);
 void to_json(nlohmann::json& a_json, Variable_Name_Segment const& a_segment);
 void to_json(nlohmann::json& a_json, Expr const& a_expr);
+void to_json(nlohmann::json& a_json, Binary_Expr const& a_expr);
 void to_json(nlohmann::json& a_json, Function_Call_Expr const& a_call);
 void to_json(nlohmann::json& a_json, Field_Access_Expr const& a_access);
 void to_json(nlohmann::json& a_json, Field_Initializer const& a_initializer);
@@ -469,6 +518,65 @@ inline void to_json(nlohmann::json& a_json, Struct_Literal const& a_literal) {
   }
   obj["fields"] = fields;
   a_json[Struct_Literal::k_name] = obj;
+}
+
+// Binary operator serialization
+inline void to_json(nlohmann::json& a_json, Binary_Op a_op) {
+  switch (a_op) {
+    case Binary_Op::Add:
+      a_json = "+";
+      break;
+    case Binary_Op::Sub:
+      a_json = "-";
+      break;
+    case Binary_Op::Mul:
+      a_json = "*";
+      break;
+    case Binary_Op::Div:
+      a_json = "/";
+      break;
+    case Binary_Op::Mod:
+      a_json = "%";
+      break;
+    case Binary_Op::Eq:
+      a_json = "==";
+      break;
+    case Binary_Op::Ne:
+      a_json = "!=";
+      break;
+    case Binary_Op::Lt:
+      a_json = "<";
+      break;
+    case Binary_Op::Gt:
+      a_json = ">";
+      break;
+    case Binary_Op::Le:
+      a_json = "<=";
+      break;
+    case Binary_Op::Ge:
+      a_json = ">=";
+      break;
+    case Binary_Op::And:
+      a_json = "&&";
+      break;
+    case Binary_Op::Or:
+      a_json = "||";
+      break;
+  }
+}
+
+inline void to_json(nlohmann::json& a_json, Binary_Expr const& a_expr) {
+  nlohmann::json obj;
+  nlohmann::json lhs_json;
+  to_json(lhs_json, a_expr.lhs.get());
+  obj["lhs"] = lhs_json;
+  nlohmann::json op_json;
+  to_json(op_json, a_expr.op);
+  obj["op"] = op_json;
+  nlohmann::json rhs_json;
+  to_json(rhs_json, a_expr.rhs.get());
+  obj["rhs"] = rhs_json;
+  a_json[Binary_Expr::k_name] = obj;
 }
 
 // Expression serialization (implementations after all parts are declared)
