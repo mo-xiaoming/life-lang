@@ -12,14 +12,20 @@ cmake --preset debug
 cmake --build --preset debug
 ctest --preset debug
 
-./build/lifec
-```
+# the language
+echo 'fn main(args: Std.Array<Std.String>): I32 {
+    Std.print("Hello, world!");
+    return 0;
+}' | ./build/dev/debug/lifec -
 
-## The language
-
-```
-fn main(args: Std.Array<Std.String>): I32 {
-    Std.print("Hello world!");
+# clang style error message
+echo 'fn main(): I32 {
     return 0;
 }
+
+fn broken_syntax_here
+}' | ./build/dev/debug/lifec -
+<stdin>:5:1: error: Failed to parse module: Expecting: '(' here:
+    fn broken_syntax_here
+    ^
 ```
