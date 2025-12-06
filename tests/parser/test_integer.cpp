@@ -9,27 +9,51 @@ namespace {
 
 constexpr auto k_zero_should_succeed = true;
 constexpr auto k_zero_input = "0";
-constexpr auto k_zero_expected = R"({"Integer": {"value": "0"}})";
+constexpr auto k_zero_expected = R"({
+  "Integer": {
+    "value": "0"
+  }
+})";
 
 constexpr auto k_simple_number_should_succeed = true;
 constexpr auto k_simple_number_input = "123";
-constexpr auto k_simple_number_expected = R"({"Integer": {"value": "123"}})";
+constexpr auto k_simple_number_expected = R"({
+  "Integer": {
+    "value": "123"
+  }
+})";
 
 constexpr auto k_large_number_should_succeed = true;
 constexpr auto k_large_number_input = "987654321";
-constexpr auto k_large_number_expected = R"({"Integer": {"value": "987654321"}})";
+constexpr auto k_large_number_expected = R"({
+  "Integer": {
+    "value": "987654321"
+  }
+})";
 
 constexpr auto k_with_underscores_should_succeed = true;
 constexpr auto k_with_underscores_input = "12_34_5";
-constexpr auto k_with_underscores_expected = R"({"Integer": {"value": "12345"}})";
+constexpr auto k_with_underscores_expected = R"({
+  "Integer": {
+    "value": "12345"
+  }
+})";
 
 constexpr auto k_multiple_underscores_should_succeed = true;
 constexpr auto k_multiple_underscores_input = "1_2_3_4";
-constexpr auto k_multiple_underscores_expected = R"({"Integer": {"value": "1234"}})";
+constexpr auto k_multiple_underscores_expected = R"({
+  "Integer": {
+    "value": "1234"
+  }
+})";
 
 constexpr auto k_with_trailing_text_should_succeed = true;
 constexpr auto k_with_trailing_text_input = "42 abc";
-constexpr auto k_with_trailing_text_expected = R"({"Integer": {"value": "42"}})";
+constexpr auto k_with_trailing_text_expected = R"({
+  "Integer": {
+    "value": "42"
+  }
+})";
 
 // Invalid cases
 constexpr auto k_invalid_starts_with_zero_should_succeed = false;

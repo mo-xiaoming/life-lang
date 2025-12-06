@@ -6,6 +6,7 @@
 #include <boost/spirit/home/x3.hpp>
 #include <boost/spirit/home/x3/support/utility/annotate_on_success.hpp>
 #include <boost/spirit/home/x3/support/utility/error_reporting.hpp>
+#include <variant>
 
 namespace life_lang::parser {
 namespace x3 = boost::spirit::x3;
@@ -399,37 +400,98 @@ auto const k_struct_literal_rule_def =
 BOOST_SPIRIT_DEFINE(k_struct_literal_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_literal_rule), Iterator_Type, Context_Type)
 
-// Parse field name in field access: any identifier (naming convention checked at semantic analysis)
-// Rule wrapper needed for proper attribute extraction in semantic action
-x3::rule<struct field_access_name_tag, std::string> const k_field_access_name = "field name";
-auto const k_field_access_name_def = k_segment_name;
-BOOST_SPIRIT_DEFINE(k_field_access_name)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_field_access_name), Iterator_Type, Context_Type)
-
-// Primary expressions (before field access)
+// Primary expressions (before postfix operations)
+// Note: Function calls are included here - they parse "name(args)" as a complete unit
+// Postfix operations then apply to the result: foo(x).bar or foo(x).baz()
 x3::rule<struct primary_expr_tag, ast::Expr> const k_primary_expr = "primary expression";
 auto const k_primary_expr_def =
     k_struct_literal_rule | k_function_call_expr_rule | k_string_rule | k_variable_name_rule | k_integer_rule;
 BOOST_SPIRIT_DEFINE(k_primary_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_primary_expr), Iterator_Type, Context_Type)
 
-// Postfix expression: primary followed by optional field access chain
-// Handles both plain primaries (variables, literals) and field access (obj.field.nested)
-// Uses * (zero or more) to accept plain expressions, validates fields when dot present
-auto const k_postfix_expr_def = (k_primary_expr >> *('.' > k_field_access_name))[([](auto& a_ctx) {
+// Postfix operations: field access (.field) or method call (.method(args))
+// Helper structures for postfix chain
+struct Postfix_Field_Access {
+  std::string field_name;
+};
+
+struct Postfix_Method_Call {
+  std::string method_name;
+  std::vector<ast::Expr> arguments;
+};
+
+using Postfix_Op = std::variant<Postfix_Field_Access, Postfix_Method_Call>;
+
+// Parse method arguments: same as function call arguments
+x3::rule<struct method_args_tag, std::vector<ast::Expr>> const k_method_args = "method arguments";
+auto const k_method_args_def = k_expr_rule % ',';
+BOOST_SPIRIT_DEFINE(k_method_args)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_method_args), Iterator_Type, Context_Type)
+
+// Parse method call postfix: .name(args)
+// Use >> for initial parts to allow backtracking, then > after '(' commits us
+x3::rule<struct postfix_method_call_tag, Postfix_Method_Call> const k_postfix_method_call = "method call";
+auto const k_postfix_method_call_def = ((('.' >> k_segment_name >> '(') > -k_method_args) > ')')[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  x3::_val(a_ctx) = Postfix_Method_Call{
+      std::move(boost::fusion::at_c<0>(attr)), boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Expr>{})
+  };
+})];
+BOOST_SPIRIT_DEFINE(k_postfix_method_call)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_postfix_method_call), Iterator_Type, Context_Type)
+
+// Parse field access postfix: .name
+x3::rule<struct postfix_field_access_tag, Postfix_Field_Access> const k_postfix_field_access = "field access";
+auto const k_postfix_field_access_def =
+    ('.' > k_segment_name)[([](auto& a_ctx) { x3::_val(a_ctx) = Postfix_Field_Access{std::move(x3::_attr(a_ctx))}; })];
+BOOST_SPIRIT_DEFINE(k_postfix_field_access)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_postfix_field_access), Iterator_Type, Context_Type)
+
+// Combined postfix operation: try method call first (longer match), then field access
+x3::rule<struct postfix_op_tag, Postfix_Op> const k_postfix_op = "postfix operation";
+auto const k_postfix_op_def = k_postfix_method_call | k_postfix_field_access;
+BOOST_SPIRIT_DEFINE(k_postfix_op)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_postfix_op), Iterator_Type, Context_Type)
+
+// Postfix expression: primary followed by zero or more postfix operations
+// Supports: foo().bar, foo().bar(), foo.bar().baz, etc.
+auto const k_postfix_expr_def = (k_primary_expr >> *k_postfix_op)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   ast::Expr expr = std::move(boost::fusion::at_c<0>(attr));
-  auto const& fields = boost::fusion::at_c<1>(attr);
+  auto const& ops = boost::fusion::at_c<1>(attr);
 
-  // Build left-associative chain: ((expr.f1).f2).f3...
-  for (auto const& field : fields) {
-    expr = ast::make_expr(ast::make_field_access_expr(std::move(expr), std::string(field)));
+  // Build left-associative chain: apply each postfix operation in order
+  for (auto const& op : ops) {
+    std::visit(
+        [&expr](auto const& a_operation) {
+          using T = std::decay_t<decltype(a_operation)>;
+          if constexpr (std::same_as<T, Postfix_Field_Access>) {
+            // Field access: obj.field
+            expr = ast::make_expr(ast::make_field_access_expr(std::move(expr), std::string(a_operation.field_name)));
+          } else if constexpr (std::same_as<T, Postfix_Method_Call>) {
+            // Method call: obj.method(args)
+            // Create a variable name from method_name, then wrap in function call with obj as first arg
+            auto method_var_name = ast::make_variable_name(std::string(a_operation.method_name));
+
+            // Build argument list: [obj, ...args]
+            std::vector<ast::Expr> all_args;
+            all_args.reserve(1 + a_operation.arguments.size());
+            all_args.push_back(std::move(expr));
+            all_args.insert(all_args.end(), a_operation.arguments.begin(), a_operation.arguments.end());
+
+            // Create function call expression
+            expr = ast::make_expr(ast::make_function_call_expr(std::move(method_var_name), std::move(all_args)));
+          }
+        },
+        op
+    );
   }
   x3::_val(a_ctx) = std::move(expr);
 })];
 struct Postfix_Expr_Tag : x3::annotate_on_success {};
 x3::rule<Postfix_Expr_Tag, ast::Expr> const k_postfix_expr = "postfix_expr";
 BOOST_SPIRIT_DEFINE(k_postfix_expr)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_postfix_expr), Iterator_Type, Context_Type)
 
 // === Binary Operator Parsing with Precedence ===
 // Operator precedence (from lowest to highest):

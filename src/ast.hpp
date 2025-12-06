@@ -136,9 +136,9 @@ struct Binary_Expr : boost::spirit::x3::position_tagged {
 
 // Unary operators (higher precedence than binary)
 enum class Unary_Op : std::uint8_t {
-  Neg,  // - (arithmetic negation)
-  Pos,  // + (arithmetic positive/identity)
-  Not,  // ! (logical NOT)
+  Neg,     // - (arithmetic negation)
+  Pos,     // + (arithmetic positive/identity)
+  Not,     // ! (logical NOT)
   BitNot,  // ~ (bitwise NOT)
 };
 
@@ -471,7 +471,7 @@ inline void to_json(nlohmann::json& a_json, Type_Name_Segment const& a_segment) 
     to_json(type_json, type);
     template_params.push_back(type_json);
   }
-  obj["templateParameters"] = template_params;
+  obj["template_parameters"] = template_params;
   a_json[Type_Name_Segment::k_name] = obj;
 }
 
@@ -497,7 +497,7 @@ inline void to_json(nlohmann::json& a_json, Variable_Name_Segment const& a_segme
     to_json(type_json, type);
     template_params.push_back(type_json);
   }
-  obj["templateParameters"] = template_params;
+  obj["template_parameters"] = template_params;
   a_json[Variable_Name_Segment::k_name] = obj;
 }
 
@@ -652,7 +652,7 @@ inline void to_json(nlohmann::json& a_json, Field_Access_Expr const& a_access) {
   nlohmann::json object_json;
   to_json(object_json, a_access.object.get());
   obj["object"] = object_json;
-  obj["fieldName"] = a_access.field_name;
+  obj["field_name"] = a_access.field_name;
   a_json[Field_Access_Expr::k_name] = obj;
 }
 

@@ -7,8 +7,8 @@ PARSE_TEST(Expr, expr)
 
 namespace {
 // Test helpers
-auto unary_json(std::string_view op, std::string_view operand_json) -> std::string {
-  return fmt::format(R"({{"Unary_Expr":{{"op":"{}","operand":{}}}}})", op, operand_json);
+auto unary_json(std::string_view a_op, std::string_view a_operand_json) -> std::string {
+  return fmt::format(R"({{"Unary_Expr":{{"op":"{}","operand":{}}}}})", a_op, a_operand_json);
 }
 
 // Arithmetic negation tests
@@ -65,7 +65,18 @@ constexpr auto k_neg_field_should_succeed = true;
 constexpr auto k_neg_field_input = "-obj.field";
 inline auto const k_neg_field_expected = unary_json(
     "-",
-    R"({"Field_Access_Expr":{"object":{"Variable_Name":{"segments":[{"Variable_Name_Segment":{"value":"obj","templateParameters":[]}}]}},"fieldName":"field"}})"
+    R"({
+      "Field_Access_Expr": {
+        "object": {
+          "Variable_Name": {
+            "segments": [
+              {"Variable_Name_Segment": {"value": "obj", "template_parameters": []}}
+            ]
+          }
+        },
+        "field_name": "field"
+      }
+    })"
 );
 
 // Unary with function call
@@ -73,7 +84,18 @@ constexpr auto k_neg_call_should_succeed = true;
 constexpr auto k_neg_call_input = "-calculate()";
 inline auto const k_neg_call_expected = unary_json(
     "-",
-    R"({"Function_Call_Expr":{"name":{"Variable_Name":{"segments":[{"Variable_Name_Segment":{"value":"calculate","templateParameters":[]}}]}},"parameters":[]}})"
+    R"({
+      "Function_Call_Expr": {
+        "name": {
+          "Variable_Name": {
+            "segments": [
+              {"Variable_Name_Segment": {"value": "calculate", "template_parameters": []}}
+            ]
+          }
+        },
+        "parameters": []
+      }
+    })"
 );
 
 }  // namespace
