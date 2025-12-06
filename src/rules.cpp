@@ -467,7 +467,15 @@ struct Logical_Or_Op_Symbols : x3::symbols<ast::Binary_Op> {
   Logical_Or_Op_Symbols() { add("||", ast::Binary_Op::Or); }
 } const k_logical_or_op;
 
+// Unary operator symbols
+struct Unary_Op_Symbols : x3::symbols<ast::Unary_Op> {
+  Unary_Op_Symbols() {
+    add("-", ast::Unary_Op::Neg)("+", ast::Unary_Op::Pos)("!", ast::Unary_Op::Not)("~", ast::Unary_Op::BitNot);
+  }
+} const k_unary_op;
+
 // Forward declarations for precedence levels
+struct Unary_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct Multiplicative_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct Additive_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct Comparison_Expr_Tag : x3::annotate_on_success, Error_Handler {};
@@ -475,6 +483,7 @@ struct Equality_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct Logical_And_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct Logical_Or_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 
+x3::rule<Unary_Expr_Tag, ast::Expr> const k_unary_expr = "unary expression";
 x3::rule<Multiplicative_Expr_Tag, ast::Expr> const k_multiplicative_expr = "multiplicative expression";
 x3::rule<Additive_Expr_Tag, ast::Expr> const k_additive_expr = "additive expression";
 x3::rule<Comparison_Expr_Tag, ast::Expr> const k_comparison_expr = "comparison expression";
@@ -498,9 +507,25 @@ auto const k_build_binary_expr = [](auto& a_ctx) {
   x3::_val(a_ctx) = std::move(lhs);
 };
 
-// Level 5 (Highest): Multiplicative (*, /, %)
-auto const k_multiplicative_expr_def =
-    (k_postfix_expr >> *(k_multiplicative_op >> k_postfix_expr))[k_build_binary_expr];
+// Level 6 (Highest): Unary (-, +, !, ~)
+// Right-associative: -(-x) means -((-x))
+// Handles prefix operators applied to postfix expressions
+auto const k_unary_expr_def = (*(k_unary_op) >> k_postfix_expr)[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  auto const& ops = boost::fusion::at_c<0>(attr);
+  ast::Expr expr = std::move(boost::fusion::at_c<1>(attr));
+
+  // Build right-to-left: op1(op2(expr))
+  for (auto it = ops.rbegin(); it != ops.rend(); ++it) {
+    expr = ast::make_expr(ast::make_unary_expr(*it, std::move(expr)));
+  }
+  x3::_val(a_ctx) = std::move(expr);
+})];
+BOOST_SPIRIT_DEFINE(k_unary_expr)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_unary_expr), Iterator_Type, Context_Type)
+
+// Level 5: Multiplicative (*, /, %)
+auto const k_multiplicative_expr_def = (k_unary_expr >> *(k_multiplicative_op >> k_unary_expr))[k_build_binary_expr];
 BOOST_SPIRIT_DEFINE(k_multiplicative_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_multiplicative_expr), Iterator_Type, Context_Type)
 

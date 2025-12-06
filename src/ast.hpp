@@ -104,6 +104,7 @@ struct Struct_Literal : boost::spirit::x3::position_tagged {
 // Comparison: ==, !=, <, >, <=, >=
 // Additive: +, -
 // Multiplicative: *, /, %
+// Unary: -, +, !, ~ (highest precedence)
 enum class Binary_Op : std::uint8_t {
   // Arithmetic operators
   Add,  // +
@@ -133,6 +134,21 @@ struct Binary_Expr : boost::spirit::x3::position_tagged {
   boost::spirit::x3::forward_ast<Expr> rhs;
 };
 
+// Unary operators (higher precedence than binary)
+enum class Unary_Op : std::uint8_t {
+  Neg,  // - (arithmetic negation)
+  Pos,  // + (arithmetic positive/identity)
+  Not,  // ! (logical NOT)
+  BitNot,  // ~ (bitwise NOT)
+};
+
+// Example: -x, !flag, ~bits
+struct Unary_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Unary_Expr";
+  Unary_Op op;
+  boost::spirit::x3::forward_ast<Expr> operand;
+};
+
 // ============================================================================
 // Expression Types
 // ============================================================================
@@ -141,12 +157,12 @@ struct Binary_Expr : boost::spirit::x3::position_tagged {
 struct Expr : boost::spirit::x3::variant<
                   Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
                   boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
-                  Struct_Literal, String, Integer>,
+                  boost::spirit::x3::forward_ast<Unary_Expr>, Struct_Literal, String, Integer>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
-      boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>, Struct_Literal,
-      String, Integer>;
+      boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
+      boost::spirit::x3::forward_ast<Unary_Expr>, Struct_Literal, String, Integer>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -363,6 +379,7 @@ inline Expr make_expr(Integer&& a_integer) noexcept { return Expr{std::move(a_in
 inline Expr make_expr(Function_Call_Expr&& a_call) { return Expr{std::move(a_call)}; }
 inline Expr make_expr(Field_Access_Expr&& a_access) { return Expr{std::move(a_access)}; }
 inline Expr make_expr(Binary_Expr&& a_binary) { return Expr{std::move(a_binary)}; }
+inline Expr make_expr(Unary_Expr&& a_unary) { return Expr{std::move(a_unary)}; }
 inline Expr make_expr(Struct_Literal&& a_literal) { return Expr{std::move(a_literal)}; }
 
 inline Function_Call_Expr make_function_call_expr(Variable_Name&& a_name, std::vector<Expr>&& a_parameters) {
@@ -391,6 +408,11 @@ inline Block make_block(std::vector<Statement>&& a_statements) { return Block{{}
 // Binary expression helper
 inline Binary_Expr make_binary_expr(Expr&& a_lhs, Binary_Op a_op, Expr&& a_rhs) {
   return Binary_Expr{{}, std::move(a_lhs), a_op, std::move(a_rhs)};
+}
+
+// Unary expression helper
+inline Unary_Expr make_unary_expr(Unary_Op a_op, Expr&& a_operand) {
+  return Unary_Expr{{}, a_op, std::move(a_operand)};
 }
 
 // Function helpers
@@ -429,6 +451,7 @@ void to_json(nlohmann::json& a_json, Type_Name_Segment const& a_segment);
 void to_json(nlohmann::json& a_json, Variable_Name_Segment const& a_segment);
 void to_json(nlohmann::json& a_json, Expr const& a_expr);
 void to_json(nlohmann::json& a_json, Binary_Expr const& a_expr);
+void to_json(nlohmann::json& a_json, Unary_Expr const& a_expr);
 void to_json(nlohmann::json& a_json, Function_Call_Expr const& a_call);
 void to_json(nlohmann::json& a_json, Field_Access_Expr const& a_access);
 void to_json(nlohmann::json& a_json, Field_Initializer const& a_initializer);
@@ -520,6 +543,24 @@ inline void to_json(nlohmann::json& a_json, Struct_Literal const& a_literal) {
   a_json[Struct_Literal::k_name] = obj;
 }
 
+// Unary operator serialization
+inline void to_json(nlohmann::json& a_json, Unary_Op a_op) {
+  switch (a_op) {
+    case Unary_Op::Neg:
+      a_json = "-";
+      break;
+    case Unary_Op::Pos:
+      a_json = "+";
+      break;
+    case Unary_Op::Not:
+      a_json = "!";
+      break;
+    case Unary_Op::BitNot:
+      a_json = "~";
+      break;
+  }
+}
+
 // Binary operator serialization
 inline void to_json(nlohmann::json& a_json, Binary_Op a_op) {
   switch (a_op) {
@@ -577,6 +618,17 @@ inline void to_json(nlohmann::json& a_json, Binary_Expr const& a_expr) {
   to_json(rhs_json, a_expr.rhs.get());
   obj["rhs"] = rhs_json;
   a_json[Binary_Expr::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Unary_Expr const& a_expr) {
+  nlohmann::json obj;
+  nlohmann::json op_json;
+  to_json(op_json, a_expr.op);
+  obj["op"] = op_json;
+  nlohmann::json operand_json;
+  to_json(operand_json, a_expr.operand.get());
+  obj["operand"] = operand_json;
+  a_json[Unary_Expr::k_name] = obj;
 }
 
 // Expression serialization (implementations after all parts are declared)

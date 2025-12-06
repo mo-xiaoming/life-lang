@@ -95,6 +95,11 @@ inline std::string type_name(std::string_view a_name) {
   );
 }
 
+// Integer literal
+inline std::string integer(std::string_view a_value) {
+  return fmt::format(R"({{"Integer":{{"value":"{}"}}}})", a_value);
+}
+
 }  // namespace test_json
 
 // Helper to get expected JSON - either from AST object or JSON string
