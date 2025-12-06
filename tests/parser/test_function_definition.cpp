@@ -40,12 +40,14 @@ inline auto const k_with_parameters_expected = fmt::format(
         "parameters": [
           {{
             "Function_Parameter": {{
+              "is_mut": false,
               "name": "a",
               "type": {}
             }}
           }},
           {{
             "Function_Parameter": {{
+              "is_mut": false,
               "name": "b",
               "type": {}
             }}
@@ -149,6 +151,7 @@ inline auto const k_nested_block_expected = fmt::format(
         "parameters": [
           {{
             "Function_Parameter": {{
+              "is_mut": false,
               "name": "a",
               "type": {}
             }}
@@ -265,6 +268,7 @@ inline auto const k_hello_world_expected = R"({
         "parameters": [
           {
             "Function_Parameter": {
+              "is_mut": false,
               "name": "args",
               "type": {
                 "Type_Name": {

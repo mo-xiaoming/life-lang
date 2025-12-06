@@ -23,6 +23,7 @@ inline auto const k_self_only_expected = fmt::format(
         "name": "distance",
         "parameters": [{{
           "Function_Parameter": {{
+            "is_mut": false,
             "name": "self",
             "type": {}
           }}
@@ -59,18 +60,21 @@ inline auto const k_self_with_params_expected = fmt::format(
         "parameters": [
           {{
             "Function_Parameter": {{
+              "is_mut": false,
               "name": "self",
               "type": {}
             }}
           }},
           {{
             "Function_Parameter": {{
+              "is_mut": false,
               "name": "x",
               "type": {}
             }}
           }},
           {{
             "Function_Parameter": {{
+              "is_mut": false,
               "name": "y",
               "type": {}
             }}

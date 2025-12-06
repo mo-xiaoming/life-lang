@@ -43,7 +43,7 @@ using x3::ascii::digit;
 using x3::ascii::lit;
 
 struct Keyword_Symbols : x3::symbols<> {
-  Keyword_Symbols() { add("fn")("let")("return")("struct")("self"); }
+  Keyword_Symbols() { add("fn")("let")("return")("struct")("self")("mut"); }
 } const k_keywords;
 
 // Individual keyword parsers for specific grammar rules (improves error messages)
@@ -52,6 +52,7 @@ auto const k_kw_fn = lexeme[lit("fn") >> !(alnum | '_')];
 auto const k_kw_return = lexeme[lit("return") >> !(alnum | '_')];
 auto const k_kw_struct = lexeme[lit("struct") >> !(alnum | '_')];
 auto const k_kw_self = lexeme[lit("self") >> !(alnum | '_')];
+auto const k_kw_mut = lexeme[lit("mut") >> !(alnum | '_')];
 
 // Reserved word rule: matches any registered keyword (for identifier validation)
 auto const k_reserved = lexeme[k_keywords >> !(alnum | '_')];
@@ -260,13 +261,17 @@ auto const k_param_type_def = k_type_name_rule;
 BOOST_SPIRIT_DEFINE(k_param_type)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_param_type), Iterator_Type, Context_Type)
 
-// Parse function parameter: "name: Type"
-// Example: "x: Int", "callback: Fn<String, Bool>"
-auto const k_function_parameter_rule_def = ((k_param_name > ':') > k_param_type)[([](auto& a_ctx) {
-  auto& attr = x3::_attr(a_ctx);
-  x3::_val(a_ctx) =
-      ast::make_function_parameter(std::move(boost::fusion::at_c<0>(attr)), std::move(boost::fusion::at_c<1>(attr)));
-})];
+// Parse function parameter: "name: Type" or "mut name: Type"
+// Example: "x: Int", "mut self: Point", "callback: Fn<String, Bool>"
+auto const k_function_parameter_rule_def =
+    (((x3::matches[k_kw_mut] >> k_param_name) > ':') > k_param_type)[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) = ast::make_function_parameter(
+          boost::fusion::at_c<0>(attr),             // is_mut: bool (from x3::matches)
+          std::move(boost::fusion::at_c<1>(attr)),  // name: string
+          std::move(boost::fusion::at_c<2>(attr))   // type: Type_Name
+      );
+    })];
 BOOST_SPIRIT_DEFINE(k_function_parameter_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_function_parameter_rule), Iterator_Type, Context_Type)
 
