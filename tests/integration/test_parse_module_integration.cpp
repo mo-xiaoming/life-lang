@@ -44,7 +44,7 @@ TEST_CASE("Parse Module - Complete Input Validation", "[integration][parse_modul
           {"multiple functions", "fn add(a: I32, b: I32): I32 { return 0; } fn main(): I32 { return 0; }", true, ""},
 
           // === Invalid cases - parsing failures ===
-          {"incomplete function", "fn bad syntax", false, "[PARSE_ERROR] Expecting: '('"},
+          {"incomplete function", "fn bad syntax", false, "Expecting: '('"},
           {"incomplete struct", "struct Point {", false, ""},
           {"starts with number", "123 invalid", false, "Unexpected input"},
           {"incomplete function declaration", "fn foo(", false, ""},
@@ -157,7 +157,7 @@ TEST_CASE("Parse Module - Diagnostic Format Matches Clang Style", "[integration]
     //                  source line
     //                  caret pointing to error
     std::string const expected =
-        "test.life:1:1: error: Failed to parse module: [PARSE_ERROR] Expecting: '(' here:\n"
+        "test.life:1:1: error: Failed to parse module: Expecting: '(' here:\n"
         "    fn bad syntax here\n"
         "    ^\n";
 

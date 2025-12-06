@@ -1,26 +1,91 @@
+#include "internal_rules.hpp"
 #include "utils.hpp"
 
 using life_lang::ast::Integer;
 
 PARSE_TEST(Integer, integer)
 
+namespace {
+
+constexpr auto k_zero_should_succeed = true;
+constexpr auto k_zero_input = "0";
+constexpr auto k_zero_expected = R"({"Integer": {"value": "0"}})";
+
+constexpr auto k_simple_number_should_succeed = true;
+constexpr auto k_simple_number_input = "123";
+constexpr auto k_simple_number_expected = R"({"Integer": {"value": "123"}})";
+
+constexpr auto k_large_number_should_succeed = true;
+constexpr auto k_large_number_input = "987654321";
+constexpr auto k_large_number_expected = R"({"Integer": {"value": "987654321"}})";
+
+constexpr auto k_with_underscores_should_succeed = true;
+constexpr auto k_with_underscores_input = "12_34_5";
+constexpr auto k_with_underscores_expected = R"({"Integer": {"value": "12345"}})";
+
+constexpr auto k_multiple_underscores_should_succeed = true;
+constexpr auto k_multiple_underscores_input = "1_2_3_4";
+constexpr auto k_multiple_underscores_expected = R"({"Integer": {"value": "1234"}})";
+
+constexpr auto k_with_trailing_text_should_succeed = true;
+constexpr auto k_with_trailing_text_input = "42 abc";
+constexpr auto k_with_trailing_text_expected = R"({"Integer": {"value": "42"}})";
+
+// Invalid cases
+constexpr auto k_invalid_starts_with_zero_should_succeed = false;
+constexpr auto k_invalid_starts_with_zero_input = "0123";
+constexpr auto k_invalid_starts_with_zero_expected = "{}";
+
+constexpr auto k_invalid_starts_with_underscore_should_succeed = false;
+constexpr auto k_invalid_starts_with_underscore_input = "_12";
+constexpr auto k_invalid_starts_with_underscore_expected = "{}";
+
+constexpr auto k_invalid_ends_with_underscore_should_succeed = false;
+constexpr auto k_invalid_ends_with_underscore_input = "12_";
+constexpr auto k_invalid_ends_with_underscore_expected = "{}";
+
+constexpr auto k_invalid_zero_with_underscore_should_succeed = false;
+constexpr auto k_invalid_zero_with_underscore_input = "0_";
+constexpr auto k_invalid_zero_with_underscore_expected = "{}";
+
+constexpr auto k_invalid_underscore_before_zero_should_succeed = false;
+constexpr auto k_invalid_underscore_before_zero_input = "_0";
+constexpr auto k_invalid_underscore_before_zero_expected = "{}";
+
+constexpr auto k_invalid_empty_should_succeed = false;
+constexpr auto k_invalid_empty_input = "";
+constexpr auto k_invalid_empty_expected = "{}";
+
+constexpr auto k_invalid_letter_should_succeed = false;
+constexpr auto k_invalid_letter_input = "abc";
+constexpr auto k_invalid_letter_expected = "{}";
+
+}  // namespace
+
 TEST_CASE("Parse Integer", "[parser]") {
   auto const params = GENERATE(
       Catch::Generators::values<Integer_Params>({
-          {"zero", "0", R"({"Integer": {"value": "0"}})", true, ""},
-          {"simple number", "123", R"({"Integer": {"value": "123"}})", true, ""},
-          {"large number", "987654321", R"({"Integer": {"value": "987654321"}})", true, ""},
-          {"with underscores", "12_34_5", R"({"Integer": {"value": "12345"}})", true, ""},
-          {"multiple underscores", "1_2_3_4", R"({"Integer": {"value": "1234"}})", true, ""},
-          {"with trailing text", "42 abc", R"({"Integer": {"value": "42"}})", true, "abc"},
-          // Invalid cases
-          {"invalid - starts with zero", "0123", "{}", false, "0123"},
-          {"invalid - starts with underscore", "_12", "{}", false, "_12"},
-          {"invalid - ends with underscore", "12_", "{}", false, "12_"},
-          {"invalid - zero with underscore", "0_", "{}", false, "0_"},
-          {"invalid - underscore before zero", "_0", "{}", false, "_0"},
-          {"invalid - empty", "", "{}", false, ""},
-          {"invalid - letter", "abc", "{}", false, "abc"},
+          {"zero", k_zero_input, k_zero_expected, k_zero_should_succeed},
+          {"simple number", k_simple_number_input, k_simple_number_expected, k_simple_number_should_succeed},
+          {"large number", k_large_number_input, k_large_number_expected, k_large_number_should_succeed},
+          {"with underscores", k_with_underscores_input, k_with_underscores_expected,
+           k_with_underscores_should_succeed},
+          {"multiple underscores", k_multiple_underscores_input, k_multiple_underscores_expected,
+           k_multiple_underscores_should_succeed},
+          {"with trailing text", k_with_trailing_text_input, k_with_trailing_text_expected,
+           k_with_trailing_text_should_succeed},
+          {"invalid - starts with zero", k_invalid_starts_with_zero_input, k_invalid_starts_with_zero_expected,
+           k_invalid_starts_with_zero_should_succeed},
+          {"invalid - starts with underscore", k_invalid_starts_with_underscore_input,
+           k_invalid_starts_with_underscore_expected, k_invalid_starts_with_underscore_should_succeed},
+          {"invalid - ends with underscore", k_invalid_ends_with_underscore_input,
+           k_invalid_ends_with_underscore_expected, k_invalid_ends_with_underscore_should_succeed},
+          {"invalid - zero with underscore", k_invalid_zero_with_underscore_input,
+           k_invalid_zero_with_underscore_expected, k_invalid_zero_with_underscore_should_succeed},
+          {"invalid - underscore before zero", k_invalid_underscore_before_zero_input,
+           k_invalid_underscore_before_zero_expected, k_invalid_underscore_before_zero_should_succeed},
+          {"invalid - empty", k_invalid_empty_input, k_invalid_empty_expected, k_invalid_empty_should_succeed},
+          {"invalid - letter", k_invalid_letter_input, k_invalid_letter_expected, k_invalid_letter_should_succeed},
       })
   );
 

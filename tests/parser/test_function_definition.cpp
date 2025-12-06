@@ -1,3 +1,4 @@
+#include "internal_rules.hpp"
 #include "utils.hpp"
 
 using life_lang::ast::Function_Definition;
@@ -8,6 +9,7 @@ PARSE_TEST(Function_Definition, function_definition)
 
 namespace {
 // Simple function definitions
+constexpr auto k_empty_body_should_succeed = true;
 constexpr auto k_empty_body_input = "fn hello(): Int {}";
 inline auto const k_empty_body_expected = fmt::format(
     R"({{
@@ -30,6 +32,7 @@ inline auto const k_empty_body_expected = fmt::format(
 );
 
 // Functions with parameters
+constexpr auto k_with_parameters_should_succeed = true;
 constexpr auto k_with_parameters_input = "fn hello(a: Int, b: Double): Int {}";
 inline auto const k_with_parameters_expected = fmt::format(
     R"({{
@@ -67,6 +70,7 @@ inline auto const k_with_parameters_expected = fmt::format(
 );
 
 // Functions with statements
+constexpr auto k_with_return_should_succeed = true;
 constexpr auto k_with_return_input = "fn hello(): Int {return world;}";
 inline auto const k_with_return_expected = fmt::format(
     R"({{
@@ -94,6 +98,7 @@ inline auto const k_with_return_expected = fmt::format(
     type_name("Int"), var_name("world")
 );
 
+constexpr auto k_with_statements_should_succeed = true;
 constexpr auto k_with_statements_input = "fn hello(): Int {foo(); return 0;}";
 inline auto const k_with_statements_expected = fmt::format(
     R"({{
@@ -136,6 +141,7 @@ inline auto const k_with_statements_expected = fmt::format(
 );
 
 // Nested constructs
+constexpr auto k_nested_block_should_succeed = true;
 constexpr auto k_nested_block_input = R"(fn hello(a: Int): Int {
     hello();
     {
@@ -192,6 +198,7 @@ inline auto const k_nested_block_expected = fmt::format(
     type_name("Int"), type_name("Int"), var_name("hello"), var_name("world")
 );
 
+constexpr auto k_nested_function_should_succeed = true;
 constexpr auto k_nested_function_input = R"(fn hello(): Int {
     fn world(): Int {
         return 0;
@@ -256,6 +263,7 @@ inline auto const k_nested_function_expected = fmt::format(
 );
 
 // Complex real-world examples
+constexpr auto k_hello_world_should_succeed = true;
 constexpr auto k_hello_world_input = R"(fn main(args: Std.Array<Std.String>): I32 {
     Std.print("Hello, world!");
     return 0;
@@ -376,6 +384,7 @@ inline auto const k_hello_world_expected = R"({
 })";
 
 // Trailing content
+constexpr auto k_with_trailing_code_should_succeed = true;
 constexpr auto k_with_trailing_code_input = "fn foo(): Int {} bar";
 inline auto const k_with_trailing_code_expected = fmt::format(
     R"({{
@@ -398,7 +407,9 @@ inline auto const k_with_trailing_code_expected = fmt::format(
 );
 
 // Invalid cases
+constexpr auto k_invalid_no_fn_keyword_should_succeed = false;
 constexpr auto k_invalid_no_fn_keyword_input = "hello(): Int {}";
+constexpr auto k_invalid_empty_should_succeed = false;
 constexpr auto k_invalid_empty_input = "";
 inline auto const k_invalid_expected = R"({
   "Function_Definition": {
@@ -427,28 +438,30 @@ TEST_CASE("Parse Function_Definition", "[parser]") {
   auto const params = GENERATE(
       Catch::Generators::values<Function_Definition_Params>({
           // Simple function definitions
-          {"empty body", k_empty_body_input, k_empty_body_expected, true, ""},
+          {"empty body", k_empty_body_input, k_empty_body_expected, k_empty_body_should_succeed},
 
           // Functions with parameters
-          {"with parameters", k_with_parameters_input, k_with_parameters_expected, true, ""},
+          {"with parameters", k_with_parameters_input, k_with_parameters_expected, k_with_parameters_should_succeed},
 
           // Functions with statements
-          {"with return", k_with_return_input, k_with_return_expected, true, ""},
-          {"with statements", k_with_statements_input, k_with_statements_expected, true, ""},
+          {"with return", k_with_return_input, k_with_return_expected, k_with_return_should_succeed},
+          {"with statements", k_with_statements_input, k_with_statements_expected, k_with_statements_should_succeed},
 
           // Nested constructs
-          {"nested block", k_nested_block_input, k_nested_block_expected, true, ""},
-          {"nested function", k_nested_function_input, k_nested_function_expected, true, ""},
+          {"nested block", k_nested_block_input, k_nested_block_expected, k_nested_block_should_succeed},
+          {"nested function", k_nested_function_input, k_nested_function_expected, k_nested_function_should_succeed},
 
           // Complex real-world examples
-          {"hello world", k_hello_world_input, k_hello_world_expected, true, ""},
+          {"hello world", k_hello_world_input, k_hello_world_expected, k_hello_world_should_succeed},
 
           // Trailing content
-          {"with trailing code", k_with_trailing_code_input, k_with_trailing_code_expected, true, "bar"},
+          {"with trailing code", k_with_trailing_code_input, k_with_trailing_code_expected,
+           k_with_trailing_code_should_succeed},
 
           // Invalid cases
-          {"invalid - no fn keyword", k_invalid_no_fn_keyword_input, k_invalid_expected, false, "hello(): Int {}"},
-          {"invalid - empty", k_invalid_empty_input, k_invalid_expected, false, ""},
+          {"invalid - no fn keyword", k_invalid_no_fn_keyword_input, k_invalid_expected,
+           k_invalid_no_fn_keyword_should_succeed},
+          {"invalid - empty", k_invalid_empty_input, k_invalid_expected, k_invalid_empty_should_succeed},
       })
   );
 

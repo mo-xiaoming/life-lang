@@ -1,3 +1,4 @@
+#include "internal_rules.hpp"
 #include "utils.hpp"
 
 using life_lang::ast::Struct_Definition;
@@ -6,141 +7,148 @@ PARSE_TEST(Struct_Definition, struct_definition)
 
 namespace {
 // Empty struct
+constexpr auto k_empty_struct_should_succeed = true;
 constexpr auto k_empty_struct_input = "struct Empty {}";
+constexpr auto k_empty_struct_expected = R"({"Struct_Definition": {"fields": [], "name": "Empty"}})";
 
 // Single field
+constexpr auto k_single_field_should_succeed = true;
 constexpr auto k_single_field_input = "struct Point { x: I32 }";
+constexpr auto k_single_field_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})";
 
 // Two fields
+constexpr auto k_two_fields_should_succeed = true;
 constexpr auto k_two_fields_input = "struct Point { x: I32, y: I32 }";
+constexpr auto k_two_fields_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "y", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})";
 
 // Multiple fields
+constexpr auto k_multiple_fields_should_succeed = true;
 constexpr auto k_multiple_fields_input = "struct Person { name: String, age: I32, active: Bool }";
+constexpr auto k_multiple_fields_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "name", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "String"}}]}}}}, {"Struct_Field": {"name": "age", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "active", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "Bool"}}]}}}}], "name": "Person"}})";
 
 // Qualified types
+constexpr auto k_qualified_types_should_succeed = true;
 constexpr auto k_qualified_types_input = "struct Data { value: Std.String, count: Std.I32 }";
+constexpr auto k_qualified_types_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "value", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "Std"}}, {"Type_Name_Segment": {"templateParameters": [], "value": "String"}}]}}}}, {"Struct_Field": {"name": "count", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "Std"}}, {"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Data"}})";
 
 // Template types
+constexpr auto k_template_types_should_succeed = true;
 constexpr auto k_template_types_input = "struct Container { items: Vec<I32>, names: Array<String> }";
+constexpr auto k_template_types_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "items", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [{"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}], "value": "Vec"}}]}}}}, {"Struct_Field": {"name": "names", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [{"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "String"}}]}}], "value": "Array"}}]}}}}], "name": "Container"}})";
 
 // Complex nested templates
+constexpr auto k_complex_nested_should_succeed = true;
 constexpr auto k_complex_nested_input = "struct Complex { data: Map<String, Vec<I32>> }";
+constexpr auto k_complex_nested_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "data", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [{"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "String"}}]}}, {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [{"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}], "value": "Vec"}}]}}], "value": "Map"}}]}}}}], "name": "Complex"}})";
 
 // Whitespace variations
+constexpr auto k_no_spaces_should_succeed = true;
 constexpr auto k_no_spaces_input = "struct Foo{x:I32,y:I32}";
+constexpr auto k_no_spaces_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "y", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Foo"}})";
+
+constexpr auto k_multiline_should_succeed = true;
 constexpr auto k_multiline_input = R"(struct Point {
   x: I32,
   y: I32
 })";
+constexpr auto k_multiline_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "y", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})";
 
 // Trailing comma (should be allowed)
+constexpr auto k_trailing_comma_should_succeed = true;
 constexpr auto k_trailing_comma_input = "struct Point { x: I32, y: I32, }";
+constexpr auto k_trailing_comma_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "y", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})";
 
 // Struct name variations (Camel_Snake_Case)
+constexpr auto k_camel_case_name_should_succeed = true;
 constexpr auto k_camel_case_name_input = "struct MyStruct { value: I32 }";
+constexpr auto k_camel_case_name_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "value", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "MyStruct"}})";
+
+constexpr auto k_camel_snake_case_name_should_succeed = true;
 constexpr auto k_camel_snake_case_name_input = "struct My_Struct { value: I32 }";
+constexpr auto k_camel_snake_case_name_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "value", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "My_Struct"}})";
+
+constexpr auto k_http_response_name_should_succeed = true;
 constexpr auto k_http_response_name_input = "struct HTTP_Response { code: I32 }";
+constexpr auto k_http_response_name_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "code", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "HTTP_Response"}})";
 
 // Trailing content
+constexpr auto k_with_trailing_content_should_succeed = true;
 constexpr auto k_with_trailing_content_input = "struct Point { x: I32 } fn";
+constexpr auto k_with_trailing_content_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})";
+
+// Parser accepts any identifier - naming conventions checked at semantic analysis
+constexpr auto k_lowercase_name_accepted_should_succeed = true;
+constexpr auto k_lowercase_name_accepted_input = "struct point { x: I32 }";
+constexpr auto k_lowercase_name_accepted_expected =
+    R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "point"}})";
 
 // Invalid cases
+constexpr auto k_invalid_no_name_should_succeed = false;
 constexpr auto k_invalid_no_name_input = "struct { x: I32 }";
+constexpr auto k_invalid_no_name_expected = R"({"Struct_Definition": {"fields": [], "name": ""}})";
+
+constexpr auto k_invalid_no_braces_should_succeed = false;
 constexpr auto k_invalid_no_braces_input = "struct Point";
+constexpr auto k_invalid_no_braces_expected = R"({"Struct_Definition": {"fields": [], "name": ""}})";
+
+constexpr auto k_invalid_missing_closing_should_succeed = false;
 constexpr auto k_invalid_missing_closing_input = "struct Point { x: I32";
+constexpr auto k_invalid_missing_closing_expected = R"({"Struct_Definition": {"fields": [], "name": ""}})";
+
+constexpr auto k_invalid_missing_field_type_should_succeed = false;
 constexpr auto k_invalid_missing_field_type_input = "struct Point { x: }";
-constexpr auto k_invalid_lowercase_name_input = "struct point { x: I32 }";
+constexpr auto k_invalid_missing_field_type_expected = R"({"Struct_Definition": {"fields": [], "name": ""}})";
+
+constexpr auto k_invalid_empty_should_succeed = false;
 constexpr auto k_invalid_empty_input = "";
+constexpr auto k_invalid_empty_expected = R"({"Struct_Definition": {"fields": [], "name": ""}})";
 }  // namespace
 
 TEST_CASE("Parse Struct_Definition", "[parser]") {
-  auto const
-      params =
-          GENERATE(
-              Catch::Generators::values<Struct_Definition_Params>(
-                  {
-                      // Empty struct
-                      {"empty struct", k_empty_struct_input,
-                       R"({"Struct_Definition": {"fields": [], "name": "Empty"}})", true, ""},
-
-                      // Single field
-                      {"single field", k_single_field_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})",
-                       true, ""},
-
-                      // Two fields
-                      {"two fields", k_two_fields_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "y", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})",
-                       true, ""},
-
-                      // Multiple fields
-                      {"multiple fields", k_multiple_fields_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "name", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "String"}}]}}}}, {"Struct_Field": {"name": "age", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "active", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "Bool"}}]}}}}], "name": "Person"}})",
-                       true, ""},
-
-                      // Qualified types
-                      {"qualified types", k_qualified_types_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "value", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "Std"}}, {"Type_Name_Segment": {"templateParameters": [], "value": "String"}}]}}}}, {"Struct_Field": {"name": "count", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "Std"}}, {"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Data"}})",
-                       true, ""},
-
-                      // Template types
-                      {"template types", k_template_types_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "items", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [{"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}], "value": "Vec"}}]}}}}, {"Struct_Field": {"name": "names", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [{"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "String"}}]}}], "value": "Array"}}]}}}}], "name": "Container"}})",
-                       true, ""},
-
-                      // Complex nested templates
-                      {"complex nested", k_complex_nested_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "data", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [{"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "String"}}]}}, {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [{"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}], "value": "Vec"}}]}}], "value": "Map"}}]}}}}], "name": "Complex"}})", true,
-                       ""},
-
-                      // Whitespace variations
-                      {"no spaces", k_no_spaces_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "y", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Foo"}})",
-                       true, ""},
-                      {"multiline", k_multiline_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "y", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})",
-                       true, ""},
-
-                      // Trailing comma
-                      {"trailing comma", k_trailing_comma_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}, {"Struct_Field": {"name": "y", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})",
-                       true, ""},
-
-                      // Struct name variations (Camel_Snake_Case)
-                      {"camel case name", k_camel_case_name_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "value", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "MyStruct"}})",
-                       true, ""},
-                      {"camel snake case name", k_camel_snake_case_name_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "value", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "My_Struct"}})",
-                       true, ""},
-                      {"HTTP response name", k_http_response_name_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "code", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "HTTP_Response"}})",
-                       true, ""},
-
-                      // Trailing content
-                      {"with trailing content", k_with_trailing_content_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "Point"}})",
-                       true, "fn"},
-
-                      // Parser accepts any identifier - naming conventions checked at semantic analysis
-                      {"lowercase name accepted", k_invalid_lowercase_name_input,
-                       R"({"Struct_Definition": {"fields": [{"Struct_Field": {"name": "x", "type": {"Type_Name": {"segments": [{"Type_Name_Segment": {"templateParameters": [], "value": "I32"}}]}}}}], "name": "point"}})",
-                       true, ""},
-
-                      // Invalid cases
-                      {"invalid - no name", k_invalid_no_name_input,
-                       R"({"Struct_Definition": {"fields": [], "name": ""}})", false, "{ x: I32 }"},
-                      {"invalid - no braces", k_invalid_no_braces_input,
-                       R"({"Struct_Definition": {"fields": [], "name": ""}})", false, ""},
-                      {"invalid - missing closing", k_invalid_missing_closing_input,
-                       R"({"Struct_Definition": {"fields": [], "name": ""}})", false, ""},
-                      {"invalid - missing field type", k_invalid_missing_field_type_input,
-                       R"({"Struct_Definition": {"fields": [], "name": ""}})", false, "x: }"},
-                      {"invalid - empty", k_invalid_empty_input, R"({"Struct_Definition": {"fields": [], "name": ""}})",
-                       false, ""},
-                  }
-              )
-          );
+  auto const params = GENERATE(
+      Catch::Generators::values<Struct_Definition_Params>({
+          {"empty struct", k_empty_struct_input, k_empty_struct_expected, k_empty_struct_should_succeed},
+          {"single field", k_single_field_input, k_single_field_expected, k_single_field_should_succeed},
+          {"two fields", k_two_fields_input, k_two_fields_expected, k_two_fields_should_succeed},
+          {"multiple fields", k_multiple_fields_input, k_multiple_fields_expected, k_multiple_fields_should_succeed},
+          {"qualified types", k_qualified_types_input, k_qualified_types_expected, k_qualified_types_should_succeed},
+          {"template types", k_template_types_input, k_template_types_expected, k_template_types_should_succeed},
+          {"complex nested", k_complex_nested_input, k_complex_nested_expected, k_complex_nested_should_succeed},
+          {"no spaces", k_no_spaces_input, k_no_spaces_expected, k_no_spaces_should_succeed},
+          {"multiline", k_multiline_input, k_multiline_expected, k_multiline_should_succeed},
+          {"trailing comma", k_trailing_comma_input, k_trailing_comma_expected, k_trailing_comma_should_succeed},
+          {"camel case name", k_camel_case_name_input, k_camel_case_name_expected, k_camel_case_name_should_succeed},
+          {"camel snake case name", k_camel_snake_case_name_input, k_camel_snake_case_name_expected,
+           k_camel_snake_case_name_should_succeed},
+          {"HTTP response name", k_http_response_name_input, k_http_response_name_expected,
+           k_http_response_name_should_succeed},
+          {"with trailing content", k_with_trailing_content_input, k_with_trailing_content_expected,
+           k_with_trailing_content_should_succeed},
+          {"lowercase name accepted", k_lowercase_name_accepted_input, k_lowercase_name_accepted_expected,
+           k_lowercase_name_accepted_should_succeed},
+          {"invalid - no name", k_invalid_no_name_input, k_invalid_no_name_expected, k_invalid_no_name_should_succeed},
+          {"invalid - no braces", k_invalid_no_braces_input, k_invalid_no_braces_expected,
+           k_invalid_no_braces_should_succeed},
+          {"invalid - missing closing", k_invalid_missing_closing_input, k_invalid_missing_closing_expected,
+           k_invalid_missing_closing_should_succeed},
+          {"invalid - missing field type", k_invalid_missing_field_type_input, k_invalid_missing_field_type_expected,
+           k_invalid_missing_field_type_should_succeed},
+          {"invalid - empty", k_invalid_empty_input, k_invalid_empty_expected, k_invalid_empty_should_succeed},
+      })
+  );
 
   INFO(params.name);
   check_parse(params);
