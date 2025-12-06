@@ -26,9 +26,9 @@ TEST_CASE("Parse Field Access", "[parser]") {
           {"not field access - just path", "p", true, ""},
           {"not field access - just integer", "42", true, ""},
 
-          // Invalid cases
-          {"invalid - missing field name after dot", "p.", false, ""},
-          {"invalid - double dot", "p..x", false, ".x"},
+          // Invalid cases - when parse fails, iterator is not advanced
+          {"invalid - missing field name after dot", "p.", false, "p."},
+          {"invalid - double dot", "p..x", false, "p..x"},
           {"invalid - empty", "", false, ""},
 
           // Note: "p.X" is NOT tested here because it's actually valid - it parses as a Path with segments ["p", "X"]

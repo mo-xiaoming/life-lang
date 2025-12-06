@@ -267,7 +267,7 @@ auto const k_function_parameter_rule_def =
     (((x3::matches[k_kw_mut] >> k_param_name) > ':') > k_param_type)[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
       x3::_val(a_ctx) = ast::make_function_parameter(
-          boost::fusion::at_c<0>(attr),             // is_mut: bool (from x3::matches)
+          boost::fusion::at_c<0>(attr),             // is_mut: bool
           std::move(boost::fusion::at_c<1>(attr)),  // name: string
           std::move(boost::fusion::at_c<2>(attr))   // type: Type_Name
       );
@@ -399,14 +399,6 @@ auto const k_struct_literal_rule_def =
 BOOST_SPIRIT_DEFINE(k_struct_literal_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_literal_rule), Iterator_Type, Context_Type)
 
-// Parse field access: "expr.field"
-// Examples:
-//   Simple:   p.x
-//   Chained:  p.start.x
-// Note: Returns Expr (not Field_Access_Expr) to handle chaining properly
-struct Field_Access_Expr_Tag : x3::annotate_on_success, Error_Handler {};
-x3::rule<Field_Access_Expr_Tag, ast::Expr> const k_field_access_expr_rule = "field access";
-
 // Parse field name in field access: any identifier (naming convention checked at semantic analysis)
 // Rule wrapper needed for proper attribute extraction in semantic action
 x3::rule<struct field_access_name_tag, std::string> const k_field_access_name = "field name";
@@ -421,8 +413,10 @@ auto const k_primary_expr_def =
 BOOST_SPIRIT_DEFINE(k_primary_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_primary_expr), Iterator_Type, Context_Type)
 
-// Field access is left-associative: expr.field.field...
-auto const k_field_access_expr_rule_def = (k_primary_expr >> +('.' > k_field_access_name))[([](auto& a_ctx) {
+// Postfix expression: primary followed by optional field access chain
+// Handles both plain primaries (variables, literals) and field access (obj.field.nested)
+// Uses * (zero or more) to accept plain expressions, validates fields when dot present
+auto const k_postfix_expr_def = (k_primary_expr >> *('.' > k_field_access_name))[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   ast::Expr expr = std::move(boost::fusion::at_c<0>(attr));
   auto const& fields = boost::fusion::at_c<1>(attr);
@@ -433,12 +427,112 @@ auto const k_field_access_expr_rule_def = (k_primary_expr >> +('.' > k_field_acc
   }
   x3::_val(a_ctx) = std::move(expr);
 })];
-BOOST_SPIRIT_DEFINE(k_field_access_expr_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_field_access_expr_rule), Iterator_Type, Context_Type)
+struct Postfix_Expr_Tag : x3::annotate_on_success {};
+x3::rule<Postfix_Expr_Tag, ast::Expr> const k_postfix_expr = "postfix_expr";
+BOOST_SPIRIT_DEFINE(k_postfix_expr)
 
-// Parse expression: variant of different expression types
-// Try field access first (longer match), then fall back to primary expressions
-auto const k_expr_rule_def = k_field_access_expr_rule | k_primary_expr;
+// === Binary Operator Parsing with Precedence ===
+// Operator precedence (from lowest to highest):
+// 1. Logical OR:  ||
+// 2. Logical AND: &&
+// 3. Equality:    ==, !=
+// 4. Comparison:  <, >, <=, >=
+// 5. Additive:    +, -
+// 6. Multiplicative: *, /, %
+
+// Operator symbol tables mapping strings to enums
+struct Multiplicative_Op_Symbols : x3::symbols<ast::Binary_Op> {
+  Multiplicative_Op_Symbols() { add("*", ast::Binary_Op::Mul)("/", ast::Binary_Op::Div)("%", ast::Binary_Op::Mod); }
+} const k_multiplicative_op;
+
+struct Additive_Op_Symbols : x3::symbols<ast::Binary_Op> {
+  Additive_Op_Symbols() { add("+", ast::Binary_Op::Add)("-", ast::Binary_Op::Sub); }
+} const k_additive_op;
+
+struct Comparison_Op_Symbols : x3::symbols<ast::Binary_Op> {
+  Comparison_Op_Symbols() {
+    add("<=", ast::Binary_Op::Le)(">=", ast::Binary_Op::Ge)("<", ast::Binary_Op::Lt)(">", ast::Binary_Op::Gt);
+  }
+} const k_comparison_op;
+
+struct Equality_Op_Symbols : x3::symbols<ast::Binary_Op> {
+  Equality_Op_Symbols() { add("==", ast::Binary_Op::Eq)("!=", ast::Binary_Op::Ne); }
+} const k_equality_op;
+
+struct Logical_And_Op_Symbols : x3::symbols<ast::Binary_Op> {
+  Logical_And_Op_Symbols() { add("&&", ast::Binary_Op::And); }
+} const k_logical_and_op;
+
+struct Logical_Or_Op_Symbols : x3::symbols<ast::Binary_Op> {
+  Logical_Or_Op_Symbols() { add("||", ast::Binary_Op::Or); }
+} const k_logical_or_op;
+
+// Forward declarations for precedence levels
+struct Multiplicative_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct Additive_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct Comparison_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct Equality_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct Logical_And_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct Logical_Or_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+
+x3::rule<Multiplicative_Expr_Tag, ast::Expr> const k_multiplicative_expr = "multiplicative expression";
+x3::rule<Additive_Expr_Tag, ast::Expr> const k_additive_expr = "additive expression";
+x3::rule<Comparison_Expr_Tag, ast::Expr> const k_comparison_expr = "comparison expression";
+x3::rule<Equality_Expr_Tag, ast::Expr> const k_equality_expr = "equality expression";
+x3::rule<Logical_And_Expr_Tag, ast::Expr> const k_logical_and_expr = "logical AND expression";
+x3::rule<Logical_Or_Expr_Tag, ast::Expr> const k_logical_or_expr = "logical OR expression";
+
+// Build left-associative binary expression chains
+// Used by most precedence levels where operands are already Expr
+auto const k_build_binary_expr = [](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  ast::Expr lhs = std::move(boost::fusion::at_c<0>(attr));
+  auto const& rhs_list = boost::fusion::at_c<1>(attr);
+
+  // Build left-associative chain: ((lhs op rhs1) op rhs2) ...
+  for (auto const& rhs_pair : rhs_list) {
+    ast::Binary_Op const op = boost::fusion::at_c<0>(rhs_pair);
+    ast::Expr rhs = std::move(boost::fusion::at_c<1>(rhs_pair));
+    lhs = ast::make_expr(ast::make_binary_expr(std::move(lhs), op, std::move(rhs)));
+  }
+  x3::_val(a_ctx) = std::move(lhs);
+};
+
+// Level 5 (Highest): Multiplicative (*, /, %)
+auto const k_multiplicative_expr_def =
+    (k_postfix_expr >> *(k_multiplicative_op >> k_postfix_expr))[k_build_binary_expr];
+BOOST_SPIRIT_DEFINE(k_multiplicative_expr)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_multiplicative_expr), Iterator_Type, Context_Type)
+
+// Level 4: Additive (+, -)
+auto const k_additive_expr_def =
+    (k_multiplicative_expr >> *(k_additive_op >> k_multiplicative_expr))[k_build_binary_expr];
+BOOST_SPIRIT_DEFINE(k_additive_expr)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_additive_expr), Iterator_Type, Context_Type)
+
+// Level 3: Comparison (<, >, <=, >=)
+auto const k_comparison_expr_def = (k_additive_expr >> *(k_comparison_op >> k_additive_expr))[k_build_binary_expr];
+BOOST_SPIRIT_DEFINE(k_comparison_expr)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_comparison_expr), Iterator_Type, Context_Type)
+
+// Level 2: Equality (==, !=)
+auto const k_equality_expr_def = (k_comparison_expr >> *(k_equality_op >> k_comparison_expr))[k_build_binary_expr];
+BOOST_SPIRIT_DEFINE(k_equality_expr)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_equality_expr), Iterator_Type, Context_Type)
+
+// Level 1: Logical AND (&&)
+auto const k_logical_and_expr_def = (k_equality_expr >> *(k_logical_and_op >> k_equality_expr))[k_build_binary_expr];
+BOOST_SPIRIT_DEFINE(k_logical_and_expr)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_logical_and_expr), Iterator_Type, Context_Type)
+
+// Level 0: Logical OR (||) - lowest precedence
+auto const k_logical_or_expr_def =
+    (k_logical_and_expr >> *(k_logical_or_op >> k_logical_and_expr))[k_build_binary_expr];
+BOOST_SPIRIT_DEFINE(k_logical_or_expr)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_logical_or_expr), Iterator_Type, Context_Type)
+
+// Parse expression: start with lowest precedence (logical OR)
+auto const k_expr_rule_def = k_logical_or_expr;
 BOOST_SPIRIT_DEFINE(k_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_expr_rule), Iterator_Type, Context_Type)
 
