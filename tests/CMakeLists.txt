@@ -19,6 +19,7 @@ target_sources(tests
         parser/test_string.cpp
         parser/test_struct_definition.cpp
         parser/test_field_access.cpp
+        parser/test_method_chaining.cpp
         parser/test_ufcs_function.cpp
         parser/test_unary_expr.cpp
         

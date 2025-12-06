@@ -66,7 +66,7 @@ inline std::string var_name(std::string_view a_name) {
         {{
           "Variable_Name_Segment": {{
             "value": "{}",
-            "templateParameters": []
+            "template_parameters": []
           }}
         }}
       ]
@@ -85,7 +85,7 @@ inline std::string type_name(std::string_view a_name) {
         {{
           "Type_Name_Segment": {{
             "value": "{}",
-            "templateParameters": []
+            "template_parameters": []
           }}
         }}
       ]

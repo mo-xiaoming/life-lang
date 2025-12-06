@@ -104,14 +104,22 @@ struct Expr : x3::variant<...>, x3::position_tagged {
 - **Field access**: Dots in expression positions are always field access
   - `obj.field.nested` → parsed as `Field_Access_Expr` chain
 
+## JSON Serialization Naming
+- **JSON keys use `snake_case`**: All `to_json()` functions must output snake_case keys
+  - ✅ Correct: `"template_parameters"`, `"field_name"`, `"return_type"`
+  - ❌ Wrong: `"templateParameters"`, `"fieldName"`, `"returnType"`
+- **Rationale**: Consistent with language syntax (variables, functions use snake_case)
+- **Test helpers**: `test_json::var_name()`, `test_json::type_name()` generate correct JSON
+
 ## Adding New AST Nodes
 1. Define struct in `ast.hpp` inheriting from `x3::position_tagged` with `k_name`
 2. Add `make_<node>()` helper - use `Type{{}, member1, member2}` (not designated init)
-3. Define parser in `rules.cpp` with Tag inheriting from `x3::annotate_on_success, Error_Handler`
-4. Add `BOOST_SPIRIT_DEFINE()` and `BOOST_SPIRIT_INSTANTIATE()`
-5. Use `PARSE_FN_DECL()` in `rules.hpp` and `PARSE_FN_IMPL()` in `rules.cpp`
-6. Create `test_<node>.cpp` with parameterized tests (see Test Pattern below)
-7. Add to variant if needed (e.g., `Statement`, `Expr`)
+3. Add `to_json()` function using snake_case for all JSON keys
+4. Define parser in `rules.cpp` with Tag inheriting from `x3::annotate_on_success, Error_Handler`
+5. Add `BOOST_SPIRIT_DEFINE()` and `BOOST_SPIRIT_INSTANTIATE()`
+6. Use `PARSE_FN_DECL()` in `rules.hpp` and `PARSE_FN_IMPL()` in `rules.cpp`
+7. Create `test_<node>.cpp` with parameterized tests (see Test Pattern below)
+8. Add to variant if needed (e.g., `Statement`, `Expr`)
 
 ## Test Pattern (All test files must follow this)
 
@@ -126,7 +134,7 @@ namespace {
 // For each test case, define constants in this exact order:
 constexpr auto k_test_name_should_succeed = true;  // 1. SUCCESS FLAG FIRST
 constexpr auto k_test_name_input = "code";          // 2. Input second
-inline auto const k_test_name_expected = R"(json)"; // 3. Expected LAST
+inline auto const k_test_name_expected = R"(json)"; // 3. Expected LAST (pretty printed)
 
 // Use helper functions to reduce JSON duplication:
 // - test_json::var_name("name") for Variable_Name JSON
