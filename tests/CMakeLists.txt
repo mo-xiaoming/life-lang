@@ -20,6 +20,7 @@ target_sources(tests
         parser/test_struct_definition.cpp
         parser/test_field_access.cpp
         parser/test_ufcs_function.cpp
+        parser/test_unary_expr.cpp
         
         # Integration tests - test complete parse_module workflows
         integration/test_parse_module_integration.cpp
