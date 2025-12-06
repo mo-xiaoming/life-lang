@@ -785,10 +785,16 @@ parser::Parse_Result<Ast> parse_with_rule(
     // Find the error message line (starts with k_spirit_error_marker)
     std::size_t const error_pos = spirit_error.find(parser::k_spirit_error_marker);
     if (error_pos != std::string::npos) {
-      // Extract from marker to the next newline
-      std::size_t const newline_pos = spirit_error.find('\n', error_pos);
+      // Skip past the marker to get just the error message
+      std::size_t const text_start = error_pos + parser::k_spirit_error_marker.length();
+      std::size_t const newline_pos = spirit_error.find('\n', text_start);
       if (newline_pos != std::string::npos) {
-        std::string const error_text = spirit_error.substr(error_pos, newline_pos - error_pos);
+        std::string error_text = spirit_error.substr(text_start, newline_pos - text_start);
+        // Trim leading whitespace from the extracted error text
+        auto const first_non_space = error_text.find_first_not_of(' ');
+        if (first_non_space != std::string::npos) {
+          error_text = error_text.substr(first_non_space);
+        }
         error_msg += fmt::format(": {}", error_text);
       }
     }
@@ -807,26 +813,16 @@ parser::Parse_Result<Ast> parse_with_rule(
     );                                                                                                               \
   }
 
-PARSE_FN_IMPL(Variable_Name, variable_name)                      // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Variable_Name_Segment, variable_name_segment)      // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Type_Name_Segment, type_name_segment)              // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Type_Name, type_name)                              // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(String, string)                                    // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Integer, integer)                                  // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Function_Parameter, function_parameter)            // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Function_Declaration, function_declaration)        // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Struct_Field, struct_field)                        // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Struct_Definition, struct_definition)              // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Expr, expr)                                        // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Function_Call_Expr, function_call_expr)            // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Field_Initializer, field_initializer)              // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Struct_Literal, struct_literal)                    // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Function_Call_Statement, function_call_statement)  // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Return_Statement, return_statement)                // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Statement, statement)                              // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Block, block)                                      // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Function_Definition, function_definition)          // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Module, module)                                    // NOLINT(misc-use-internal-linkage)
+// Exposed test API - semantic boundaries only
+PARSE_FN_IMPL(Module, module)                            // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Function_Definition, function_definition)  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Struct_Definition, struct_definition)      // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Statement, statement)                      // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Block, block)                              // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Expr, expr)                                // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Type_Name, type_name)                      // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Integer, integer)                          // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(String, string)                            // NOLINT(misc-use-internal-linkage)
 #undef PARSE_FN_IMPL
 
 }  // namespace life_lang::internal

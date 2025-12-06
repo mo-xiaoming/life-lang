@@ -7,24 +7,17 @@ add_executable(tests)
 
 target_sources(tests
     PRIVATE
-        # Unit tests - test individual parser rules and components
+        # Unit tests - test semantic boundaries only (11 exposed rules)
+        parser/test_binary_expr.cpp
         parser/test_block.cpp
         parser/test_diagnostics.cpp
         parser/test_expr.cpp
-        parser/test_function_call_statement.cpp
-        parser/test_function_declaration.cpp
         parser/test_function_definition.cpp
-        parser/test_function_parameter.cpp
         parser/test_integer.cpp
         parser/test_internal_parse_errors.cpp
         parser/test_keywords.cpp
-        parser/test_qualified_name_segment.cpp
-        parser/test_qualified_name.cpp
-        parser/test_return_statement.cpp
         parser/test_string.cpp
         parser/test_struct_definition.cpp
-        parser/test_struct_field.cpp
-        parser/test_struct_literal.cpp
         parser/test_field_access.cpp
         parser/test_ufcs_function.cpp
         

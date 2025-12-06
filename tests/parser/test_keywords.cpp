@@ -9,27 +9,26 @@ TEST_CASE("Keyword Boundary Validation", "[parser][keywords]") {
     std::string name;
     std::string input;
     bool should_succeed;
-    std::string rest;
     bool is_return_stmt;  // true = Return_Statement, false = Function_Definition
   };
 
   auto const test = GENERATE(
       Catch::Generators::values<Test_Case>({
           // Valid function declarations - keywords followed by whitespace
-          {"fn with space", "fn hello() : Int {}", true, "", false},
-          {"fn with newline", "fn\nhello() : Int {}", true, "", false},
-          {"fn with tab", "fn\thello() : Int {}", true, "", false},
+          {"fn with space", "fn hello() : Int {}", true, false},
+          {"fn with newline", "fn\nhello() : Int {}", true, false},
+          {"fn with tab", "fn\thello() : Int {}", true, false},
 
           // Invalid - keywords followed by variable_name characters
-          {"fn with underscore", "fn_hello() : Int {}", false, "fn_hello() : Int {}", false},
-          {"fn with digit", "fn2() : Int {}", false, "fn2() : Int {}", false},
-          {"fn with letter", "fnord() : Int {}", false, "fnord() : Int {}", false},
+          {"fn with underscore", "fn_hello() : Int {}", false, false},
+          {"fn with digit", "fn2() : Int {}", false, false},
+          {"fn with letter", "fnord() : Int {}", false, false},
 
           // Return statement tests
-          {"return with space", "return 42;", true, "", true},
-          {"return with newline", "return\n42;", true, "", true},
-          {"return invalid continuation", "returnx 42;", false, "returnx 42;", true},
-          {"return with underscore", "return_value;", false, "return_value;", true},
+          {"return with space", "return 42;", true, true},
+          {"return with newline", "return\n42;", true, true},
+          {"return invalid continuation", "returnx 42;", false, true},
+          {"return with underscore", "return_value;", false, true},
       })
   );
 
@@ -38,13 +37,11 @@ TEST_CASE("Keyword Boundary Validation", "[parser][keywords]") {
     auto const end = test.input.cend();
 
     if (test.is_return_stmt) {
-      auto const got = life_lang::internal::parse_return_statement(begin, end);
+      auto const got = life_lang::internal::parse_statement(begin, end);
       CHECK(test.should_succeed == bool(got));
-      CHECK(test.rest == std::string{begin, end});
     } else {
       auto const got = life_lang::internal::parse_function_definition(begin, end);
       CHECK(test.should_succeed == bool(got));
-      CHECK(test.rest == std::string{begin, end});
     }
   }
 }

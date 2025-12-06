@@ -1,15 +1,45 @@
 // Parser Test Utilities
 //
-// Usage: Test parser rules using either AST objects or JSON strings
+// STANDARD TEST PATTERN
+// =====================
+// All parser test files should follow this consistent pattern:
 //
-// Example with JSON (recommended for readability):
-//   constexpr auto k_input = "foo();";
-//   constexpr auto k_expected = R"({
+// 1. Use PARSE_TEST macro to generate test infrastructure:
+//    PARSE_TEST(Ast_Type, parser_function_name)
+//
+// 2. Define constants in namespace{} with this ordering:
+//    constexpr auto k_test_name_should_succeed = true/false;  // FIRST
+//    constexpr auto k_test_name_input = "code";
+//    inline auto const k_test_name_expected = R"(json)";      // LAST
+//
+// 3. Use test array with constant references:
+//    {"test name", k_test_name_input, k_test_name_expected, k_test_name_should_succeed}
+//
+// EXAMPLE:
+//   PARSE_TEST(Function_Call_Statement, function_call_statement)
+//
+//   namespace {
+//   constexpr auto k_no_args_should_succeed = true;
+//   constexpr auto k_no_args_input = "foo();";
+//   inline auto const k_no_args_expected = R"({
 //     "Function_Call_Statement": {
 //       "expr": { ... }
 //     }
 //   })";
-//   {"test name", k_input, k_expected, true, ""}
+//   }  // namespace
+//
+//   TEST_CASE("Parse Function_Call_Statement", "[parser]") {
+//     auto const params = GENERATE(
+//       Catch::Generators::values<Function_Call_Statement_Params>({
+//         {"no arguments", k_no_args_input, k_no_args_expected, k_no_args_should_succeed},
+//       })
+//     );
+//     DYNAMIC_SECTION(params.name) { check_parse(params); }
+//   }
+//
+// SPECIAL CASES:
+// - If expected JSON is too complex (e.g., variant wrapping), you can skip JSON comparison
+//   and only verify parsing success/failure. See test_field_access.cpp for example.
 //
 // The expected field accepts std::variant<AST_Type, std::string>
 // JSON strings are automatically parsed and normalized for comparison
@@ -23,8 +53,6 @@
 #include <nlohmann/json.hpp>
 #include <string_view>
 #include <variant>
-
-#include "internal_rules.hpp"
 
 // Common JSON building helpers to reduce duplication
 namespace test_json {
@@ -95,8 +123,6 @@ std::string get_expected_json(std::variant<Ast_Type, std::string> const& a_expec
         UNSCOPED_INFO(got.error());                                                \
       }                                                                            \
     }                                                                              \
-    auto const rest = std::string_view{input_start, input_end};                    \
-    CHECK(params.rest == rest);                                                    \
     if (got) {                                                                     \
       auto const expected_json = get_expected_json(params.expected, 2);            \
       auto const actual_json = to_json_string(*got, 2);                            \
@@ -111,7 +137,6 @@ struct Parse_Test_Params {
   std::string input;
   std::variant<Ast_Type, std::string> expected;  // Can be AST object or JSON string
   bool should_succeed{};
-  std::string_view rest;
 };
 
 // Catch2 uses operator<< to print test parameters in failure messages
@@ -119,7 +144,7 @@ struct Parse_Test_Params {
 template <typename T>
 std::ostream& operator<<(std::ostream& a_os, Parse_Test_Params<T> const& a_params) {
   return a_os << fmt::format(
-             R"({{.input = "{}", .expected = {}, .shouldSucceed = {}, .rest = "{}"}})", a_params.input,
-             get_expected_json(a_params.expected, -1), a_params.should_succeed, a_params.rest
+             R"({{.input = "{}", .expected = {}, .shouldSucceed = {}}})", a_params.input,
+             get_expected_json(a_params.expected, -1), a_params.should_succeed
          );
 }

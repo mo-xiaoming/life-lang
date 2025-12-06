@@ -1,3 +1,4 @@
+#include "internal_rules.hpp"
 #include "utils.hpp"
 
 using life_lang::ast::Function_Definition;
@@ -107,7 +108,7 @@ TEST_CASE("Parse UFCS function with self parameter", "[parser][ufcs][function]")
       })
   );
 
-  check_parse({.name = "", .input = input, .expected = expected_str, .should_succeed = true, .rest = ""});
+  check_parse({.name = "", .input = input, .expected = expected_str, .should_succeed = true});
 }
 
 TEST_CASE("Parse module with UFCS functions", "[parser][ufcs][module]") {

@@ -110,5 +110,59 @@ struct Expr : x3::variant<...>, x3::position_tagged {
 3. Define parser in `rules.cpp` with Tag inheriting from `x3::annotate_on_success, Error_Handler`
 4. Add `BOOST_SPIRIT_DEFINE()` and `BOOST_SPIRIT_INSTANTIATE()`
 5. Use `PARSE_FN_DECL()` in `rules.hpp` and `PARSE_FN_IMPL()` in `rules.cpp`
-6. Create `test_<node>.cpp` with parameterized tests
+6. Create `test_<node>.cpp` with parameterized tests (see Test Pattern below)
 7. Add to variant if needed (e.g., `Statement`, `Expr`)
+
+## Test Pattern (All test files must follow this)
+
+### Standard Pattern (with JSON comparison)
+```cpp
+#include "utils.hpp"
+using life_lang::ast::Ast_Type;
+
+PARSE_TEST(Ast_Type, parser_function_name)  // Generates check_parse() and Params type
+
+namespace {
+// For each test case, define constants in this exact order:
+constexpr auto k_test_name_should_succeed = true;  // 1. SUCCESS FLAG FIRST
+constexpr auto k_test_name_input = "code";          // 2. Input second
+inline auto const k_test_name_expected = R"(json)"; // 3. Expected LAST
+
+// Use helper functions to reduce JSON duplication:
+// - test_json::var_name("name") for Variable_Name JSON
+// - test_json::type_name("Type") for Type_Name JSON
+// - fmt::format() for dynamic JSON generation
+}  // namespace
+
+TEST_CASE("Parse Ast_Type", "[parser]") {
+  auto const params = GENERATE(
+    Catch::Generators::values<Ast_Type_Params>({
+      {"test", k_test_name_input, k_test_name_expected, k_test_name_should_succeed},
+    })
+  );
+  DYNAMIC_SECTION(params.name) { check_parse(params); }
+}
+```
+
+### Special Case (success-only validation, no JSON comparison)
+When expected JSON is too complex to construct (e.g., deeply nested variants):
+```cpp
+// See tests/parser/test_field_access.cpp for full example
+namespace {
+constexpr auto k_test_should_succeed = true;  // Still use should_succeed first
+constexpr auto k_test_input = "code";
+// No k_test_expected - will manually verify parse result
+}
+
+TEST_CASE("Parse Special", "[parser]") {
+  // Custom Test_Case struct without expected field
+  // Manually call parse function and verify success/failure only
+}
+```
+
+### Key Principles
+1. **Constant order**: `should_succeed` → `input` → `expected` (always)
+2. **Extract all inline data**: No inline strings/JSON in test arrays
+3. **Use PARSE_TEST macro**: Unless JSON comparison is impractical
+4. **Group related constants**: Keep test case constants together with comments
+5. **Invalid tests**: Use `should_succeed = false` for error cases
