@@ -21,6 +21,7 @@ struct Type_Name;
 struct Variable_Name_Segment;
 struct Function_Call_Expr;
 struct Field_Access_Expr;
+struct Assignment_Expr;
 struct Binary_Expr;
 struct If_Expr;
 struct While_Expr;
@@ -31,6 +32,7 @@ struct Block;
 struct Struct_Definition;
 struct Expr;
 struct Pattern;
+struct Let_Statement;
 
 // ============================================================================
 // Type Name System (for type annotations)
@@ -168,20 +170,22 @@ struct Range_Expr : boost::spirit::x3::position_tagged {
 // Expression Types
 // ============================================================================
 
-// Example: foo.bar.baz() or Point { x: 1 + 2, y: calculate(z) }
+// Example: foo.bar.baz() or Point { x: 1 + 2, y: calculate(z) } or x = 42
 struct Expr : boost::spirit::x3::variant<
                   Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
                   boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
                   boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
                   boost::spirit::x3::forward_ast<While_Expr>, boost::spirit::x3::forward_ast<For_Expr>,
-                  boost::spirit::x3::forward_ast<Range_Expr>, Struct_Literal, String, Integer>,
+                  boost::spirit::x3::forward_ast<Range_Expr>, boost::spirit::x3::forward_ast<Assignment_Expr>,
+                  Struct_Literal, String, Integer>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
       boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
       boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
       boost::spirit::x3::forward_ast<While_Expr>, boost::spirit::x3::forward_ast<For_Expr>,
-      boost::spirit::x3::forward_ast<Range_Expr>, Struct_Literal, String, Integer>;
+      boost::spirit::x3::forward_ast<Range_Expr>, boost::spirit::x3::forward_ast<Assignment_Expr>, Struct_Literal,
+      String, Integer>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -200,6 +204,14 @@ struct Field_Access_Expr : boost::spirit::x3::position_tagged {
   std::string field_name;
 };
 
+// Example: x = 42 or point.x = 10 or arr[i] = value (future)
+// Assignment requires target to be mutable (checked in semantic analysis)
+struct Assignment_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Assignment_Expr";
+  boost::spirit::x3::forward_ast<Expr> target;  // LHS: variable or field access
+  boost::spirit::x3::forward_ast<Expr> value;   // RHS: expression to assign
+};
+
 // ============================================================================
 // Statement Types
 // ============================================================================
@@ -208,6 +220,14 @@ struct Field_Access_Expr : boost::spirit::x3::position_tagged {
 struct Function_Call_Statement : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Function_Call_Statement";
   Function_Call_Expr expr;
+};
+
+// Example: x = 42;, y = y + 1;, foo();
+// Statement form of any expression - evaluates expression and discards result
+// Useful for assignments, function calls, or other expressions with side effects
+struct Expression_Statement : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Expression_Statement";
+  boost::spirit::x3::forward_ast<Expr> expr;
 };
 
 // Example: return calculate(x + y, Point { a: 1, b: 2 });
@@ -251,17 +271,20 @@ struct For_Statement : boost::spirit::x3::position_tagged {
   boost::spirit::x3::forward_ast<For_Expr> expr;
 };
 
-// Example: Can be function def, struct def, function call, return, break, continue, if, while, for, or nested block
+// Example: Can be function def, struct def, let binding, function call, return, break, continue, if, while, for, or
+// nested block
 struct Statement
     : boost::spirit::x3::variant<
           boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-          Function_Call_Statement, Return_Statement, Break_Statement, Continue_Statement,
+          boost::spirit::x3::forward_ast<Let_Statement>, Function_Call_Statement,
+          boost::spirit::x3::forward_ast<Expression_Statement>, Return_Statement, Break_Statement, Continue_Statement,
           boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<While_Statement>,
           boost::spirit::x3::forward_ast<For_Statement>, boost::spirit::x3::forward_ast<Block>>,
       boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-      Function_Call_Statement, Return_Statement, Break_Statement, Continue_Statement,
+      boost::spirit::x3::forward_ast<Let_Statement>, Function_Call_Statement,
+      boost::spirit::x3::forward_ast<Expression_Statement>, Return_Statement, Break_Statement, Continue_Statement,
       boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<While_Statement>,
       boost::spirit::x3::forward_ast<For_Statement>, boost::spirit::x3::forward_ast<Block>>;
   using Base_Type::Base_Type;
@@ -322,6 +345,20 @@ struct Pattern : boost::spirit::x3::variant<Simple_Pattern, Struct_Pattern, Tupl
   using Base_Type = boost::spirit::x3::variant<Simple_Pattern, Struct_Pattern, Tuple_Pattern>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
+};
+
+// ============================================================================
+// Variable Binding Types
+// ============================================================================
+
+// Example: let x = 42; or let mut y: I32 = calculate(); or let (a, b) = tuple;
+// Introduces a new binding with optional type annotation and optional mutability
+struct Let_Statement : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Let_Statement";
+  bool is_mut;                                 // true if 'mut' keyword present
+  Pattern pattern;                             // Binding pattern (simple, struct, or tuple)
+  boost::optional<Type_Name> type;             // Optional type annotation
+  boost::spirit::x3::forward_ast<Expr> value;  // Initializer expression
 };
 
 // ============================================================================
@@ -507,10 +544,12 @@ inline Expr make_expr(String&& a_str) { return Expr{std::move(a_str)}; }
 inline Expr make_expr(Integer&& a_integer) noexcept { return Expr{std::move(a_integer)}; }
 inline Expr make_expr(Function_Call_Expr&& a_call) { return Expr{std::move(a_call)}; }
 inline Expr make_expr(Field_Access_Expr&& a_access) { return Expr{std::move(a_access)}; }
+inline Expr make_expr(Assignment_Expr&& a_assignment) { return Expr{std::move(a_assignment)}; }
 inline Expr make_expr(Binary_Expr&& a_binary) { return Expr{std::move(a_binary)}; }
 inline Expr make_expr(Unary_Expr&& a_unary) { return Expr{std::move(a_unary)}; }
 inline Expr make_expr(If_Expr&& a_if) { return Expr{std::move(a_if)}; }
 inline Expr make_expr(While_Expr&& a_while) { return Expr{std::move(a_while)}; }
+inline Expr make_expr(For_Expr&& a_for) { return Expr{std::move(a_for)}; }
 inline Expr make_expr(Range_Expr&& a_range) { return Expr{std::move(a_range)}; }
 inline Expr make_expr(Struct_Literal&& a_literal) { return Expr{std::move(a_literal)}; }
 
@@ -520,6 +559,10 @@ inline Function_Call_Expr make_function_call_expr(Variable_Name&& a_name, std::v
 
 inline Field_Access_Expr make_field_access_expr(Expr&& a_object, std::string&& a_field_name) {
   return Field_Access_Expr{{}, std::move(a_object), std::move(a_field_name)};
+}
+
+inline Assignment_Expr make_assignment_expr(Expr&& a_target, Expr&& a_value) {
+  return Assignment_Expr{{}, std::move(a_target), std::move(a_value)};
 }
 
 inline Else_If_Clause make_else_if_clause(Expr&& a_condition, Block&& a_then_block) {
@@ -532,7 +575,7 @@ inline If_Expr make_if_expr(
 ) {
   boost::optional<boost::spirit::x3::forward_ast<Block>> else_block_wrapped;
   if (a_else_block.has_value()) {
-    else_block_wrapped = std::move(*a_else_block);
+    else_block_wrapped = std::move(*std::move(a_else_block));
   }
   return If_Expr{
       {}, std::move(a_condition), std::move(a_then_block), std::move(a_else_ifs), std::move(else_block_wrapped)
@@ -573,6 +616,10 @@ inline Function_Call_Statement make_function_call_statement(Function_Call_Expr&&
   return Function_Call_Statement{{}, std::move(a_expr)};
 }
 
+inline Expression_Statement make_expression_statement(Expr&& a_expr) {
+  return Expression_Statement{{}, std::move(a_expr)};
+}
+
 inline Return_Statement make_return_statement(Expr&& a_expr) { return Return_Statement{{}, std::move(a_expr)}; }
 
 inline Break_Statement make_break_statement(boost::optional<Expr>&& a_value) {
@@ -587,8 +634,16 @@ inline While_Statement make_while_statement(While_Expr&& a_expr) { return While_
 
 inline For_Statement make_for_statement(For_Expr&& a_expr) { return For_Statement{{}, std::move(a_expr)}; }
 
+inline Let_Statement make_let_statement(
+    bool a_is_mut, Pattern&& a_pattern, boost::optional<Type_Name>&& a_type, Expr&& a_value
+) {
+  return Let_Statement{{}, a_is_mut, std::move(a_pattern), std::move(a_type), std::move(a_value)};
+}
+
 inline Statement make_statement(Function_Call_Statement&& a_call) { return Statement{std::move(a_call)}; }
+inline Statement make_statement(Expression_Statement&& a_expr) { return Statement{std::move(a_expr)}; }
 inline Statement make_statement(Return_Statement&& a_ret) { return Statement{std::move(a_ret)}; }
+inline Statement make_statement(Let_Statement&& a_let) { return Statement{std::move(a_let)}; }
 inline Statement make_statement(Block&& a_block) { return Statement{std::move(a_block)}; }
 inline Statement make_statement(Function_Definition&& a_def) { return Statement{std::move(a_def)}; }
 inline Statement make_statement(Struct_Definition&& a_def) { return Statement{std::move(a_def)}; }
@@ -644,7 +699,9 @@ void to_json(nlohmann::json& a_json, Binary_Expr const& a_expr);
 void to_json(nlohmann::json& a_json, Unary_Expr const& a_expr);
 void to_json(nlohmann::json& a_json, Function_Call_Expr const& a_call);
 void to_json(nlohmann::json& a_json, Field_Access_Expr const& a_access);
+void to_json(nlohmann::json& a_json, Assignment_Expr const& a_assignment);
 void to_json(nlohmann::json& a_json, Field_Initializer const& a_initializer);
+void to_json(nlohmann::json& a_json, Let_Statement const& a_let);
 void to_json(nlohmann::json& a_json, Function_Definition const& a_def);
 void to_json(nlohmann::json& a_json, Struct_Definition const& a_def);
 void to_json(nlohmann::json& a_json, Block const& a_block);
@@ -846,6 +903,17 @@ inline void to_json(nlohmann::json& a_json, Field_Access_Expr const& a_access) {
   a_json[Field_Access_Expr::k_name] = obj;
 }
 
+inline void to_json(nlohmann::json& a_json, Assignment_Expr const& a_assignment) {
+  nlohmann::json obj;
+  nlohmann::json target_json;
+  to_json(target_json, a_assignment.target.get());
+  obj["target"] = target_json;
+  nlohmann::json value_json;
+  to_json(value_json, a_assignment.value.get());
+  obj["value"] = value_json;
+  a_json[Assignment_Expr::k_name] = obj;
+}
+
 inline void to_json(nlohmann::json& a_json, Else_If_Clause const& a_else_if) {
   nlohmann::json obj;
   nlohmann::json condition_json;
@@ -983,6 +1051,14 @@ inline void to_json(nlohmann::json& a_json, Function_Call_Statement const& a_cal
   a_json[Function_Call_Statement::k_name] = obj;
 }
 
+inline void to_json(nlohmann::json& a_json, Expression_Statement const& a_stmt) {
+  nlohmann::json obj;
+  nlohmann::json expr_json;
+  to_json(expr_json, a_stmt.expr.get());
+  obj["expr"] = expr_json;
+  a_json[Expression_Statement::k_name] = obj;
+}
+
 inline void to_json(nlohmann::json& a_json, Return_Statement const& a_ret) {
   nlohmann::json obj;
   nlohmann::json expr_json;
@@ -1005,6 +1081,25 @@ inline void to_json(nlohmann::json& a_json, Break_Statement const& a_break) {
 
 inline void to_json(nlohmann::json& a_json, [[maybe_unused]] Continue_Statement const& a_continue) {
   a_json[Continue_Statement::k_name] = nullptr;
+}
+
+inline void to_json(nlohmann::json& a_json, Let_Statement const& a_let) {
+  nlohmann::json obj;
+  obj["is_mut"] = a_let.is_mut;
+  nlohmann::json pattern_json;
+  to_json(pattern_json, a_let.pattern);
+  obj["pattern"] = pattern_json;
+  if (a_let.type.has_value()) {
+    nlohmann::json type_json;
+    to_json(type_json, *a_let.type);
+    obj["type"] = type_json;
+  } else {
+    obj["type"] = nullptr;
+  }
+  nlohmann::json value_json;
+  to_json(value_json, a_let.value.get());
+  obj["value"] = value_json;
+  a_json[Let_Statement::k_name] = obj;
 }
 
 inline void to_json(nlohmann::json& a_json, If_Statement const& a_if) {
