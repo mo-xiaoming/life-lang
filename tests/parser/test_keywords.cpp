@@ -28,7 +28,7 @@ TEST_CASE("Keyword Boundary Validation", "[parser][keywords]") {
           {"return with space", "return 42;", true, true},
           {"return with newline", "return\n42;", true, true},
           {"return invalid continuation", "returnx 42;", false, true},
-          {"return with underscore", "return_value;", false, true},
+          {"return with underscore", "return_value;", true, true},
       })
   );
 

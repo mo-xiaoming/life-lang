@@ -1,0 +1,6 @@
+Diagnostics:
+    Includes:
+        IgnoreHeader:
+            - "internal_rules.hpp"
+    Suppress: 
+        - overloaded-shift-op-parentheses
