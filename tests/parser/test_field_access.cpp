@@ -43,8 +43,9 @@ constexpr auto k_not_field_access_integer_input = "42";
 constexpr auto k_invalid_missing_field_name_should_succeed = false;
 constexpr auto k_invalid_missing_field_name_input = "p.";
 
-constexpr auto k_invalid_double_dot_should_succeed = false;
-constexpr auto k_invalid_double_dot_input = "p..x";
+// Note: p..x is now VALID - it parses as range expression (p..x), not field access
+constexpr auto k_valid_range_not_field_access_should_succeed = true;
+constexpr auto k_valid_range_not_field_access_input = "p..x";
 
 constexpr auto k_invalid_empty_should_succeed = false;
 constexpr auto k_invalid_empty_input = "";
@@ -68,11 +69,12 @@ TEST_CASE("Parse Field Access", "[parser]") {
           {"not field access - just path", k_not_field_access_path_input, k_not_field_access_path_should_succeed},
           {"not field access - just integer", k_not_field_access_integer_input,
            k_not_field_access_integer_should_succeed},
+          {"not field access - range expression", k_valid_range_not_field_access_input,
+           k_valid_range_not_field_access_should_succeed},
 
           // Invalid cases
           {"invalid - missing field name after dot", k_invalid_missing_field_name_input,
            k_invalid_missing_field_name_should_succeed},
-          {"invalid - double dot", k_invalid_double_dot_input, k_invalid_double_dot_should_succeed},
           {"invalid - empty", k_invalid_empty_input, k_invalid_empty_should_succeed},
       })
   );

@@ -24,6 +24,8 @@ struct Field_Access_Expr;
 struct Binary_Expr;
 struct If_Expr;
 struct While_Expr;
+struct For_Expr;
+struct Range_Expr;
 struct Function_Definition;
 struct Block;
 struct Struct_Definition;
@@ -152,6 +154,15 @@ struct Unary_Expr : boost::spirit::x3::position_tagged {
   boost::spirit::x3::forward_ast<Expr> operand;
 };
 
+// Range expression: start..end (exclusive) or start..=end (inclusive)
+// Examples: 0..10, start..end, 1..=100
+struct Range_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Range_Expr";
+  boost::spirit::x3::forward_ast<Expr> start;
+  boost::spirit::x3::forward_ast<Expr> end;
+  bool inclusive;  // false for .., true for ..=
+};
+
 // ============================================================================
 // Expression Types
 // ============================================================================
@@ -161,13 +172,15 @@ struct Expr : boost::spirit::x3::variant<
                   Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
                   boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
                   boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
-                  boost::spirit::x3::forward_ast<While_Expr>, Struct_Literal, String, Integer>,
+                  boost::spirit::x3::forward_ast<While_Expr>, boost::spirit::x3::forward_ast<For_Expr>,
+                  boost::spirit::x3::forward_ast<Range_Expr>, Struct_Literal, String, Integer>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
       boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
       boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
-      boost::spirit::x3::forward_ast<While_Expr>, Struct_Literal, String, Integer>;
+      boost::spirit::x3::forward_ast<While_Expr>, boost::spirit::x3::forward_ast<For_Expr>,
+      boost::spirit::x3::forward_ast<Range_Expr>, Struct_Literal, String, Integer>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -217,17 +230,25 @@ struct While_Statement : boost::spirit::x3::position_tagged {
   boost::spirit::x3::forward_ast<While_Expr> expr;
 };
 
-// Example: Can be function def, struct def, function call, return, if, while, or nested block
-struct Statement
-    : boost::spirit::x3::variant<
-          boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-          Function_Call_Statement, Return_Statement, boost::spirit::x3::forward_ast<If_Statement>,
-          boost::spirit::x3::forward_ast<While_Statement>, boost::spirit::x3::forward_ast<Block>>,
-      boost::spirit::x3::position_tagged {
+// For statement wrapper for using for expressions as statements
+// Example: for item in 0..10 { process(item); }
+struct For_Statement : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "For_Statement";
+  boost::spirit::x3::forward_ast<For_Expr> expr;
+};
+
+// Example: Can be function def, struct def, function call, return, if, while, for, or nested block
+struct Statement : boost::spirit::x3::variant<
+                       boost::spirit::x3::forward_ast<Function_Definition>,
+                       boost::spirit::x3::forward_ast<Struct_Definition>, Function_Call_Statement, Return_Statement,
+                       boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<While_Statement>,
+                       boost::spirit::x3::forward_ast<For_Statement>, boost::spirit::x3::forward_ast<Block>>,
+                   boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
       Function_Call_Statement, Return_Statement, boost::spirit::x3::forward_ast<If_Statement>,
-      boost::spirit::x3::forward_ast<While_Statement>, boost::spirit::x3::forward_ast<Block>>;
+      boost::spirit::x3::forward_ast<While_Statement>, boost::spirit::x3::forward_ast<For_Statement>,
+      boost::spirit::x3::forward_ast<Block>>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -260,6 +281,15 @@ struct If_Expr : boost::spirit::x3::position_tagged {
 struct While_Expr : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "While_Expr";
   boost::spirit::x3::forward_ast<Expr> condition;
+  boost::spirit::x3::forward_ast<Block> body;
+};
+
+// Example: for item in 0..10 { process(item); }
+// Iterates over collection or range, binding each element to variable
+struct For_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "For_Expr";
+  std::string binding;                            // Variable name for loop item (e.g., "item")
+  boost::spirit::x3::forward_ast<Expr> iterator;  // Collection or range expression
   boost::spirit::x3::forward_ast<Block> body;
 };
 
@@ -429,6 +459,7 @@ inline Expr make_expr(Binary_Expr&& a_binary) { return Expr{std::move(a_binary)}
 inline Expr make_expr(Unary_Expr&& a_unary) { return Expr{std::move(a_unary)}; }
 inline Expr make_expr(If_Expr&& a_if) { return Expr{std::move(a_if)}; }
 inline Expr make_expr(While_Expr&& a_while) { return Expr{std::move(a_while)}; }
+inline Expr make_expr(Range_Expr&& a_range) { return Expr{std::move(a_range)}; }
 inline Expr make_expr(Struct_Literal&& a_literal) { return Expr{std::move(a_literal)}; }
 
 inline Function_Call_Expr make_function_call_expr(Variable_Name&& a_name, std::vector<Expr>&& a_parameters) {
@@ -460,6 +491,14 @@ inline While_Expr make_while_expr(Expr&& a_condition, Block&& a_body) {
   return While_Expr{{}, std::move(a_condition), std::move(a_body)};
 }
 
+inline For_Expr make_for_expr(std::string&& a_binding, Expr&& a_iterator, Block&& a_body) {
+  return For_Expr{{}, std::move(a_binding), std::move(a_iterator), std::move(a_body)};
+}
+
+inline Range_Expr make_range_expr(Expr&& a_start, Expr&& a_end, bool a_inclusive) {
+  return Range_Expr{{}, std::move(a_start), std::move(a_end), a_inclusive};
+}
+
 // Statement helpers
 inline Function_Call_Statement make_function_call_statement(Function_Call_Expr&& a_expr) {
   return Function_Call_Statement{{}, std::move(a_expr)};
@@ -470,6 +509,8 @@ inline Return_Statement make_return_statement(Expr&& a_expr) { return Return_Sta
 inline If_Statement make_if_statement(If_Expr&& a_expr) { return If_Statement{{}, std::move(a_expr)}; }
 
 inline While_Statement make_while_statement(While_Expr&& a_expr) { return While_Statement{{}, std::move(a_expr)}; }
+
+inline For_Statement make_for_statement(For_Expr&& a_expr) { return For_Statement{{}, std::move(a_expr)}; }
 
 inline Statement make_statement(Function_Call_Statement&& a_call) { return Statement{std::move(a_call)}; }
 inline Statement make_statement(Return_Statement&& a_ret) { return Statement{std::move(a_ret)}; }
@@ -781,6 +822,36 @@ inline void to_json(nlohmann::json& a_json, While_Expr const& a_while) {
   a_json[While_Expr::k_name] = obj;
 }
 
+inline void to_json(nlohmann::json& a_json, For_Expr const& a_for) {
+  nlohmann::json obj;
+  obj["binding"] = a_for.binding;
+
+  nlohmann::json iterator_json;
+  to_json(iterator_json, a_for.iterator.get());
+  obj["iterator"] = iterator_json;
+
+  nlohmann::json body_json;
+  to_json(body_json, a_for.body.get());
+  obj["body"] = body_json;
+
+  a_json[For_Expr::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Range_Expr const& a_range) {
+  nlohmann::json obj;
+  nlohmann::json start_json;
+  to_json(start_json, a_range.start.get());
+  obj["start"] = start_json;
+
+  nlohmann::json end_json;
+  to_json(end_json, a_range.end.get());
+  obj["end"] = end_json;
+
+  obj["inclusive"] = a_range.inclusive;
+
+  a_json[Range_Expr::k_name] = obj;
+}
+
 inline void to_json(nlohmann::json& a_json, Expr const& a_expr) {
   boost::apply_visitor([&a_json](auto const& a_value) { to_json(a_json, a_value); }, a_expr);
 }
@@ -816,6 +887,14 @@ inline void to_json(nlohmann::json& a_json, While_Statement const& a_while) {
   to_json(expr_json, a_while.expr.get());
   obj["expr"] = expr_json;
   a_json[While_Statement::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, For_Statement const& a_for) {
+  nlohmann::json obj;
+  nlohmann::json expr_json;
+  to_json(expr_json, a_for.expr.get());
+  obj["expr"] = expr_json;
+  a_json[For_Statement::k_name] = obj;
 }
 
 inline void to_json(nlohmann::json& a_json, Statement const& a_stmt) {
