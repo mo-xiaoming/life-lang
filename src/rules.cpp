@@ -44,7 +44,9 @@ using x3::ascii::digit;
 using x3::ascii::lit;
 
 struct Keyword_Symbols : x3::symbols<> {
-  Keyword_Symbols() { add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while")("for")("in"); }
+  Keyword_Symbols() {
+    add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while")("for")("in")("break");
+  }
 } const k_keywords;
 
 // Individual keyword parsers for specific grammar rules (improves error messages)
@@ -59,6 +61,7 @@ auto const k_kw_else = lexeme[lit("else") >> !(alnum | '_')];
 auto const k_kw_while = lexeme[lit("while") >> !(alnum | '_')];
 auto const k_kw_for = lexeme[lit("for") >> !(alnum | '_')];
 auto const k_kw_in = lexeme[lit("in") >> !(alnum | '_')];
+auto const k_kw_break = lexeme[lit("break") >> !(alnum | '_')];
 
 // Reserved word rule: matches any registered keyword (for identifier validation)
 auto const k_reserved = lexeme[k_keywords >> !(alnum | '_')];
@@ -700,6 +703,16 @@ auto const k_return_statement_rule_def =
 BOOST_SPIRIT_DEFINE(k_return_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_return_statement_rule), Iterator_Type, Context_Type)
 
+// Parse break statement: "break;" or "break expr;" (Phase 2: expression-form loops)
+// Examples: "break;", "break result;", "break calculate(x);"
+struct Break_Statement_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Break_Statement_Tag, ast::Break_Statement> const k_break_statement_rule = "break statement";
+auto const k_break_statement_rule_def =
+    ((k_kw_break > -k_expr_rule) >
+     ';')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_break_statement(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_break_statement_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_break_statement_rule), Iterator_Type, Context_Type)
+
 // Parse function call statement: "call(args);"
 // Examples: "print(msg);", "process_data(items);"
 struct Function_Call_Statement_Tag : x3::annotate_on_success, Error_Handler {};
@@ -907,9 +920,9 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_definition_rule), Iterator_Type, Cont
 
 // Parse statement: variant of different statement types
 // Order matters: try function definition first (longest match), then others
-auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule |
-                                  k_function_call_statement_rule | k_if_statement_rule | k_while_statement_rule |
-                                  k_for_statement_rule | k_block_rule | k_return_statement_rule;
+auto const k_statement_rule_def =
+    k_function_definition_rule | k_struct_definition_rule | k_function_call_statement_rule | k_if_statement_rule |
+    k_while_statement_rule | k_for_statement_rule | k_block_rule | k_return_statement_rule | k_break_statement_rule;
 BOOST_SPIRIT_DEFINE(k_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_statement_rule), Iterator_Type, Context_Type)
 

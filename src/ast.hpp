@@ -215,6 +215,13 @@ struct Return_Statement : boost::spirit::x3::position_tagged {
   Expr expr;
 };
 
+// Example: break; or break result_value;
+// Used to exit loops early, optionally returning a value (Phase 2)
+struct Break_Statement : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Break_Statement";
+  boost::optional<Expr> value;  // Optional: break can be used without value
+};
+
 // If statement wrapper for using if expressions as statements
 // When if is used for side effects (not in expression context), no semicolon needed
 // Example: if condition { do_something(); }
@@ -237,16 +244,17 @@ struct For_Statement : boost::spirit::x3::position_tagged {
   boost::spirit::x3::forward_ast<For_Expr> expr;
 };
 
-// Example: Can be function def, struct def, function call, return, if, while, for, or nested block
-struct Statement : boost::spirit::x3::variant<
-                       boost::spirit::x3::forward_ast<Function_Definition>,
-                       boost::spirit::x3::forward_ast<Struct_Definition>, Function_Call_Statement, Return_Statement,
-                       boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<While_Statement>,
-                       boost::spirit::x3::forward_ast<For_Statement>, boost::spirit::x3::forward_ast<Block>>,
-                   boost::spirit::x3::position_tagged {
+// Example: Can be function def, struct def, function call, return, break, if, while, for, or nested block
+struct Statement
+    : boost::spirit::x3::variant<
+          boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
+          Function_Call_Statement, Return_Statement, Break_Statement, boost::spirit::x3::forward_ast<If_Statement>,
+          boost::spirit::x3::forward_ast<While_Statement>, boost::spirit::x3::forward_ast<For_Statement>,
+          boost::spirit::x3::forward_ast<Block>>,
+      boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-      Function_Call_Statement, Return_Statement, boost::spirit::x3::forward_ast<If_Statement>,
+      Function_Call_Statement, Return_Statement, Break_Statement, boost::spirit::x3::forward_ast<If_Statement>,
       boost::spirit::x3::forward_ast<While_Statement>, boost::spirit::x3::forward_ast<For_Statement>,
       boost::spirit::x3::forward_ast<Block>>;
   using Base_Type::Base_Type;
@@ -505,6 +513,10 @@ inline Function_Call_Statement make_function_call_statement(Function_Call_Expr&&
 }
 
 inline Return_Statement make_return_statement(Expr&& a_expr) { return Return_Statement{{}, std::move(a_expr)}; }
+
+inline Break_Statement make_break_statement(boost::optional<Expr>&& a_value) {
+  return Break_Statement{{}, std::move(a_value)};
+}
 
 inline If_Statement make_if_statement(If_Expr&& a_expr) { return If_Statement{{}, std::move(a_expr)}; }
 
@@ -871,6 +883,18 @@ inline void to_json(nlohmann::json& a_json, Return_Statement const& a_ret) {
   to_json(expr_json, a_ret.expr);
   obj["expr"] = expr_json;
   a_json[Return_Statement::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Break_Statement const& a_break) {
+  nlohmann::json obj;
+  if (a_break.value) {
+    nlohmann::json value_json;
+    to_json(value_json, *a_break.value);
+    obj["value"] = value_json;
+  } else {
+    obj["value"] = nullptr;
+  }
+  a_json[Break_Statement::k_name] = obj;
 }
 
 inline void to_json(nlohmann::json& a_json, If_Statement const& a_if) {
