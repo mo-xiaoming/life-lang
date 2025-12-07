@@ -1,6 +1,7 @@
 #ifndef AST_HPP__
 #define AST_HPP__
 
+#include <boost/optional.hpp>
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 #include <boost/spirit/home/x3/support/ast/variant.hpp>
 #include <concepts>
@@ -21,6 +22,7 @@ struct Variable_Name_Segment;
 struct Function_Call_Expr;
 struct Field_Access_Expr;
 struct Binary_Expr;
+struct If_Expr;
 struct Function_Definition;
 struct Block;
 struct Struct_Definition;
@@ -157,12 +159,14 @@ struct Unary_Expr : boost::spirit::x3::position_tagged {
 struct Expr : boost::spirit::x3::variant<
                   Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
                   boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
-                  boost::spirit::x3::forward_ast<Unary_Expr>, Struct_Literal, String, Integer>,
+                  boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>, Struct_Literal,
+                  String, Integer>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
       boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
-      boost::spirit::x3::forward_ast<Unary_Expr>, Struct_Literal, String, Integer>;
+      boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>, Struct_Literal, String,
+      Integer>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -197,15 +201,24 @@ struct Return_Statement : boost::spirit::x3::position_tagged {
   Expr expr;
 };
 
-// Example: Can be function def, struct def, function call, return, or nested block
-struct Statement
-    : boost::spirit::x3::variant<
-          boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-          Function_Call_Statement, Return_Statement, boost::spirit::x3::forward_ast<Block>>,
-      boost::spirit::x3::position_tagged {
+// If statement wrapper for using if expressions as statements
+// When if is used for side effects (not in expression context), no semicolon needed
+// Example: if condition { do_something(); }
+struct If_Statement : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "If_Statement";
+  boost::spirit::x3::forward_ast<If_Expr> expr;
+};
+
+// Example: Can be function def, struct def, function call, return, if, or nested block
+struct Statement : boost::spirit::x3::variant<
+                       boost::spirit::x3::forward_ast<Function_Definition>,
+                       boost::spirit::x3::forward_ast<Struct_Definition>, Function_Call_Statement, Return_Statement,
+                       boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<Block>>,
+                   boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-      Function_Call_Statement, Return_Statement, boost::spirit::x3::forward_ast<Block>>;
+      Function_Call_Statement, Return_Statement, boost::spirit::x3::forward_ast<If_Statement>,
+      boost::spirit::x3::forward_ast<Block>>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -214,6 +227,23 @@ struct Statement
 struct Block : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Block";
   std::vector<Statement> statements;
+};
+
+// Example: if x > 0 { x } else if x < 0 { -x } else { 0 }
+// Chain structure: condition + then_block, plus optional else_ifs and final else_block
+struct Else_If_Clause : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Else_If_Clause";
+  boost::spirit::x3::forward_ast<Expr> condition;
+  boost::spirit::x3::forward_ast<Block> then_block;
+};
+
+struct If_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "If_Expr";
+  boost::spirit::x3::forward_ast<Expr> condition;
+  boost::spirit::x3::forward_ast<Block> then_block;
+  std::vector<Else_If_Clause> else_ifs;
+  // boost::optional to avoid use-after-free issues caused by std::optional
+  boost::optional<boost::spirit::x3::forward_ast<Block>> else_block;
 };
 
 // ============================================================================
@@ -380,6 +410,7 @@ inline Expr make_expr(Function_Call_Expr&& a_call) { return Expr{std::move(a_cal
 inline Expr make_expr(Field_Access_Expr&& a_access) { return Expr{std::move(a_access)}; }
 inline Expr make_expr(Binary_Expr&& a_binary) { return Expr{std::move(a_binary)}; }
 inline Expr make_expr(Unary_Expr&& a_unary) { return Expr{std::move(a_unary)}; }
+inline Expr make_expr(If_Expr&& a_if) { return Expr{std::move(a_if)}; }
 inline Expr make_expr(Struct_Literal&& a_literal) { return Expr{std::move(a_literal)}; }
 
 inline Function_Call_Expr make_function_call_expr(Variable_Name&& a_name, std::vector<Expr>&& a_parameters) {
@@ -390,12 +421,31 @@ inline Field_Access_Expr make_field_access_expr(Expr&& a_object, std::string&& a
   return Field_Access_Expr{{}, std::move(a_object), std::move(a_field_name)};
 }
 
+inline Else_If_Clause make_else_if_clause(Expr&& a_condition, Block&& a_then_block) {
+  return Else_If_Clause{{}, std::move(a_condition), std::move(a_then_block)};
+}
+
+inline If_Expr make_if_expr(
+    Expr&& a_condition, Block&& a_then_block, std::vector<Else_If_Clause>&& a_else_ifs = {},
+    boost::optional<Block>&& a_else_block = boost::none
+) {
+  boost::optional<boost::spirit::x3::forward_ast<Block>> else_block_wrapped;
+  if (a_else_block.has_value()) {
+    else_block_wrapped = std::move(*a_else_block);
+  }
+  return If_Expr{
+      {}, std::move(a_condition), std::move(a_then_block), std::move(a_else_ifs), std::move(else_block_wrapped)
+  };
+}
+
 // Statement helpers
 inline Function_Call_Statement make_function_call_statement(Function_Call_Expr&& a_expr) {
   return Function_Call_Statement{{}, std::move(a_expr)};
 }
 
 inline Return_Statement make_return_statement(Expr&& a_expr) { return Return_Statement{{}, std::move(a_expr)}; }
+
+inline If_Statement make_if_statement(If_Expr&& a_expr) { return If_Statement{{}, std::move(a_expr)}; }
 
 inline Statement make_statement(Function_Call_Statement&& a_call) { return Statement{std::move(a_call)}; }
 inline Statement make_statement(Return_Statement&& a_ret) { return Statement{std::move(a_ret)}; }
@@ -656,6 +706,44 @@ inline void to_json(nlohmann::json& a_json, Field_Access_Expr const& a_access) {
   a_json[Field_Access_Expr::k_name] = obj;
 }
 
+inline void to_json(nlohmann::json& a_json, Else_If_Clause const& a_else_if) {
+  nlohmann::json obj;
+  nlohmann::json condition_json;
+  to_json(condition_json, a_else_if.condition.get());
+  obj["condition"] = condition_json;
+  nlohmann::json then_json;
+  to_json(then_json, a_else_if.then_block.get());
+  obj["then_block"] = then_json;
+  a_json = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, If_Expr const& a_if) {
+  nlohmann::json obj;
+  nlohmann::json condition_json;
+  to_json(condition_json, a_if.condition.get());
+  obj["condition"] = condition_json;
+  nlohmann::json then_json;
+  to_json(then_json, a_if.then_block.get());
+  obj["then_block"] = then_json;
+
+  if (!a_if.else_ifs.empty()) {
+    nlohmann::json else_ifs_json = nlohmann::json::array();
+    for (auto const& else_if : a_if.else_ifs) {
+      nlohmann::json else_if_json;
+      to_json(else_if_json, else_if);
+      else_ifs_json.push_back(else_if_json);
+    }
+    obj["else_ifs"] = else_ifs_json;
+  }
+
+  if (a_if.else_block.has_value()) {
+    nlohmann::json else_json;
+    to_json(else_json, a_if.else_block->get());
+    obj["else_block"] = else_json;
+  }
+  a_json[If_Expr::k_name] = obj;
+}
+
 inline void to_json(nlohmann::json& a_json, Expr const& a_expr) {
   boost::apply_visitor([&a_json](auto const& a_value) { to_json(a_json, a_value); }, a_expr);
 }
@@ -675,6 +763,14 @@ inline void to_json(nlohmann::json& a_json, Return_Statement const& a_ret) {
   to_json(expr_json, a_ret.expr);
   obj["expr"] = expr_json;
   a_json[Return_Statement::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, If_Statement const& a_if) {
+  nlohmann::json obj;
+  nlohmann::json expr_json;
+  to_json(expr_json, a_if.expr.get());
+  obj["expr"] = expr_json;
+  a_json[If_Statement::k_name] = obj;
 }
 
 inline void to_json(nlohmann::json& a_json, Statement const& a_stmt) {

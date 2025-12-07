@@ -44,7 +44,7 @@ using x3::ascii::digit;
 using x3::ascii::lit;
 
 struct Keyword_Symbols : x3::symbols<> {
-  Keyword_Symbols() { add("fn")("let")("return")("struct")("self")("mut"); }
+  Keyword_Symbols() { add("fn")("let")("return")("struct")("self")("mut")("if")("else"); }
 } const k_keywords;
 
 // Individual keyword parsers for specific grammar rules (improves error messages)
@@ -54,6 +54,8 @@ auto const k_kw_return = lexeme[lit("return") >> !(alnum | '_')];
 auto const k_kw_struct = lexeme[lit("struct") >> !(alnum | '_')];
 auto const k_kw_self = lexeme[lit("self") >> !(alnum | '_')];
 auto const k_kw_mut = lexeme[lit("mut") >> !(alnum | '_')];
+auto const k_kw_if = lexeme[lit("if") >> !(alnum | '_')];
+auto const k_kw_else = lexeme[lit("else") >> !(alnum | '_')];
 
 // Reserved word rule: matches any registered keyword (for identifier validation)
 auto const k_reserved = lexeme[k_keywords >> !(alnum | '_')];
@@ -321,8 +323,10 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_function_declaration_rule), Iterator_Type, C
 // Forward declarations for expression rules
 struct Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct Function_Call_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct If_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Expr_Tag, ast::Expr> const k_expr_rule = "expression";
 x3::rule<Function_Call_Expr_Tag, ast::Function_Call_Expr> const k_function_call_expr_rule = "function call expression";
+x3::rule<If_Expr_Tag, ast::If_Expr> const k_if_expr_rule = "if expression";
 
 // Parse function call name: qualified variable name (supports module paths)
 x3::rule<struct call_name_tag, ast::Variable_Name> const k_call_name = "function name";
@@ -382,10 +386,19 @@ auto const k_field_initializers_def = (k_field_initializer_rule % ',') >> -lit('
 BOOST_SPIRIT_DEFINE(k_field_initializers)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_field_initializers), Iterator_Type, Context_Type)
 
+// Parse Camel_Snake_Case identifier (for type names)
+// Starts with uppercase letter, followed by alphanumeric or underscore
+x3::rule<struct camel_snake_case_tag, std::string> const k_camel_snake_case = "Camel_Snake_Case identifier";
+auto const k_camel_snake_case_def = raw[lexeme[x3::upper >> *(alnum | '_')]];
+BOOST_SPIRIT_DEFINE(k_camel_snake_case)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_camel_snake_case), Iterator_Type, Context_Type)
+
 // Parse struct literal: "TypeName { fields }"
-// Type name: any identifier (naming convention checked at semantic analysis)
+// Type name: Camel_Snake_Case identifier (enforced at parse time to prevent ambiguity)
+// This prevents "if x {}" from being parsed as "if (x {})" where lowercase x matches struct literal
+// Since variables use snake_case and types use Camel_Snake_Case, x{} won't match but Point{} will
 x3::rule<struct struct_literal_type_tag, std::string> const k_struct_literal_type = "struct type name";
-auto const k_struct_literal_type_def = k_segment_name;
+auto const k_struct_literal_type_def = k_camel_snake_case;
 BOOST_SPIRIT_DEFINE(k_struct_literal_type)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_literal_type), Iterator_Type, Context_Type)
 
@@ -403,7 +416,13 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_literal_rule), Iterator_Type, Context
 // Primary expressions (before postfix operations)
 // Note: Function calls are included here - they parse "name(args)" as a complete unit
 // Postfix operations then apply to the result: foo(x).bar or foo(x).baz()
+// Note: If expressions are added to k_expr_rule (after block rules) to support expression context
 x3::rule<struct primary_expr_tag, ast::Expr> const k_primary_expr = "primary expression";
+// Ordering rationale:
+// 1. struct_literal first: Requires Camel_Snake_Case + '{', most specific pattern
+// 2. function_call second: Requires name + '(', specific delimiter
+// 3. variable_name later: More general
+// This prevents "if x {}" ambiguity: x{} won't match struct_literal (x is lowercase)
 auto const k_primary_expr_def =
     k_struct_literal_rule | k_function_call_expr_rule | k_string_rule | k_variable_name_rule | k_integer_rule;
 BOOST_SPIRIT_DEFINE(k_primary_expr)
@@ -467,10 +486,12 @@ auto const k_postfix_expr_def = (k_primary_expr >> *k_postfix_op)[([](auto& a_ct
           using T = std::decay_t<decltype(a_operation)>;
           if constexpr (std::same_as<T, Postfix_Field_Access>) {
             // Field access: obj.field
+            // i.e. a.b.c desugars to ((a.b).c)
             expr = ast::make_expr(ast::make_field_access_expr(std::move(expr), std::string(a_operation.field_name)));
           } else if constexpr (std::same_as<T, Postfix_Method_Call>) {
             // Method call: obj.method(args)
             // Create a variable name from method_name, then wrap in function call with obj as first arg
+            // i.e. a().b(x, y).c(z) desugars to c(b(a(), x, y), z)
             auto method_var_name = ast::make_variable_name(std::string(a_operation.method_name));
 
             // Build argument list: [obj, ...args]
@@ -618,10 +639,13 @@ auto const k_logical_or_expr_def =
 BOOST_SPIRIT_DEFINE(k_logical_or_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_logical_or_expr), Iterator_Type, Context_Type)
 
+// Non-struct expression chain (for if condition context) - builds complete precedence chain without struct literals
+
 // Parse expression: start with lowest precedence (logical OR)
-auto const k_expr_rule_def = k_logical_or_expr;
-BOOST_SPIRIT_DEFINE(k_expr_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_expr_rule), Iterator_Type, Context_Type)
+// Note: k_expr_rule definition moved after k_if_expr_rule to include if expressions
+// auto const k_expr_rule_def = k_logical_or_expr;
+// BOOST_SPIRIT_DEFINE(k_expr_rule)
+// BOOST_SPIRIT_INSTANTIATE(decltype(k_expr_rule), Iterator_Type, Context_Type)
 
 // === Statement Rules ===
 // Statements are executable units that perform actions
@@ -651,6 +675,10 @@ auto const k_function_call_statement_rule_def =
 BOOST_SPIRIT_DEFINE(k_function_call_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_function_call_statement_rule), Iterator_Type, Context_Type)
 
+// Parse if statement: forward declared here, defined after k_if_expr_rule
+struct If_Statement_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<If_Statement_Tag, ast::If_Statement> const k_if_statement_rule = "if statement";
+
 // === Block and Function Definition Rules ===
 // Blocks contain sequences of statements
 // Function definitions combine declaration with body
@@ -672,18 +700,62 @@ x3::rule<Struct_Field_Tag, ast::Struct_Field> const k_struct_field_rule = "struc
 x3::rule<Struct_Definition_Tag, ast::Struct_Definition> const k_struct_definition_rule = "struct definition";
 x3::rule<Module_Tag, ast::Module> const k_module_rule = "module";
 
-// Parse list of statements: zero or more statements
-x3::rule<struct statements_tag, std::vector<ast::Statement>> const k_statements = "statements";
-auto const k_statements_def = *k_statement_rule;
-BOOST_SPIRIT_DEFINE(k_statements)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_statements), Iterator_Type, Context_Type)
-
 // Parse block: "{ statements }"
 // Example: { print("hi"); return 0; }
+// Note: Inlined *k_statement_rule to avoid intermediate k_statements rule
 auto const k_block_rule_def =
-    (('{' > k_statements) > '}')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_block(std::move(x3::_attr(a_ctx))); })];
+    (('{' > *k_statement_rule) >
+     '}')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_block(std::move(x3::_attr(a_ctx))); })];
 BOOST_SPIRIT_DEFINE(k_block_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_block_rule), Iterator_Type, Context_Type)
+
+// If expression: if condition { then_block } (else if condition { then_block })* else { else_block }
+// Syntax: no parentheses around condition, else is optional for statements, supports else-if chains
+// Note: Struct literal ambiguity resolved by Camel_Snake_Case enforcement (see k_camel_snake_case)
+// Note: Use >> (sequence) not > (expectation) for else-if matching to enable backtracking:
+//   - With >: "else" commits to matching "if", fails entire parse if not found
+//   - With >>: "else" tries "if", backtracks on failure, allows -(k_kw_else > k_block_rule) to match
+// NOLINTBEGIN(bugprone-chained-comparison) - Spirit X3 uses > for expectation operator
+auto const k_if_expr_rule_def =
+    (((k_kw_if > k_logical_or_expr) > k_block_rule) >> *((k_kw_else >> k_kw_if >> k_logical_or_expr) > k_block_rule) >>
+     -(k_kw_else > k_block_rule))[([](auto& a_ctx) {
+      // NOLINTEND(bugprone-chained-comparison)
+      auto& attr = x3::_attr(a_ctx);
+      auto& condition = boost::fusion::at_c<0>(attr);       // Expr
+      auto& then_block = boost::fusion::at_c<1>(attr);      // Block
+      auto& else_if_tuples = boost::fusion::at_c<2>(attr);  // vector<tuple<Expr, Block>>
+      auto& else_block_opt = boost::fusion::at_c<3>(attr);  // optional<Block>
+
+      // Build else_ifs vector from the tuples
+      std::vector<ast::Else_If_Clause> else_ifs;
+      for (auto& tuple : else_if_tuples) {
+        auto& else_if_condition = boost::fusion::at_c<0>(tuple);
+        auto& else_if_then_block = boost::fusion::at_c<1>(tuple);
+        else_ifs.push_back(ast::make_else_if_clause(std::move(else_if_condition), std::move(else_if_then_block)));
+      }
+
+      boost::optional<ast::Block> else_block;
+      if (else_block_opt.has_value()) {
+        else_block = std::move(else_block_opt.value());
+      }
+      x3::_val(a_ctx) =
+          ast::make_if_expr(std::move(condition), std::move(then_block), std::move(else_ifs), std::move(else_block));
+    })];
+BOOST_SPIRIT_DEFINE(k_if_expr_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_if_expr_rule), Iterator_Type, Context_Type)
+
+// Parse expression: if expression has higher priority than binary operators
+// Try if first, then fall back to logical OR expression
+auto const k_expr_rule_def = k_if_expr_rule | k_logical_or_expr;
+BOOST_SPIRIT_DEFINE(k_expr_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_expr_rule), Iterator_Type, Context_Type)
+
+// Parse if statement: if expression used as a statement (no semicolon needed)
+// Examples: "if x { do_something(); }", "if a > b { return a; } else { return b; }"
+auto const k_if_statement_rule_def =
+    k_if_expr_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_if_statement(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_if_statement_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_if_statement_rule), Iterator_Type, Context_Type)
 
 // Parse function definition: declaration followed by body block
 // Example: fn main(): I32 { return 0; }
@@ -751,7 +823,8 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_definition_rule), Iterator_Type, Cont
 // Parse statement: variant of different statement types
 // Order matters: try function definition first (longest match), then others
 auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule |
-                                  k_function_call_statement_rule | k_block_rule | k_return_statement_rule;
+                                  k_function_call_statement_rule | k_if_statement_rule | k_block_rule |
+                                  k_return_statement_rule;
 BOOST_SPIRIT_DEFINE(k_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_statement_rule), Iterator_Type, Context_Type)
 

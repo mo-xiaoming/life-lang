@@ -33,6 +33,14 @@ Use `dev` preset for fast iteration (clang-tidy disabled), `debug` for strict ch
   - `fn default_config(): Config { return Config { timeout: 30 }; }`
 - **Rationale**: Simpler design, no need for separate constant category in value semantics
 
+### Control Flow
+- **If expressions**: No parentheses around condition, expression-based
+  - Syntax: `if condition { then_block } else { else_block }`
+  - Expression form: `let max = if x > y { x } else { y };` (else required, all branches same type)
+  - Statement form: `if needs_log { log(msg); }` (else optional, no return value)
+  - Else-if: `if x { a } else if y { b } else { c }`
+  - Design rationale: Clean syntax, no parens needed (braces provide boundaries), fits value semantics
+
 ## Key Files
 - **src/ast.hpp**: All AST nodes inherit from `x3::position_tagged` with `k_name` constant
 - **src/rules.cpp**: Spirit X3 parsers use `BOOST_SPIRIT_DEFINE()` + `BOOST_SPIRIT_INSTANTIATE()`
