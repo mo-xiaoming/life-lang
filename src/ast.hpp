@@ -222,6 +222,12 @@ struct Break_Statement : boost::spirit::x3::position_tagged {
   boost::optional<Expr> value;  // Optional: break can be used without value
 };
 
+// Example: continue;
+// Skips to next iteration of the loop (Phase 3)
+struct Continue_Statement : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Continue_Statement";
+};
+
 // If statement wrapper for using if expressions as statements
 // When if is used for side effects (not in expression context), no semicolon needed
 // Example: if condition { do_something(); }
@@ -244,19 +250,19 @@ struct For_Statement : boost::spirit::x3::position_tagged {
   boost::spirit::x3::forward_ast<For_Expr> expr;
 };
 
-// Example: Can be function def, struct def, function call, return, break, if, while, for, or nested block
+// Example: Can be function def, struct def, function call, return, break, continue, if, while, for, or nested block
 struct Statement
     : boost::spirit::x3::variant<
           boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-          Function_Call_Statement, Return_Statement, Break_Statement, boost::spirit::x3::forward_ast<If_Statement>,
-          boost::spirit::x3::forward_ast<While_Statement>, boost::spirit::x3::forward_ast<For_Statement>,
-          boost::spirit::x3::forward_ast<Block>>,
+          Function_Call_Statement, Return_Statement, Break_Statement, Continue_Statement,
+          boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<While_Statement>,
+          boost::spirit::x3::forward_ast<For_Statement>, boost::spirit::x3::forward_ast<Block>>,
       boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-      Function_Call_Statement, Return_Statement, Break_Statement, boost::spirit::x3::forward_ast<If_Statement>,
-      boost::spirit::x3::forward_ast<While_Statement>, boost::spirit::x3::forward_ast<For_Statement>,
-      boost::spirit::x3::forward_ast<Block>>;
+      Function_Call_Statement, Return_Statement, Break_Statement, Continue_Statement,
+      boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<While_Statement>,
+      boost::spirit::x3::forward_ast<For_Statement>, boost::spirit::x3::forward_ast<Block>>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -517,6 +523,8 @@ inline Return_Statement make_return_statement(Expr&& a_expr) { return Return_Sta
 inline Break_Statement make_break_statement(boost::optional<Expr>&& a_value) {
   return Break_Statement{{}, std::move(a_value)};
 }
+
+inline Continue_Statement make_continue_statement() { return Continue_Statement{{}}; }
 
 inline If_Statement make_if_statement(If_Expr&& a_expr) { return If_Statement{{}, std::move(a_expr)}; }
 
@@ -895,6 +903,10 @@ inline void to_json(nlohmann::json& a_json, Break_Statement const& a_break) {
     obj["value"] = nullptr;
   }
   a_json[Break_Statement::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, [[maybe_unused]] Continue_Statement const& a_continue) {
+  a_json[Continue_Statement::k_name] = nullptr;
 }
 
 inline void to_json(nlohmann::json& a_json, If_Statement const& a_if) {

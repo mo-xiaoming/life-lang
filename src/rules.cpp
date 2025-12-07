@@ -45,7 +45,7 @@ using x3::ascii::lit;
 
 struct Keyword_Symbols : x3::symbols<> {
   Keyword_Symbols() {
-    add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while")("for")("in")("break");
+    add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while")("for")("in")("break")("continue");
   }
 } const k_keywords;
 
@@ -62,6 +62,7 @@ auto const k_kw_while = lexeme[lit("while") >> !(alnum | '_')];
 auto const k_kw_for = lexeme[lit("for") >> !(alnum | '_')];
 auto const k_kw_in = lexeme[lit("in") >> !(alnum | '_')];
 auto const k_kw_break = lexeme[lit("break") >> !(alnum | '_')];
+auto const k_kw_continue = lexeme[lit("continue") >> !(alnum | '_')];
 
 // Reserved word rule: matches any registered keyword (for identifier validation)
 auto const k_reserved = lexeme[k_keywords >> !(alnum | '_')];
@@ -713,6 +714,14 @@ auto const k_break_statement_rule_def =
 BOOST_SPIRIT_DEFINE(k_break_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_break_statement_rule), Iterator_Type, Context_Type)
 
+// Examples: "continue;"
+struct Continue_Statement_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Continue_Statement_Tag, ast::Continue_Statement> const k_continue_statement_rule = "continue statement";
+auto const k_continue_statement_rule_def =
+    (k_kw_continue > ';')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_continue_statement(); })];
+BOOST_SPIRIT_DEFINE(k_continue_statement_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_continue_statement_rule), Iterator_Type, Context_Type)
+
 // Parse function call statement: "call(args);"
 // Examples: "print(msg);", "process_data(items);"
 struct Function_Call_Statement_Tag : x3::annotate_on_success, Error_Handler {};
@@ -920,9 +929,10 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_definition_rule), Iterator_Type, Cont
 
 // Parse statement: variant of different statement types
 // Order matters: try function definition first (longest match), then others
-auto const k_statement_rule_def =
-    k_function_definition_rule | k_struct_definition_rule | k_function_call_statement_rule | k_if_statement_rule |
-    k_while_statement_rule | k_for_statement_rule | k_block_rule | k_return_statement_rule | k_break_statement_rule;
+auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule |
+                                  k_function_call_statement_rule | k_if_statement_rule | k_while_statement_rule |
+                                  k_for_statement_rule | k_block_rule | k_return_statement_rule |
+                                  k_break_statement_rule | k_continue_statement_rule;
 BOOST_SPIRIT_DEFINE(k_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_statement_rule), Iterator_Type, Context_Type)
 
