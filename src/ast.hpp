@@ -23,6 +23,7 @@ struct Function_Call_Expr;
 struct Field_Access_Expr;
 struct Binary_Expr;
 struct If_Expr;
+struct While_Expr;
 struct Function_Definition;
 struct Block;
 struct Struct_Definition;
@@ -159,14 +160,14 @@ struct Unary_Expr : boost::spirit::x3::position_tagged {
 struct Expr : boost::spirit::x3::variant<
                   Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
                   boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
-                  boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>, Struct_Literal,
-                  String, Integer>,
+                  boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
+                  boost::spirit::x3::forward_ast<While_Expr>, Struct_Literal, String, Integer>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
       boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
-      boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>, Struct_Literal, String,
-      Integer>;
+      boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
+      boost::spirit::x3::forward_ast<While_Expr>, Struct_Literal, String, Integer>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -209,16 +210,24 @@ struct If_Statement : boost::spirit::x3::position_tagged {
   boost::spirit::x3::forward_ast<If_Expr> expr;
 };
 
-// Example: Can be function def, struct def, function call, return, if, or nested block
-struct Statement : boost::spirit::x3::variant<
-                       boost::spirit::x3::forward_ast<Function_Definition>,
-                       boost::spirit::x3::forward_ast<Struct_Definition>, Function_Call_Statement, Return_Statement,
-                       boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<Block>>,
-                   boost::spirit::x3::position_tagged {
+// While statement wrapper for using while expressions as statements
+// Example: while x < 10 { process(x); }
+struct While_Statement : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "While_Statement";
+  boost::spirit::x3::forward_ast<While_Expr> expr;
+};
+
+// Example: Can be function def, struct def, function call, return, if, while, or nested block
+struct Statement
+    : boost::spirit::x3::variant<
+          boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
+          Function_Call_Statement, Return_Statement, boost::spirit::x3::forward_ast<If_Statement>,
+          boost::spirit::x3::forward_ast<While_Statement>, boost::spirit::x3::forward_ast<Block>>,
+      boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
       Function_Call_Statement, Return_Statement, boost::spirit::x3::forward_ast<If_Statement>,
-      boost::spirit::x3::forward_ast<Block>>;
+      boost::spirit::x3::forward_ast<While_Statement>, boost::spirit::x3::forward_ast<Block>>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -244,6 +253,14 @@ struct If_Expr : boost::spirit::x3::position_tagged {
   std::vector<Else_If_Clause> else_ifs;
   // boost::optional to avoid use-after-free issues caused by std::optional
   boost::optional<boost::spirit::x3::forward_ast<Block>> else_block;
+};
+
+// Example: while x < 10 { x = x + 1; }
+// Loop continues while condition is true
+struct While_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "While_Expr";
+  boost::spirit::x3::forward_ast<Expr> condition;
+  boost::spirit::x3::forward_ast<Block> body;
 };
 
 // ============================================================================
@@ -411,6 +428,7 @@ inline Expr make_expr(Field_Access_Expr&& a_access) { return Expr{std::move(a_ac
 inline Expr make_expr(Binary_Expr&& a_binary) { return Expr{std::move(a_binary)}; }
 inline Expr make_expr(Unary_Expr&& a_unary) { return Expr{std::move(a_unary)}; }
 inline Expr make_expr(If_Expr&& a_if) { return Expr{std::move(a_if)}; }
+inline Expr make_expr(While_Expr&& a_while) { return Expr{std::move(a_while)}; }
 inline Expr make_expr(Struct_Literal&& a_literal) { return Expr{std::move(a_literal)}; }
 
 inline Function_Call_Expr make_function_call_expr(Variable_Name&& a_name, std::vector<Expr>&& a_parameters) {
@@ -438,6 +456,10 @@ inline If_Expr make_if_expr(
   };
 }
 
+inline While_Expr make_while_expr(Expr&& a_condition, Block&& a_body) {
+  return While_Expr{{}, std::move(a_condition), std::move(a_body)};
+}
+
 // Statement helpers
 inline Function_Call_Statement make_function_call_statement(Function_Call_Expr&& a_expr) {
   return Function_Call_Statement{{}, std::move(a_expr)};
@@ -446,6 +468,8 @@ inline Function_Call_Statement make_function_call_statement(Function_Call_Expr&&
 inline Return_Statement make_return_statement(Expr&& a_expr) { return Return_Statement{{}, std::move(a_expr)}; }
 
 inline If_Statement make_if_statement(If_Expr&& a_expr) { return If_Statement{{}, std::move(a_expr)}; }
+
+inline While_Statement make_while_statement(While_Expr&& a_expr) { return While_Statement{{}, std::move(a_expr)}; }
 
 inline Statement make_statement(Function_Call_Statement&& a_call) { return Statement{std::move(a_call)}; }
 inline Statement make_statement(Return_Statement&& a_ret) { return Statement{std::move(a_ret)}; }
@@ -744,6 +768,19 @@ inline void to_json(nlohmann::json& a_json, If_Expr const& a_if) {
   a_json[If_Expr::k_name] = obj;
 }
 
+inline void to_json(nlohmann::json& a_json, While_Expr const& a_while) {
+  nlohmann::json obj;
+  nlohmann::json condition_json;
+  to_json(condition_json, a_while.condition.get());
+  obj["condition"] = condition_json;
+
+  nlohmann::json body_json;
+  to_json(body_json, a_while.body.get());
+  obj["body"] = body_json;
+
+  a_json[While_Expr::k_name] = obj;
+}
+
 inline void to_json(nlohmann::json& a_json, Expr const& a_expr) {
   boost::apply_visitor([&a_json](auto const& a_value) { to_json(a_json, a_value); }, a_expr);
 }
@@ -771,6 +808,14 @@ inline void to_json(nlohmann::json& a_json, If_Statement const& a_if) {
   to_json(expr_json, a_if.expr.get());
   obj["expr"] = expr_json;
   a_json[If_Statement::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, While_Statement const& a_while) {
+  nlohmann::json obj;
+  nlohmann::json expr_json;
+  to_json(expr_json, a_while.expr.get());
+  obj["expr"] = expr_json;
+  a_json[While_Statement::k_name] = obj;
 }
 
 inline void to_json(nlohmann::json& a_json, Statement const& a_stmt) {
