@@ -26,6 +26,7 @@ target_sources(tests
         parser/test_while_expr.cpp
         parser/test_range_expr.cpp
         parser/test_for_expr.cpp
+        parser/test_break_statement.cpp
         
         # Integration tests - test complete parse_module workflows
         integration/test_parse_module_integration.cpp
