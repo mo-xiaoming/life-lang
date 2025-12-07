@@ -44,7 +44,7 @@ using x3::ascii::digit;
 using x3::ascii::lit;
 
 struct Keyword_Symbols : x3::symbols<> {
-  Keyword_Symbols() { add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while"); }
+  Keyword_Symbols() { add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while")("for")("in"); }
 } const k_keywords;
 
 // Individual keyword parsers for specific grammar rules (improves error messages)
@@ -57,6 +57,8 @@ auto const k_kw_mut = lexeme[lit("mut") >> !(alnum | '_')];
 auto const k_kw_if = lexeme[lit("if") >> !(alnum | '_')];
 auto const k_kw_else = lexeme[lit("else") >> !(alnum | '_')];
 auto const k_kw_while = lexeme[lit("while") >> !(alnum | '_')];
+auto const k_kw_for = lexeme[lit("for") >> !(alnum | '_')];
+auto const k_kw_in = lexeme[lit("in") >> !(alnum | '_')];
 
 // Reserved word rule: matches any registered keyword (for identifier validation)
 auto const k_reserved = lexeme[k_keywords >> !(alnum | '_')];
@@ -148,7 +150,8 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_segment_rule), Iterator_Type, Cont
 //   "IO.Result<Data.Error, Parser.AST>"                - multiple qualified params
 auto const k_type_name_rule_def =
     (k_type_name_segment_rule %
-     '.')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_type_name(std::move(x3::_attr(a_ctx))); })];
+     (lit('.') >>
+      !lit('.')))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_type_name(std::move(x3::_attr(a_ctx))); })];
 BOOST_SPIRIT_DEFINE(k_type_name_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_rule), Iterator_Type, Context_Type)
 
@@ -193,7 +196,8 @@ x3::rule<struct qualified_variable_name_tag, ast::Variable_Name> const k_qualifi
     "qualified variable name";
 auto const k_qualified_variable_name_rule_def =
     (k_variable_name_segment_rule %
-     '.')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_variable_name(std::move(x3::_attr(a_ctx))); })];
+     (lit('.') >>
+      !lit('.')))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_variable_name(std::move(x3::_attr(a_ctx))); })];
 BOOST_SPIRIT_DEFINE(k_qualified_variable_name_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_qualified_variable_name_rule), Iterator_Type, Context_Type)
 
@@ -326,10 +330,14 @@ struct Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct Function_Call_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct If_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct While_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct For_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct Range_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Expr_Tag, ast::Expr> const k_expr_rule = "expression";
 x3::rule<Function_Call_Expr_Tag, ast::Function_Call_Expr> const k_function_call_expr_rule = "function call expression";
 x3::rule<If_Expr_Tag, ast::If_Expr> const k_if_expr_rule = "if expression";
 x3::rule<While_Expr_Tag, ast::While_Expr> const k_while_expr_rule = "while expression";
+x3::rule<For_Expr_Tag, ast::For_Expr> const k_for_expr_rule = "for expression";
+x3::rule<Range_Expr_Tag, ast::Expr> const k_range_expr_rule = "range expression";
 
 // Parse function call name: qualified variable name (supports module paths)
 x3::rule<struct call_name_tag, ast::Variable_Name> const k_call_name = "function name";
@@ -462,10 +470,11 @@ auto const k_postfix_method_call_def = ((('.' >> k_segment_name >> '(') > -k_met
 BOOST_SPIRIT_DEFINE(k_postfix_method_call)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_postfix_method_call), Iterator_Type, Context_Type)
 
-// Parse field access postfix: .name
+// Parse field access postfix: .name (but not .. for range operator)
 x3::rule<struct postfix_field_access_tag, Postfix_Field_Access> const k_postfix_field_access = "field access";
 auto const k_postfix_field_access_def =
-    ('.' > k_segment_name)[([](auto& a_ctx) { x3::_val(a_ctx) = Postfix_Field_Access{std::move(x3::_attr(a_ctx))}; })];
+    ((lit('.') >> !lit('.')) >
+     k_segment_name)[([](auto& a_ctx) { x3::_val(a_ctx) = Postfix_Field_Access{std::move(x3::_attr(a_ctx))}; })];
 BOOST_SPIRIT_DEFINE(k_postfix_field_access)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_postfix_field_access), Iterator_Type, Context_Type)
 
@@ -621,8 +630,32 @@ auto const k_additive_expr_def =
 BOOST_SPIRIT_DEFINE(k_additive_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_additive_expr), Iterator_Type, Context_Type)
 
+// Range expression: start..end (exclusive) or start..=end (inclusive)
+// Precedence: between arithmetic and comparison
+// Examples: 0..10, start..end, 1..=100
+// Strategy: Try to parse range first (start..end or start..=end), if no range operator found, just return additive
+auto const k_range_inclusive = lit("..=") >> x3::attr(true);
+auto const k_range_exclusive = lit("..") >> !lit('.') >> x3::attr(false);  // Ensure we don't match ... or more dots
+auto const k_range_expr_rule_def = k_additive_expr[([](auto& a_ctx) {
+                                     // Start with just the additive expr
+                                     x3::_val(a_ctx) = x3::_attr(a_ctx);
+                                   })] >>
+                                   -(((k_range_inclusive | k_range_exclusive) >> k_additive_expr)[([](auto& a_ctx) {
+                                     // If we see range operator, wrap in Range_Expr
+                                     auto& attr = x3::_attr(a_ctx);
+                                     auto const inclusive = boost::fusion::at_c<0>(attr);
+                                     auto& end = boost::fusion::at_c<1>(attr);
+                                     bool const is_inclusive = boost::get<bool>(inclusive);
+                                     // _val already contains the start expression
+                                     x3::_val(a_ctx) = ast::make_expr(
+                                         ast::make_range_expr(std::move(x3::_val(a_ctx)), std::move(end), is_inclusive)
+                                     );
+                                   })]);
+BOOST_SPIRIT_DEFINE(k_range_expr_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_range_expr_rule), Iterator_Type, Context_Type)
+
 // Level 3: Comparison (<, >, <=, >=)
-auto const k_comparison_expr_def = (k_additive_expr >> *(k_comparison_op >> k_additive_expr))[k_build_binary_expr];
+auto const k_comparison_expr_def = (k_range_expr_rule >> *(k_comparison_op >> k_range_expr_rule))[k_build_binary_expr];
 BOOST_SPIRIT_DEFINE(k_comparison_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_comparison_expr), Iterator_Type, Context_Type)
 
@@ -685,6 +718,10 @@ x3::rule<If_Statement_Tag, ast::If_Statement> const k_if_statement_rule = "if st
 // Parse while statement: forward declared here, defined after k_while_expr_rule
 struct While_Statement_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<While_Statement_Tag, ast::While_Statement> const k_while_statement_rule = "while statement";
+
+// Parse for statement: forward declared here, defined after k_for_expr_rule
+struct For_Statement_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<For_Statement_Tag, ast::For_Statement> const k_for_statement_rule = "for statement";
 
 // === Block and Function Definition Rules ===
 // Blocks contain sequences of statements
@@ -763,9 +800,24 @@ auto const k_while_expr_rule_def = ((k_kw_while > k_logical_or_expr) > k_block_r
 BOOST_SPIRIT_DEFINE(k_while_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_while_expr_rule), Iterator_Type, Context_Type)
 
-// Parse expression: control flow expressions (if, while) have higher priority than binary operators
-// Try if first, then while, then fall back to logical OR expression
-auto const k_expr_rule_def = k_if_expr_rule | k_while_expr_rule | k_logical_or_expr;
+// For expression: for binding in iterator { body }
+// Syntax: for <identifier> in <expr> { body }
+// Examples: "for item in 0..10 { print(item); }", "for user in users { process(user); }"
+// Note: Binding variable naming convention (snake_case) enforced at semantic analysis
+auto const k_for_expr_rule_def =
+    ((((k_kw_for > k_segment_name) > k_kw_in) > k_logical_or_expr) > k_block_rule)[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      auto& binding = boost::fusion::at_c<0>(attr);   // std::string
+      auto& iterator = boost::fusion::at_c<1>(attr);  // Expr
+      auto& body = boost::fusion::at_c<2>(attr);      // Block
+      x3::_val(a_ctx) = ast::make_for_expr(std::move(binding), std::move(iterator), std::move(body));
+    })];
+BOOST_SPIRIT_DEFINE(k_for_expr_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_for_expr_rule), Iterator_Type, Context_Type)
+
+// Parse expression: control flow expressions (if, while, for) have higher priority than binary operators
+// Try if first, then while, then for, then fall back to logical OR expression
+auto const k_expr_rule_def = k_if_expr_rule | k_while_expr_rule | k_for_expr_rule | k_logical_or_expr;
 BOOST_SPIRIT_DEFINE(k_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_expr_rule), Iterator_Type, Context_Type)
 
@@ -782,6 +834,13 @@ auto const k_while_statement_rule_def =
     k_while_expr_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_while_statement(std::move(x3::_attr(a_ctx))); })];
 BOOST_SPIRIT_DEFINE(k_while_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_while_statement_rule), Iterator_Type, Context_Type)
+
+// Parse for statement: for expression used as a statement (no semicolon needed)
+// Examples: "for item in 0..10 { process(item); }", "for user in users { handle(user); }"
+auto const k_for_statement_rule_def =
+    k_for_expr_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_for_statement(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_for_statement_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_for_statement_rule), Iterator_Type, Context_Type)
 
 // Parse function definition: declaration followed by body block
 // Example: fn main(): I32 { return 0; }
@@ -850,7 +909,7 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_definition_rule), Iterator_Type, Cont
 // Order matters: try function definition first (longest match), then others
 auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule |
                                   k_function_call_statement_rule | k_if_statement_rule | k_while_statement_rule |
-                                  k_block_rule | k_return_statement_rule;
+                                  k_for_statement_rule | k_block_rule | k_return_statement_rule;
 BOOST_SPIRIT_DEFINE(k_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_statement_rule), Iterator_Type, Context_Type)
 
