@@ -26,6 +26,7 @@ target_sources(tests
         parser/test_while_expr.cpp
         parser/test_range_expr.cpp
         parser/test_for_expr.cpp
+        parser/test_tuple_pattern.cpp
         parser/test_break_statement.cpp
         parser/test_continue_statement.cpp
         

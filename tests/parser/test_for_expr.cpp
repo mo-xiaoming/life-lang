@@ -13,7 +13,7 @@ constexpr auto k_simple_range_exclusive_input = "for i in 0..10 { process(i); }"
 inline auto const k_simple_range_exclusive_expected = fmt::format(
     R"({{
   "For_Expr": {{
-    "binding": "i",
+    "pattern": {{ "Simple_Pattern": {{ "name": "i" }} }},
     "iterator": {{
       "Range_Expr": {{
         "start": {{ "Integer": {{ "value": "0" }} }},
@@ -48,7 +48,7 @@ constexpr auto k_simple_range_inclusive_input = "for i in 0..=10 { process(i); }
 inline auto const k_simple_range_inclusive_expected = fmt::format(
     R"({{
   "For_Expr": {{
-    "binding": "i",
+    "pattern": {{ "Simple_Pattern": {{ "name": "i" }} }},
     "iterator": {{
       "Range_Expr": {{
         "start": {{ "Integer": {{ "value": "0" }} }},
@@ -83,7 +83,7 @@ constexpr auto k_variable_range_input = "for item in start..end { work(item); }"
 inline auto const k_variable_range_expected = fmt::format(
     R"({{
   "For_Expr": {{
-    "binding": "item",
+    "pattern": {{ "Simple_Pattern": {{ "name": "item" }} }},
     "iterator": {{
       "Range_Expr": {{
         "start": {},
@@ -118,7 +118,7 @@ constexpr auto k_collection_iteration_input = "for user in users { handle(user);
 inline auto const k_collection_iteration_expected = fmt::format(
     R"({{
   "For_Expr": {{
-    "binding": "user",
+    "pattern": {{ "Simple_Pattern": {{ "name": "user" }} }},
     "iterator": {},
     "body": {{
       "Block": {{
@@ -146,7 +146,7 @@ constexpr auto k_empty_body_should_succeed = true;
 constexpr auto k_empty_body_input = "for x in 0..10 {}";
 inline auto const k_empty_body_expected = R"({
   "For_Expr": {
-    "binding": "x",
+    "pattern": { "Simple_Pattern": { "name": "x" } },
     "iterator": {
       "Range_Expr": {
         "start": { "Integer": { "value": "0" } },
@@ -168,7 +168,7 @@ constexpr auto k_nested_for_loops_input = "for i in 0..3 { for j in 0..3 { proce
 inline auto const k_nested_for_loops_expected = fmt::format(
     R"({{
   "For_Expr": {{
-    "binding": "i",
+    "pattern": {{ "Simple_Pattern": {{ "name": "i" }} }},
     "iterator": {{
       "Range_Expr": {{
         "start": {{ "Integer": {{ "value": "0" }} }},
@@ -183,7 +183,7 @@ inline auto const k_nested_for_loops_expected = fmt::format(
             "For_Statement": {{
               "expr": {{
                 "For_Expr": {{
-                  "binding": "j",
+                  "pattern": {{ "Simple_Pattern": {{ "name": "j" }} }},
                   "iterator": {{
                     "Range_Expr": {{
                       "start": {{ "Integer": {{ "value": "0" }} }},
@@ -225,7 +225,7 @@ constexpr auto k_multiple_statements_input = "for x in 0..5 { print(x); log(x); 
 inline auto const k_multiple_statements_expected = fmt::format(
     R"({{
   "For_Expr": {{
-    "binding": "x",
+    "pattern": {{ "Simple_Pattern": {{ "name": "x" }} }},
     "iterator": {{
       "Range_Expr": {{
         "start": {{ "Integer": {{ "value": "0" }} }},
@@ -270,7 +270,7 @@ constexpr auto k_function_call_iterator_input = "for item in get_items() { proce
 inline auto const k_function_call_iterator_expected = fmt::format(
     R"({{
   "For_Expr": {{
-    "binding": "item",
+    "pattern": {{ "Simple_Pattern": {{ "name": "item" }} }},
     "iterator": {{
       "Function_Call_Expr": {{
         "name": {},
@@ -303,7 +303,7 @@ constexpr auto k_with_spaces_should_succeed = true;
 constexpr auto k_with_spaces_input = "for   x   in   0..10   {   work();   }";
 inline auto const k_with_spaces_expected = R"({
   "For_Expr": {
-    "binding": "x",
+    "pattern": { "Simple_Pattern": { "name": "x" } },
     "iterator": {
       "Range_Expr": {
         "start": { "Integer": { "value": "0" } },

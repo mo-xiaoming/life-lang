@@ -822,17 +822,76 @@ auto const k_while_expr_rule_def = ((k_kw_while > k_logical_or_expr) > k_block_r
 BOOST_SPIRIT_DEFINE(k_while_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_while_expr_rule), Iterator_Type, Context_Type)
 
-// For expression: for binding in iterator { body }
-// Syntax: for <identifier> in <expr> { body }
-// Examples: "for item in 0..10 { print(item); }", "for user in users { process(user); }"
-// Note: Binding variable naming convention (snake_case) enforced at semantic analysis
+// Pattern parsing for for-loop bindings (supports nested patterns)
+// Forward declare pattern rule for recursion
+struct Pattern_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Pattern_Tag, ast::Pattern> const k_pattern_rule = "pattern";
+
+// Simple pattern: just an identifier (for item in ...)
+struct Simple_Pattern_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Simple_Pattern_Tag, ast::Simple_Pattern> const k_simple_pattern_rule = "simple pattern";
+auto const k_simple_pattern_rule_def =
+    k_segment_name[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_simple_pattern(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_simple_pattern_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_simple_pattern_rule), Iterator_Type, Context_Type)
+
+// Struct pattern: Type { pattern1, pattern2, ... }
+// Example: for Point { x, y } in points { } or nested: for Pair { Point { x, y }, z } in ...
+struct Struct_Pattern_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Struct_Pattern_Tag, ast::Struct_Pattern> const k_struct_pattern_rule = "struct pattern";
+auto const k_struct_pattern_rule_def = (((k_type_name_rule >> '{') > (k_pattern_rule % ',')) > '}')[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  auto& type_name = boost::fusion::at_c<0>(attr);
+  auto& patterns = boost::fusion::at_c<1>(attr);
+  // Wrap each Pattern in forward_ast
+  std::vector<x3::forward_ast<ast::Pattern>> fields;
+  fields.reserve(patterns.size());
+  for (auto& p : patterns) {
+    fields.emplace_back(std::move(p));
+  }
+  x3::_val(a_ctx) = ast::make_struct_pattern(std::move(type_name), std::move(fields));
+})];
+BOOST_SPIRIT_DEFINE(k_struct_pattern_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_pattern_rule), Iterator_Type, Context_Type)
+
+// Tuple pattern: (pattern1, pattern2, ...)
+// Example: for (a, b) in pairs { } or nested: for (a, (b, c)) in ...
+struct Tuple_Pattern_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Tuple_Pattern_Tag, ast::Tuple_Pattern> const k_tuple_pattern_rule = "tuple pattern";
+auto const k_tuple_pattern_rule_def = ((('(' > (k_pattern_rule % ',')) > ')')[([](auto& a_ctx) {
+  auto& patterns = x3::_attr(a_ctx);
+  // Wrap each Pattern in forward_ast
+  std::vector<x3::forward_ast<ast::Pattern>> elements;
+  elements.reserve(patterns.size());
+  for (auto& p : patterns) {
+    elements.emplace_back(std::move(p));
+  }
+  x3::_val(a_ctx) = ast::make_tuple_pattern(std::move(elements));
+})]);
+BOOST_SPIRIT_DEFINE(k_tuple_pattern_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_tuple_pattern_rule), Iterator_Type, Context_Type)
+
+// Pattern: struct pattern, tuple pattern, or simple pattern
+// Try struct first (longest), then tuple, then simple
+auto const k_pattern_rule_def =
+    (k_struct_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
+    (k_tuple_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
+    (k_simple_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]);
+BOOST_SPIRIT_DEFINE(k_pattern_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_pattern_rule), Iterator_Type, Context_Type)
+
+// For expression: for pattern in iterator { body }
+// Syntax: for <pattern> in <expr> { body }
+// Examples:
+//   Simple:  "for item in 0..10 { print(item); }"
+//   Struct:  "for Point { x, y } in points { process(x, y); }"
 auto const k_for_expr_rule_def =
-    ((((k_kw_for > k_segment_name) > k_kw_in) > k_logical_or_expr) > k_block_rule)[([](auto& a_ctx) {
+    ((((k_kw_for > k_pattern_rule) > k_kw_in) > k_logical_or_expr) > k_block_rule)[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
-      auto& binding = boost::fusion::at_c<0>(attr);   // std::string
+      auto& pattern = boost::fusion::at_c<0>(attr);   // Pattern
       auto& iterator = boost::fusion::at_c<1>(attr);  // Expr
       auto& body = boost::fusion::at_c<2>(attr);      // Block
-      x3::_val(a_ctx) = ast::make_for_expr(std::move(binding), std::move(iterator), std::move(body));
+      x3::_val(a_ctx) = ast::make_for_expr(std::move(pattern), std::move(iterator), std::move(body));
     })];
 BOOST_SPIRIT_DEFINE(k_for_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_for_expr_rule), Iterator_Type, Context_Type)

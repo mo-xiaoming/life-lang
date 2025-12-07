@@ -30,6 +30,7 @@ struct Function_Definition;
 struct Block;
 struct Struct_Definition;
 struct Expr;
+struct Pattern;
 
 // ============================================================================
 // Type Name System (for type annotations)
@@ -290,6 +291,43 @@ struct If_Expr : boost::spirit::x3::position_tagged {
   boost::optional<boost::spirit::x3::forward_ast<Block>> else_block;
 };
 
+// ============================================================================
+// Pattern Matching Types
+// ============================================================================
+
+// Example: item (simple variable binding in for loops)
+struct Simple_Pattern : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Simple_Pattern";
+  std::string name;
+};
+
+// Example: Point { x, y } (destructure struct fields in for loops)
+// Supports nesting: Point { x, Line { a, b } } where fields are patterns
+struct Struct_Pattern : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Struct_Pattern";
+  Type_Name type_name;
+  std::vector<boost::spirit::x3::forward_ast<Pattern>> fields;
+};
+
+// Example: (a, b, c) (destructure tuple elements in for loops)
+// Supports nesting: (a, (b, c)) where elements are patterns
+struct Tuple_Pattern : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Tuple_Pattern";
+  std::vector<boost::spirit::x3::forward_ast<Pattern>> elements;
+};
+
+// Pattern variant supporting all pattern types
+struct Pattern : boost::spirit::x3::variant<Simple_Pattern, Struct_Pattern, Tuple_Pattern>,
+                 boost::spirit::x3::position_tagged {
+  using Base_Type = boost::spirit::x3::variant<Simple_Pattern, Struct_Pattern, Tuple_Pattern>;
+  using Base_Type::Base_Type;
+  using Base_Type::operator=;
+};
+
+// ============================================================================
+// Loop Types
+// ============================================================================
+
 // Example: while x < 10 { x = x + 1; }
 // Loop continues while condition is true
 struct While_Expr : boost::spirit::x3::position_tagged {
@@ -298,11 +336,11 @@ struct While_Expr : boost::spirit::x3::position_tagged {
   boost::spirit::x3::forward_ast<Block> body;
 };
 
-// Example: for item in 0..10 { process(item); }
-// Iterates over collection or range, binding each element to variable
+// Example: for item in 0..10 { process(item); } or for (a, b) in pairs { }
+// Iterates over collection or range with pattern matching
 struct For_Expr : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "For_Expr";
-  std::string binding;                            // Variable name for loop item (e.g., "item")
+  Pattern pattern;                                // Pattern for destructuring (simple, struct, or tuple)
   boost::spirit::x3::forward_ast<Expr> iterator;  // Collection or range expression
   boost::spirit::x3::forward_ast<Block> body;
 };
@@ -505,8 +543,25 @@ inline While_Expr make_while_expr(Expr&& a_condition, Block&& a_body) {
   return While_Expr{{}, std::move(a_condition), std::move(a_body)};
 }
 
-inline For_Expr make_for_expr(std::string&& a_binding, Expr&& a_iterator, Block&& a_body) {
-  return For_Expr{{}, std::move(a_binding), std::move(a_iterator), std::move(a_body)};
+// Pattern helpers
+inline Simple_Pattern make_simple_pattern(std::string&& a_name) { return Simple_Pattern{{}, std::move(a_name)}; }
+
+inline Struct_Pattern make_struct_pattern(
+    Type_Name&& a_type_name, std::vector<boost::spirit::x3::forward_ast<Pattern>>&& a_fields
+) {
+  return Struct_Pattern{{}, std::move(a_type_name), std::move(a_fields)};
+}
+
+inline Tuple_Pattern make_tuple_pattern(std::vector<boost::spirit::x3::forward_ast<Pattern>>&& a_elements) {
+  return Tuple_Pattern{{}, std::move(a_elements)};
+}
+
+inline Pattern make_pattern(Simple_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
+inline Pattern make_pattern(Struct_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
+inline Pattern make_pattern(Tuple_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
+
+inline For_Expr make_for_expr(Pattern&& a_pattern, Expr&& a_iterator, Block&& a_body) {
+  return For_Expr{{}, std::move(a_pattern), std::move(a_iterator), std::move(a_body)};
 }
 
 inline Range_Expr make_range_expr(Expr&& a_start, Expr&& a_end, bool a_inclusive) {
@@ -829,6 +884,47 @@ inline void to_json(nlohmann::json& a_json, If_Expr const& a_if) {
   a_json[If_Expr::k_name] = obj;
 }
 
+// Pattern JSON serialization (forward declare for recursion)
+inline void to_json(nlohmann::json& a_json, Pattern const& a_pattern);
+
+inline void to_json(nlohmann::json& a_json, Simple_Pattern const& a_pattern) {
+  nlohmann::json obj;
+  obj["name"] = a_pattern.name;
+  a_json[Simple_Pattern::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Struct_Pattern const& a_pattern) {
+  nlohmann::json obj;
+  nlohmann::json type_json;
+  to_json(type_json, a_pattern.type_name);
+  obj["type_name"] = type_json;
+
+  nlohmann::json fields_array = nlohmann::json::array();
+  for (auto const& field : a_pattern.fields) {
+    nlohmann::json field_json;
+    to_json(field_json, field.get());
+    fields_array.push_back(field_json);
+  }
+  obj["fields"] = fields_array;
+  a_json[Struct_Pattern::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Tuple_Pattern const& a_pattern) {
+  nlohmann::json obj;
+  nlohmann::json elements_array = nlohmann::json::array();
+  for (auto const& element : a_pattern.elements) {
+    nlohmann::json element_json;
+    to_json(element_json, element.get());
+    elements_array.push_back(element_json);
+  }
+  obj["elements"] = elements_array;
+  a_json[Tuple_Pattern::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Pattern const& a_pattern) {
+  boost::apply_visitor([&a_json](auto const& a_variant) { to_json(a_json, a_variant); }, a_pattern);
+}
+
 inline void to_json(nlohmann::json& a_json, While_Expr const& a_while) {
   nlohmann::json obj;
   nlohmann::json condition_json;
@@ -844,7 +940,9 @@ inline void to_json(nlohmann::json& a_json, While_Expr const& a_while) {
 
 inline void to_json(nlohmann::json& a_json, For_Expr const& a_for) {
   nlohmann::json obj;
-  obj["binding"] = a_for.binding;
+  nlohmann::json pattern_json;
+  to_json(pattern_json, a_for.pattern);
+  obj["pattern"] = pattern_json;
 
   nlohmann::json iterator_json;
   to_json(iterator_json, a_for.iterator.get());
