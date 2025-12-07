@@ -44,7 +44,7 @@ using x3::ascii::digit;
 using x3::ascii::lit;
 
 struct Keyword_Symbols : x3::symbols<> {
-  Keyword_Symbols() { add("fn")("let")("return")("struct")("self")("mut")("if")("else"); }
+  Keyword_Symbols() { add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while"); }
 } const k_keywords;
 
 // Individual keyword parsers for specific grammar rules (improves error messages)
@@ -56,6 +56,7 @@ auto const k_kw_self = lexeme[lit("self") >> !(alnum | '_')];
 auto const k_kw_mut = lexeme[lit("mut") >> !(alnum | '_')];
 auto const k_kw_if = lexeme[lit("if") >> !(alnum | '_')];
 auto const k_kw_else = lexeme[lit("else") >> !(alnum | '_')];
+auto const k_kw_while = lexeme[lit("while") >> !(alnum | '_')];
 
 // Reserved word rule: matches any registered keyword (for identifier validation)
 auto const k_reserved = lexeme[k_keywords >> !(alnum | '_')];
@@ -110,7 +111,7 @@ x3::rule<Type_Name_Segment_Tag, ast::Type_Name_Segment> const k_type_name_segmen
 //   "<Std.String, IO.Error>"                     - multiple qualified params
 //   "<Parser<Token.Type>, Result<AST.Node, E>>"  - complex nested with qualified names
 x3::rule<struct template_params_tag, std::vector<ast::Type_Name>> const k_template_params = "template parameters";
-auto const k_template_params_def = (lit('<') > (k_type_name_rule % ',')) > lit('>');
+auto const k_template_params_def = lit('<') >> (k_type_name_rule % ',') >> lit('>');
 BOOST_SPIRIT_DEFINE(k_template_params)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_template_params), Iterator_Type, Context_Type)
 
@@ -324,9 +325,11 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_function_declaration_rule), Iterator_Type, C
 struct Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct Function_Call_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct If_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct While_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Expr_Tag, ast::Expr> const k_expr_rule = "expression";
 x3::rule<Function_Call_Expr_Tag, ast::Function_Call_Expr> const k_function_call_expr_rule = "function call expression";
 x3::rule<If_Expr_Tag, ast::If_Expr> const k_if_expr_rule = "if expression";
+x3::rule<While_Expr_Tag, ast::While_Expr> const k_while_expr_rule = "while expression";
 
 // Parse function call name: qualified variable name (supports module paths)
 x3::rule<struct call_name_tag, ast::Variable_Name> const k_call_name = "function name";
@@ -679,6 +682,10 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_function_call_statement_rule), Iterator_Type
 struct If_Statement_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<If_Statement_Tag, ast::If_Statement> const k_if_statement_rule = "if statement";
 
+// Parse while statement: forward declared here, defined after k_while_expr_rule
+struct While_Statement_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<While_Statement_Tag, ast::While_Statement> const k_while_statement_rule = "while statement";
+
 // === Block and Function Definition Rules ===
 // Blocks contain sequences of statements
 // Function definitions combine declaration with body
@@ -744,9 +751,21 @@ auto const k_if_expr_rule_def =
 BOOST_SPIRIT_DEFINE(k_if_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_if_expr_rule), Iterator_Type, Context_Type)
 
-// Parse expression: if expression has higher priority than binary operators
-// Try if first, then fall back to logical OR expression
-auto const k_expr_rule_def = k_if_expr_rule | k_logical_or_expr;
+// While expression: while condition { body }
+// Syntax: no parentheses around condition, consistent with if expression
+// Examples: "while x < 10 { x = x + 1; }", "while has_items() { process(); }"
+auto const k_while_expr_rule_def = ((k_kw_while > k_logical_or_expr) > k_block_rule)[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  auto& condition = boost::fusion::at_c<0>(attr);  // Expr
+  auto& body = boost::fusion::at_c<1>(attr);       // Block
+  x3::_val(a_ctx) = ast::make_while_expr(std::move(condition), std::move(body));
+})];
+BOOST_SPIRIT_DEFINE(k_while_expr_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_while_expr_rule), Iterator_Type, Context_Type)
+
+// Parse expression: control flow expressions (if, while) have higher priority than binary operators
+// Try if first, then while, then fall back to logical OR expression
+auto const k_expr_rule_def = k_if_expr_rule | k_while_expr_rule | k_logical_or_expr;
 BOOST_SPIRIT_DEFINE(k_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_expr_rule), Iterator_Type, Context_Type)
 
@@ -756,6 +775,13 @@ auto const k_if_statement_rule_def =
     k_if_expr_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_if_statement(std::move(x3::_attr(a_ctx))); })];
 BOOST_SPIRIT_DEFINE(k_if_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_if_statement_rule), Iterator_Type, Context_Type)
+
+// Parse while statement: while expression used as a statement (no semicolon needed)
+// Examples: "while x < 10 { process(x); }", "while !done { work(); }"
+auto const k_while_statement_rule_def =
+    k_while_expr_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_while_statement(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_while_statement_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_while_statement_rule), Iterator_Type, Context_Type)
 
 // Parse function definition: declaration followed by body block
 // Example: fn main(): I32 { return 0; }
@@ -823,8 +849,8 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_definition_rule), Iterator_Type, Cont
 // Parse statement: variant of different statement types
 // Order matters: try function definition first (longest match), then others
 auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule |
-                                  k_function_call_statement_rule | k_if_statement_rule | k_block_rule |
-                                  k_return_statement_rule;
+                                  k_function_call_statement_rule | k_if_statement_rule | k_while_statement_rule |
+                                  k_block_rule | k_return_statement_rule;
 BOOST_SPIRIT_DEFINE(k_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_statement_rule), Iterator_Type, Context_Type)
 
