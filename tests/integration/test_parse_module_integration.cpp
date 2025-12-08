@@ -92,9 +92,11 @@ TEST_CASE("Parse Module - Struct Literals and Field Access", "[integration][pars
       Catch::Generators::values<Test_Case>({
           // === Struct literals in function bodies ===
           {"function returning struct literal",
-           "struct Point { x: I32, y: I32 } fn origin(): Point { return Point { x: 0, y: 0 }; }", true},
+           "struct Point { x: I32, y: I32 } fn origin(): Point { return Point { x: 0, y: 0 }; }",
+           true},
           {"struct literal with trailing comma",
-           "struct Point { x: I32, y: I32 } fn origin(): Point { return Point { x: 0, y: 0, }; }", true},
+           "struct Point { x: I32, y: I32 } fn origin(): Point { return Point { x: 0, y: 0, }; }",
+           true},
           {"nested struct literal",
            "struct Inner { v: I32 } struct Outer { i: Inner } "
            "fn make(): Outer { return Outer { i: Inner { v: 1 } }; }",
@@ -107,13 +109,16 @@ TEST_CASE("Parse Module - Struct Literals and Field Access", "[integration][pars
            "fn get_val(o: Outer): I32 { return o.inner.val; }",
            true},
           {"field access on struct literal",
-           "struct Point { x: I32, y: I32 } fn get_x(): I32 { return Point { x: 42, y: 0 }.x; }", true},
+           "struct Point { x: I32, y: I32 } fn get_x(): I32 { return Point { x: 42, y: 0 }.x; }",
+           true},
 
           // === Complex combinations ===
           {"struct with nested struct fields",
-           "struct Point { x: I32, y: I32 } struct Rect { top_left: Point, bottom_right: Point }", true},
+           "struct Point { x: I32, y: I32 } struct Rect { top_left: Point, bottom_right: Point }",
+           true},
           {"function with struct literal and field access",
-           "struct Point { x: I32, y: I32 } fn double_x(p: Point): I32 { return p.x; }", true},
+           "struct Point { x: I32, y: I32 } fn double_x(p: Point): I32 { return p.x; }",
+           true},
           {"multiple struct operations",
            "struct Point { x: I32, y: I32 } "
            "fn process(p: Point): Point { return Point { x: p.x, y: p.y }; }",
@@ -121,7 +126,8 @@ TEST_CASE("Parse Module - Struct Literals and Field Access", "[integration][pars
 
           // === Invalid cases ===
           {"incomplete struct literal", "struct Point { x: I32 } fn bad(): Point { return Point { x: ", false},
-          {"missing closing brace in struct literal", "struct Point { x: I32 } fn bad(): Point { return Point { x: 0 ",
+          {"missing closing brace in struct literal",
+           "struct Point { x: I32 } fn bad(): Point { return Point { x: 0 ",
            false},
           {"incomplete field access", "struct Point { x: I32 } fn bad(p: Point): I32 { return p.", false},
       })

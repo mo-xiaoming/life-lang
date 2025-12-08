@@ -28,7 +28,8 @@ inline auto const k_tuple_three_elements_expected = test_json::for_expr(
     test_json::var_name("coords"),
     test_json::block({test_json::function_call_statement(
         test_json::function_call(
-            test_json::var_name("move"), {test_json::var_name("x"), test_json::var_name("y"), test_json::var_name("z")}
+            test_json::var_name("move"),
+            {test_json::var_name("x"), test_json::var_name("y"), test_json::var_name("z")}
         )
     )})
 );
@@ -37,7 +38,8 @@ inline auto const k_tuple_three_elements_expected = test_json::for_expr(
 constexpr auto k_tuple_single_element_should_succeed = true;
 constexpr auto k_tuple_single_element_input = "for (item) in items { process(item); }";
 inline auto const k_tuple_single_element_expected = test_json::for_expr(
-    test_json::tuple_pattern({test_json::simple_pattern("item")}), test_json::var_name("items"),
+    test_json::tuple_pattern({test_json::simple_pattern("item")}),
+    test_json::var_name("items"),
     test_json::block({test_json::function_call_statement(
         test_json::function_call(test_json::var_name("process"), {test_json::var_name("item")})
     )})
@@ -54,7 +56,8 @@ inline auto const k_nested_tuple_in_tuple_expected = test_json::for_expr(
     test_json::var_name("nested"),
     test_json::block({test_json::function_call_statement(
         test_json::function_call(
-            test_json::var_name("print"), {test_json::var_name("a"), test_json::var_name("b"), test_json::var_name("c")}
+            test_json::var_name("print"),
+            {test_json::var_name("a"), test_json::var_name("b"), test_json::var_name("c")}
         )
     )})
 );
@@ -175,15 +178,25 @@ constexpr auto k_invalid_identifier_input = "for (1a, b) in items { }";
 TEST_CASE("Parse Tuple_Pattern in For_Expr", "[parser][tuple_pattern]") {
   auto const params = GENERATE(
       Catch::Generators::values<Expr_Params>({
-          {"two element tuple", k_tuple_two_elements_input, k_tuple_two_elements_expected,
+          {"two element tuple",
+           k_tuple_two_elements_input,
+           k_tuple_two_elements_expected,
            k_tuple_two_elements_should_succeed},
-          {"three element tuple", k_tuple_three_elements_input, k_tuple_three_elements_expected,
+          {"three element tuple",
+           k_tuple_three_elements_input,
+           k_tuple_three_elements_expected,
            k_tuple_three_elements_should_succeed},
-          {"single element tuple", k_tuple_single_element_input, k_tuple_single_element_expected,
+          {"single element tuple",
+           k_tuple_single_element_input,
+           k_tuple_single_element_expected,
            k_tuple_single_element_should_succeed},
-          {"nested tuple in tuple", k_nested_tuple_in_tuple_input, k_nested_tuple_in_tuple_expected,
+          {"nested tuple in tuple",
+           k_nested_tuple_in_tuple_input,
+           k_nested_tuple_in_tuple_expected,
            k_nested_tuple_in_tuple_should_succeed},
-          {"nested struct in tuple", k_nested_struct_in_tuple_input, k_nested_struct_in_tuple_expected,
+          {"nested struct in tuple",
+           k_nested_struct_in_tuple_input,
+           k_nested_struct_in_tuple_expected,
            k_nested_struct_in_tuple_should_succeed},
           {"empty tuple (invalid)", k_empty_tuple_input, "", k_empty_tuple_should_succeed},
           {"missing closing paren", k_missing_closing_paren_input, "", k_missing_closing_paren_should_succeed},
@@ -194,5 +207,7 @@ TEST_CASE("Parse Tuple_Pattern in For_Expr", "[parser][tuple_pattern]") {
           {"invalid identifier", k_invalid_identifier_input, "", k_invalid_identifier_should_succeed},
       })
   );
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

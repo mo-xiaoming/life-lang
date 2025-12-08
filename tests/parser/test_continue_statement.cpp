@@ -35,7 +35,9 @@ TEST_CASE("Parse Continue_Statement", "[parser]") {
       Catch::Generators::values<Statement_Params>({
           // Valid cases
           {"simple continue", k_simple_continue_input, k_simple_continue_expected, k_simple_continue_should_succeed},
-          {"continue with spaces", k_continue_with_spaces_input, k_continue_with_spaces_expected,
+          {"continue with spaces",
+           k_continue_with_spaces_input,
+           k_continue_with_spaces_expected,
            k_continue_with_spaces_should_succeed},
 
           // Invalid cases
@@ -43,5 +45,7 @@ TEST_CASE("Parse Continue_Statement", "[parser]") {
           {"invalid - continue with value", k_continue_with_value_input, "", k_continue_with_value_should_succeed},
       })
   );
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

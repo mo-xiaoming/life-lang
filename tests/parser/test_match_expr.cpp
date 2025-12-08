@@ -64,7 +64,8 @@ inline auto const k_literal_int_expected = test_json::match_expr(
         test_json::match_arm(test_json::literal_pattern(test_json::integer("1")), test_json::string(R"(\"one\")")),
         test_json::match_arm(test_json::literal_pattern(test_json::integer("42")), test_json::string(R"(\"answer\")")),
         test_json::match_arm(
-            test_json::literal_pattern(test_json::integer("100")), test_json::string(R"(\"century\")")
+            test_json::literal_pattern(test_json::integer("100")),
+            test_json::string(R"(\"century\")")
         ),
     }
 );
@@ -213,11 +214,13 @@ inline auto const k_string_literal_guard_expected = test_json::match_expr(
     test_json::var_name("x"),
     {
         test_json::match_arm_with_guard(
-            test_json::literal_pattern(test_json::string(R"(\"admin\")")), test_json::var_name("is_verified"),
+            test_json::literal_pattern(test_json::string(R"(\"admin\")")),
+            test_json::var_name("is_verified"),
             test_json::string(R"(\"ok\")")
         ),
         test_json::match_arm(
-            test_json::literal_pattern(test_json::string(R"(\"admin\")")), test_json::string(R"(\"unverified\")")
+            test_json::literal_pattern(test_json::string(R"(\"admin\")")),
+            test_json::string(R"(\"unverified\")")
         ),
         test_json::match_arm(test_json::wildcard_pattern(), test_json::string(R"(\"unknown\")")),
     }
@@ -341,17 +344,25 @@ TEST_CASE("Parse Match_Expr", "[parser]") {
           {"literal integers", k_literal_int_input, k_literal_int_expected, k_literal_int_should_succeed},
           {"literal strings", k_literal_string_input, k_literal_string_expected, k_literal_string_should_succeed},
           {"mixed patterns", k_mixed_patterns_input, k_mixed_patterns_expected, k_mixed_patterns_should_succeed},
-          {"literal in tuple", k_literal_in_tuple_input, k_literal_in_tuple_expected,
+          {"literal in tuple",
+           k_literal_in_tuple_input,
+           k_literal_in_tuple_expected,
            k_literal_in_tuple_should_succeed},
-          {"string literal with guard", k_string_literal_guard_input, k_string_literal_guard_expected,
+          {"string literal with guard",
+           k_string_literal_guard_input,
+           k_string_literal_guard_expected,
            k_string_literal_guard_should_succeed},
 
           // Wildcard patterns
           {"wildcard", k_wildcard_input, k_wildcard_expected, k_wildcard_should_succeed},
           {"wildcard with guard", k_wildcard_guard_input, k_wildcard_guard_expected, k_wildcard_guard_should_succeed},
-          {"wildcard in tuple", k_wildcard_in_tuple_input, k_wildcard_in_tuple_expected,
+          {"wildcard in tuple",
+           k_wildcard_in_tuple_input,
+           k_wildcard_in_tuple_expected,
            k_wildcard_in_tuple_should_succeed},
-          {"multiple wildcards", k_multiple_wildcards_input, k_multiple_wildcards_expected,
+          {"multiple wildcards",
+           k_multiple_wildcards_input,
+           k_multiple_wildcards_expected,
            k_multiple_wildcards_should_succeed},
 
           // Invalid cases
@@ -360,5 +371,7 @@ TEST_CASE("Parse Match_Expr", "[parser]") {
           {"missing brace", k_missing_brace_input, k_missing_brace_expected, k_missing_brace_should_succeed},
       })
   );
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

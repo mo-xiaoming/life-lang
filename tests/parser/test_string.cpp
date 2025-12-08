@@ -78,20 +78,32 @@ TEST_CASE("Parse String", "[parser]") {
       Catch::Generators::values<String_Params>({
           {"empty string", k_empty_string_input, k_empty_string_expected, k_empty_string_should_succeed},
           {"simple string", k_simple_string_input, k_simple_string_expected, k_simple_string_should_succeed},
-          {"with escaped quote", k_with_escaped_quote_input, k_with_escaped_quote_expected,
+          {"with escaped quote",
+           k_with_escaped_quote_input,
+           k_with_escaped_quote_expected,
            k_with_escaped_quote_should_succeed},
-          {"with newline escape", k_with_newline_escape_input, k_with_newline_escape_expected,
+          {"with newline escape",
+           k_with_newline_escape_input,
+           k_with_newline_escape_expected,
            k_with_newline_escape_should_succeed},
           {"with hex escape", k_with_hex_escape_input, k_with_hex_escape_expected, k_with_hex_escape_should_succeed},
           {"all escapes", k_all_escapes_input, k_all_escapes_expected, k_all_escapes_should_succeed},
-          {"with trailing text", k_with_trailing_text_input, k_with_trailing_text_expected,
+          {"with trailing text",
+           k_with_trailing_text_input,
+           k_with_trailing_text_expected,
            k_with_trailing_text_should_succeed},
-          {"invalid - unclosed", k_invalid_unclosed_input, k_invalid_unclosed_expected,
+          {"invalid - unclosed",
+           k_invalid_unclosed_input,
+           k_invalid_unclosed_expected,
            k_invalid_unclosed_should_succeed},
-          {"invalid - no quotes", k_invalid_no_quotes_input, k_invalid_no_quotes_expected,
+          {"invalid - no quotes",
+           k_invalid_no_quotes_input,
+           k_invalid_no_quotes_expected,
            k_invalid_no_quotes_should_succeed},
       })
   );
 
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

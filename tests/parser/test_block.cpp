@@ -106,7 +106,8 @@ inline auto const k_multiple_statements_expected = fmt::format(
     ]
   }}
 }})",
-    var_name("foo"), var_name("bar")
+    var_name("foo"),
+    var_name("bar")
 );
 
 // Nested blocks
@@ -142,7 +143,9 @@ inline auto const k_nested_block_expected = fmt::format(
     ]
   }}
 }})",
-    var_name("hello"), var_name("b"), var_name("world")
+    var_name("hello"),
+    var_name("b"),
+    var_name("world")
 );
 
 // Whitespace handling
@@ -208,12 +211,16 @@ TEST_CASE("Parse Block", "[parser]") {
 
           // Single statement blocks
           {"single return", k_single_return_input, k_single_return_expected, k_single_return_should_succeed},
-          {"single function call", k_single_function_call_input, k_single_function_call_expected,
+          {"single function call",
+           k_single_function_call_input,
+           k_single_function_call_expected,
            k_single_function_call_should_succeed},
 
           // Multiple statements
           {"two statements", k_two_statements_input, k_two_statements_expected, k_two_statements_should_succeed},
-          {"multiple statements", k_multiple_statements_input, k_multiple_statements_expected,
+          {"multiple statements",
+           k_multiple_statements_input,
+           k_multiple_statements_expected,
            k_multiple_statements_should_succeed},
 
           // Nested blocks
@@ -223,17 +230,25 @@ TEST_CASE("Parse Block", "[parser]") {
           {"with spaces", k_with_spaces_input, k_with_spaces_expected, k_with_spaces_should_succeed},
 
           // Trailing content
-          {"with trailing code", k_with_trailing_code_input, k_with_trailing_code_expected,
+          {"with trailing code",
+           k_with_trailing_code_input,
+           k_with_trailing_code_expected,
            k_with_trailing_code_should_succeed},
 
           // Invalid cases
-          {"invalid - no closing brace", k_invalid_no_closing_brace_input, k_invalid_expected,
+          {"invalid - no closing brace",
+           k_invalid_no_closing_brace_input,
+           k_invalid_expected,
            k_invalid_no_closing_brace_should_succeed},
-          {"invalid - no opening brace", k_invalid_no_opening_brace_input, k_invalid_expected,
+          {"invalid - no opening brace",
+           k_invalid_no_opening_brace_input,
+           k_invalid_expected,
            k_invalid_no_opening_brace_should_succeed},
           {"invalid - empty", k_invalid_empty_input, k_invalid_expected, k_invalid_empty_should_succeed},
       })
   );
 
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

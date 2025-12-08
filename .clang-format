@@ -1,4 +1,8 @@
-BasedOnStyle: Google
+BasedOnStyle: Chromium
 QualifierAlignment: Right
 ColumnLimit: 120
 AlignAfterOpenBracket: BlockIndent
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false

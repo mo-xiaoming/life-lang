@@ -25,9 +25,8 @@ using Context_Type =
 // Logs errors to x3::error_handler stream for later extraction
 struct Error_Handler {
   template <typename Iterator, typename Exception, typename Context>
-  x3::error_handler_result on_error(
-      Iterator& /*a_first*/, Iterator const& /*a_last*/, Exception const& a_ex, Context const& a_context
-  ) {
+  x3::error_handler_result
+  on_error(Iterator& /*a_first*/, Iterator const& /*a_last*/, Exception const& a_ex, Context const& a_context) {
     auto& error_handler = x3::get<x3::error_handler_tag>(a_context);
     std::string const message = fmt::format("{} Expecting: {} here:", k_spirit_error_marker, a_ex.which());
     error_handler(a_ex.where(), message);
@@ -53,7 +52,7 @@ struct Keyword_Symbols : x3::symbols<> {
 
 // Individual keyword parsers for specific grammar rules (improves error messages)
 auto const k_kw_fn = lexeme[lit("fn") >> !(alnum | '_')];
-[[maybe_unused]] auto const k_kw_let = lexeme[lit("let") >> !(alnum | '_')];
+auto const k_kw_let = lexeme[lit("let") >> !(alnum | '_')];
 auto const k_kw_return = lexeme[lit("return") >> !(alnum | '_')];
 auto const k_kw_struct = lexeme[lit("struct") >> !(alnum | '_')];
 auto const k_kw_self = lexeme[lit("self") >> !(alnum | '_')];
@@ -136,7 +135,8 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_template_params), Iterator_Type, Context_Typ
 auto const k_type_name_segment_rule_def = (k_segment_name >> -k_template_params)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   x3::_val(a_ctx) = ast::make_type_name_segment(
-      std::move(boost::fusion::at_c<0>(attr)), boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{})
+      std::move(boost::fusion::at_c<0>(attr)),
+      boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{})
   );
 })];
 BOOST_SPIRIT_DEFINE(k_type_name_segment_rule)
@@ -181,7 +181,8 @@ x3::rule<Variable_Name_Segment_Tag, ast::Variable_Name_Segment> const k_variable
 auto const k_variable_name_segment_rule_def = (k_segment_name >> -k_template_params)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   x3::_val(a_ctx) = ast::make_variable_name_segment(
-      std::move(boost::fusion::at_c<0>(attr)), boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{})
+      std::move(boost::fusion::at_c<0>(attr)),
+      boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{})
   );
 })];
 BOOST_SPIRIT_DEFINE(k_variable_name_segment_rule)
@@ -366,7 +367,8 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_call_args), Iterator_Type, Context_Type)
 auto const k_function_call_expr_rule_def = (k_call_name >> '(' > -k_call_args > ')')[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   x3::_val(a_ctx) = ast::make_function_call_expr(
-      std::move(boost::fusion::at_c<0>(attr)), boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Expr>{})
+      std::move(boost::fusion::at_c<0>(attr)),
+      boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Expr>{})
   );
 })];
 BOOST_SPIRIT_DEFINE(k_function_call_expr_rule)
@@ -470,7 +472,8 @@ x3::rule<struct postfix_method_call_tag, Postfix_Method_Call> const k_postfix_me
 auto const k_postfix_method_call_def = ('.' >> k_segment_name >> '(' > -k_method_args > ')')[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   x3::_val(a_ctx) = Postfix_Method_Call{
-      std::move(boost::fusion::at_c<0>(attr)), boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Expr>{})
+      std::move(boost::fusion::at_c<0>(attr)),
+      boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Expr>{})
   };
 })];
 BOOST_SPIRIT_DEFINE(k_postfix_method_call)
@@ -1194,7 +1197,10 @@ namespace {
 // Error includes source location, line:column, and context from Spirit X3.
 template <typename Rule, typename Ast>
 parser::Parse_Result<Ast> parse_with_rule(
-    Rule const& a_rule, parser::Iterator_Type& a_begin, parser::Iterator_Type a_end, std::string_view a_source
+    Rule const& a_rule,
+    parser::Iterator_Type& a_begin,
+    parser::Iterator_Type a_end,
+    std::string_view a_source
 ) {
   // Build diagnostic engine for error accumulation
   Diagnostic_Engine diagnostics("<input>", std::string(a_source));
@@ -1255,7 +1261,10 @@ parser::Parse_Result<Ast> parse_with_rule(
 #define PARSE_FN_IMPL(ast_type, fn_name)                                                                             \
   parser::Parse_Result<ast::ast_type> parse_##fn_name(parser::Iterator_Type& a_begin, parser::Iterator_Type a_end) { \
     return parse_with_rule<decltype(parser::k_##fn_name##_rule), ast::ast_type>(                                     \
-        parser::k_##fn_name##_rule, a_begin, a_end, {a_begin, a_end}                                                 \
+        parser::k_##fn_name##_rule,                                                                                  \
+        a_begin,                                                                                                     \
+        a_end,                                                                                                       \
+        {a_begin, a_end}                                                                                             \
     );                                                                                                               \
   }
 

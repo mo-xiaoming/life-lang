@@ -11,7 +11,8 @@ namespace {
 constexpr auto k_simple_range_exclusive_should_succeed = true;
 constexpr auto k_simple_range_exclusive_input = "for i in 0..10 { process(i); }";
 inline auto const k_simple_range_exclusive_expected = test_json::for_expr(
-    test_json::simple_pattern("i"), test_json::range_expr(test_json::integer(0), test_json::integer(10), false),
+    test_json::simple_pattern("i"),
+    test_json::range_expr(test_json::integer(0), test_json::integer(10), false),
     test_json::block({test_json::function_call_statement(
         test_json::function_call(test_json::var_name("process"), {test_json::var_name("i")})
     )})
@@ -21,7 +22,8 @@ inline auto const k_simple_range_exclusive_expected = test_json::for_expr(
 constexpr auto k_simple_range_inclusive_should_succeed = true;
 constexpr auto k_simple_range_inclusive_input = "for i in 0..=10 { process(i); }";
 inline auto const k_simple_range_inclusive_expected = test_json::for_expr(
-    test_json::simple_pattern("i"), test_json::range_expr(test_json::integer(0), test_json::integer(10), true),
+    test_json::simple_pattern("i"),
+    test_json::range_expr(test_json::integer(0), test_json::integer(10), true),
     test_json::block({test_json::function_call_statement(
         test_json::function_call(test_json::var_name("process"), {test_json::var_name("i")})
     )})
@@ -42,7 +44,8 @@ inline auto const k_variable_range_expected = test_json::for_expr(
 constexpr auto k_collection_iteration_should_succeed = true;
 constexpr auto k_collection_iteration_input = "for user in users { handle(user); }";
 inline auto const k_collection_iteration_expected = test_json::for_expr(
-    test_json::simple_pattern("user"), test_json::var_name("users"),
+    test_json::simple_pattern("user"),
+    test_json::var_name("users"),
     test_json::block({test_json::function_call_statement(
         test_json::function_call(test_json::var_name("handle"), {test_json::var_name("user")})
     )})
@@ -52,7 +55,8 @@ inline auto const k_collection_iteration_expected = test_json::for_expr(
 constexpr auto k_empty_body_should_succeed = true;
 constexpr auto k_empty_body_input = "for x in 0..10 {}";
 inline auto const k_empty_body_expected = test_json::for_expr(
-    test_json::simple_pattern("x"), test_json::range_expr(test_json::integer(0), test_json::integer(10), false),
+    test_json::simple_pattern("x"),
+    test_json::range_expr(test_json::integer(0), test_json::integer(10), false),
     test_json::block({})
 );
 
@@ -110,7 +114,9 @@ inline auto const k_nested_for_loops_expected = fmt::format(
     }}
   }}
 }})",
-    test_json::var_name("process"), test_json::var_name("i"), test_json::var_name("j")
+    test_json::var_name("process"),
+    test_json::var_name("i"),
+    test_json::var_name("j")
 );
 
 // For loop with multiple statements
@@ -155,7 +161,10 @@ inline auto const k_multiple_statements_expected = fmt::format(
     }}
   }}
 }})",
-    test_json::var_name("print"), test_json::var_name("x"), test_json::var_name("log"), test_json::var_name("x")
+    test_json::var_name("print"),
+    test_json::var_name("x"),
+    test_json::var_name("log"),
+    test_json::var_name("x")
 );
 
 // For with function call as iterator
@@ -189,7 +198,9 @@ inline auto const k_function_call_iterator_expected = fmt::format(
     }}
   }}
 }})",
-    test_json::var_name("get_items"), test_json::var_name("process"), test_json::var_name("item")
+    test_json::var_name("get_items"),
+    test_json::var_name("process"),
+    test_json::var_name("item")
 );
 
 // For with spaces
@@ -267,19 +278,31 @@ TEST_CASE("Parse For_Expr", "[parser]") {
   auto const params = GENERATE(
       Catch::Generators::values<Expr_Params>({
           // Valid cases
-          {"simple range exclusive", k_simple_range_exclusive_input, k_simple_range_exclusive_expected,
+          {"simple range exclusive",
+           k_simple_range_exclusive_input,
+           k_simple_range_exclusive_expected,
            k_simple_range_exclusive_should_succeed},
-          {"simple range inclusive", k_simple_range_inclusive_input, k_simple_range_inclusive_expected,
+          {"simple range inclusive",
+           k_simple_range_inclusive_input,
+           k_simple_range_inclusive_expected,
            k_simple_range_inclusive_should_succeed},
           {"variable range", k_variable_range_input, k_variable_range_expected, k_variable_range_should_succeed},
-          {"collection iteration", k_collection_iteration_input, k_collection_iteration_expected,
+          {"collection iteration",
+           k_collection_iteration_input,
+           k_collection_iteration_expected,
            k_collection_iteration_should_succeed},
           {"empty body", k_empty_body_input, k_empty_body_expected, k_empty_body_should_succeed},
-          {"nested for loops", k_nested_for_loops_input, k_nested_for_loops_expected,
+          {"nested for loops",
+           k_nested_for_loops_input,
+           k_nested_for_loops_expected,
            k_nested_for_loops_should_succeed},
-          {"multiple statements", k_multiple_statements_input, k_multiple_statements_expected,
+          {"multiple statements",
+           k_multiple_statements_input,
+           k_multiple_statements_expected,
            k_multiple_statements_should_succeed},
-          {"function call iterator", k_function_call_iterator_input, k_function_call_iterator_expected,
+          {"function call iterator",
+           k_function_call_iterator_input,
+           k_function_call_iterator_expected,
            k_function_call_iterator_should_succeed},
           {"with spaces", k_with_spaces_input, k_with_spaces_expected, k_with_spaces_should_succeed},
 
@@ -289,9 +312,13 @@ TEST_CASE("Parse For_Expr", "[parser]") {
           {"invalid - missing iterator", k_missing_iterator_input, "", k_missing_iterator_should_succeed},
           {"invalid - missing body", k_missing_body_input, "", k_missing_body_should_succeed},
           {"invalid - missing open brace", k_missing_open_brace_input, "", k_missing_open_brace_should_succeed},
-          {"invalid - reserved keyword binding", k_reserved_keyword_binding_input, "",
+          {"invalid - reserved keyword binding",
+           k_reserved_keyword_binding_input,
+           "",
            k_reserved_keyword_binding_should_succeed},
       })
   );
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }
