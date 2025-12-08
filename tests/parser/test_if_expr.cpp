@@ -11,14 +11,16 @@ namespace {
 constexpr auto k_if_only_should_succeed = true;
 constexpr auto k_if_only_input = "if x { return 1; }";
 inline auto const k_if_only_expected = test_json::if_expr(
-    test_json::var_name("x"), test_json::block({test_json::return_statement(test_json::integer(1))})
+    test_json::var_name("x"),
+    test_json::block({test_json::return_statement(test_json::integer(1))})
 );
 
 // If with else
 constexpr auto k_if_else_should_succeed = true;
 constexpr auto k_if_else_input = "if condition { return 1; } else { return 2; }";
 inline auto const k_if_else_expected = test_json::if_else_expr(
-    test_json::var_name("condition"), test_json::block({test_json::return_statement(test_json::integer(1))}),
+    test_json::var_name("condition"),
+    test_json::block({test_json::return_statement(test_json::integer(1))}),
     test_json::block({test_json::return_statement(test_json::integer(2))})
 );
 
@@ -66,7 +68,8 @@ inline auto const k_if_elseif_expected = fmt::format(
     ]
   }}
 }})",
-    var_name("a"), var_name("b")
+    var_name("a"),
+    var_name("b")
 );
 
 // If with else-if and final else
@@ -128,7 +131,8 @@ inline auto const k_if_elseif_else_expected = fmt::format(
     }}
   }}
 }})",
-    var_name("a"), var_name("b")
+    var_name("a"),
+    var_name("b")
 );
 
 // If with multiple else-if clauses
@@ -209,7 +213,9 @@ inline auto const k_multiple_elseif_expected = fmt::format(
     }}
   }}
 }})",
-    var_name("a"), var_name("b"), var_name("c")
+    var_name("a"),
+    var_name("b"),
+    var_name("c")
 );
 
 // If expression with binary operators
@@ -249,7 +255,10 @@ inline auto const k_if_with_comparison_expected = fmt::format(
     }}
   }}
 }})",
-    var_name("x"), var_name("y"), var_name("x"), var_name("y")
+    var_name("x"),
+    var_name("y"),
+    var_name("x"),
+    var_name("y")
 );
 
 // Empty blocks
@@ -281,7 +290,8 @@ inline auto const k_if_empty_blocks_expected = fmt::format(
     }}
   }}
 }})",
-    var_name("x"), var_name("y")
+    var_name("x"),
+    var_name("y")
 );
 
 // Invalid: missing condition
@@ -314,17 +324,27 @@ TEST_CASE("Parse If_Expr", "[parser]") {
           {"if else-if", k_if_elseif_input, k_if_elseif_expected, k_if_elseif_should_succeed},
           {"if else-if else", k_if_elseif_else_input, k_if_elseif_else_expected, k_if_elseif_else_should_succeed},
           {"multiple else-if", k_multiple_elseif_input, k_multiple_elseif_expected, k_multiple_elseif_should_succeed},
-          {"if with comparison", k_if_with_comparison_input, k_if_with_comparison_expected,
+          {"if with comparison",
+           k_if_with_comparison_input,
+           k_if_with_comparison_expected,
            k_if_with_comparison_should_succeed},
           {"if empty blocks", k_if_empty_blocks_input, k_if_empty_blocks_expected, k_if_empty_blocks_should_succeed},
-          {"missing condition", k_missing_condition_input, k_missing_condition_expected,
+          {"missing condition",
+           k_missing_condition_input,
+           k_missing_condition_expected,
            k_missing_condition_should_succeed},
           {"missing block", k_missing_block_input, k_missing_block_expected, k_missing_block_should_succeed},
-          {"missing else-if condition", k_missing_elseif_condition_input, k_missing_elseif_condition_expected,
+          {"missing else-if condition",
+           k_missing_elseif_condition_input,
+           k_missing_elseif_condition_expected,
            k_missing_elseif_condition_should_succeed},
-          {"missing else-if block", k_missing_elseif_block_input, k_missing_elseif_block_expected,
+          {"missing else-if block",
+           k_missing_elseif_block_input,
+           k_missing_elseif_block_expected,
            k_missing_elseif_block_should_succeed},
       })
   );
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

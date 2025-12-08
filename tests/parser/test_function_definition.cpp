@@ -12,7 +12,8 @@ namespace {
 constexpr auto k_empty_body_should_succeed = true;
 constexpr auto k_empty_body_input = "fn hello(): Int {}";
 inline auto const k_empty_body_expected = test_json::function_definition(
-    test_json::function_declaration("hello", {}, type_name("Int")), test_json::block({})
+    test_json::function_declaration("hello", {}, type_name("Int")),
+    test_json::block({})
 );
 
 // Functions with parameters
@@ -255,15 +256,21 @@ TEST_CASE("Parse Function_Definition", "[parser]") {
           {"hello world", k_hello_world_input, k_hello_world_expected, k_hello_world_should_succeed},
 
           // Trailing content
-          {"with trailing code", k_with_trailing_code_input, k_with_trailing_code_expected,
+          {"with trailing code",
+           k_with_trailing_code_input,
+           k_with_trailing_code_expected,
            k_with_trailing_code_should_succeed},
 
           // Invalid cases
-          {"invalid - no fn keyword", k_invalid_no_fn_keyword_input, k_invalid_expected,
+          {"invalid - no fn keyword",
+           k_invalid_no_fn_keyword_input,
+           k_invalid_expected,
            k_invalid_no_fn_keyword_should_succeed},
           {"invalid - empty", k_invalid_empty_input, k_invalid_expected, k_invalid_empty_should_succeed},
       })
   );
 
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

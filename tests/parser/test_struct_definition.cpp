@@ -21,25 +21,28 @@ inline auto const k_single_field_expected =
 constexpr auto k_two_fields_should_succeed = true;
 constexpr auto k_two_fields_input = "struct Point { x: I32, y: I32 }";
 inline auto const k_two_fields_expected = test_json::struct_definition(
-    "Point", {test_json::struct_field("x", test_json::type_name("I32")),
-              test_json::struct_field("y", test_json::type_name("I32"))}
+    "Point",
+    {test_json::struct_field("x", test_json::type_name("I32")),
+     test_json::struct_field("y", test_json::type_name("I32"))}
 );
 
 // Multiple fields
 constexpr auto k_multiple_fields_should_succeed = true;
 constexpr auto k_multiple_fields_input = "struct Person { name: String, age: I32, active: Bool }";
 inline auto const k_multiple_fields_expected = test_json::struct_definition(
-    "Person", {test_json::struct_field("name", test_json::type_name("String")),
-               test_json::struct_field("age", test_json::type_name("I32")),
-               test_json::struct_field("active", test_json::type_name("Bool"))}
+    "Person",
+    {test_json::struct_field("name", test_json::type_name("String")),
+     test_json::struct_field("age", test_json::type_name("I32")),
+     test_json::struct_field("active", test_json::type_name("Bool"))}
 );
 
 // Qualified types
 constexpr auto k_qualified_types_should_succeed = true;
 constexpr auto k_qualified_types_input = "struct Data { value: Std.String, count: Std.I32 }";
 inline auto const k_qualified_types_expected = test_json::struct_definition(
-    "Data", {test_json::struct_field("value", test_json::type_name_path({"Std", "String"})),
-             test_json::struct_field("count", test_json::type_name_path({"Std", "I32"}))}
+    "Data",
+    {test_json::struct_field("value", test_json::type_name_path({"Std", "String"})),
+     test_json::struct_field("count", test_json::type_name_path({"Std", "I32"}))}
 );
 
 // Template types
@@ -143,8 +146,9 @@ inline auto const k_complex_nested_expected = R"(
 constexpr auto k_no_spaces_should_succeed = true;
 constexpr auto k_no_spaces_input = "struct Foo{x:I32,y:I32}";
 inline auto const k_no_spaces_expected = test_json::struct_definition(
-    "Foo", {test_json::struct_field("x", test_json::type_name("I32")),
-            test_json::struct_field("y", test_json::type_name("I32"))}
+    "Foo",
+    {test_json::struct_field("x", test_json::type_name("I32")),
+     test_json::struct_field("y", test_json::type_name("I32"))}
 );
 
 constexpr auto k_multiline_should_succeed = true;
@@ -153,16 +157,18 @@ constexpr auto k_multiline_input = R"(struct Point {
   y: I32
 })";
 inline auto const k_multiline_expected = test_json::struct_definition(
-    "Point", {test_json::struct_field("x", test_json::type_name("I32")),
-              test_json::struct_field("y", test_json::type_name("I32"))}
+    "Point",
+    {test_json::struct_field("x", test_json::type_name("I32")),
+     test_json::struct_field("y", test_json::type_name("I32"))}
 );
 
 // Trailing comma (should be allowed)
 constexpr auto k_trailing_comma_should_succeed = true;
 constexpr auto k_trailing_comma_input = "struct Point { x: I32, y: I32, }";
 inline auto const k_trailing_comma_expected = test_json::struct_definition(
-    "Point", {test_json::struct_field("x", test_json::type_name("I32")),
-              test_json::struct_field("y", test_json::type_name("I32"))}
+    "Point",
+    {test_json::struct_field("x", test_json::type_name("I32")),
+     test_json::struct_field("y", test_json::type_name("I32"))}
 );
 
 // Struct name variations (Camel_Snake_Case)
@@ -229,20 +235,34 @@ TEST_CASE("Parse Struct_Definition", "[parser]") {
           {"multiline", k_multiline_input, k_multiline_expected, k_multiline_should_succeed},
           {"trailing comma", k_trailing_comma_input, k_trailing_comma_expected, k_trailing_comma_should_succeed},
           {"camel case name", k_camel_case_name_input, k_camel_case_name_expected, k_camel_case_name_should_succeed},
-          {"camel snake case name", k_camel_snake_case_name_input, k_camel_snake_case_name_expected,
+          {"camel snake case name",
+           k_camel_snake_case_name_input,
+           k_camel_snake_case_name_expected,
            k_camel_snake_case_name_should_succeed},
-          {"HTTP response name", k_http_response_name_input, k_http_response_name_expected,
+          {"HTTP response name",
+           k_http_response_name_input,
+           k_http_response_name_expected,
            k_http_response_name_should_succeed},
-          {"with trailing content", k_with_trailing_content_input, k_with_trailing_content_expected,
+          {"with trailing content",
+           k_with_trailing_content_input,
+           k_with_trailing_content_expected,
            k_with_trailing_content_should_succeed},
-          {"lowercase name accepted", k_lowercase_name_accepted_input, k_lowercase_name_accepted_expected,
+          {"lowercase name accepted",
+           k_lowercase_name_accepted_input,
+           k_lowercase_name_accepted_expected,
            k_lowercase_name_accepted_should_succeed},
           {"invalid - no name", k_invalid_no_name_input, k_invalid_no_name_expected, k_invalid_no_name_should_succeed},
-          {"invalid - no braces", k_invalid_no_braces_input, k_invalid_no_braces_expected,
+          {"invalid - no braces",
+           k_invalid_no_braces_input,
+           k_invalid_no_braces_expected,
            k_invalid_no_braces_should_succeed},
-          {"invalid - missing closing", k_invalid_missing_closing_input, k_invalid_missing_closing_expected,
+          {"invalid - missing closing",
+           k_invalid_missing_closing_input,
+           k_invalid_missing_closing_expected,
            k_invalid_missing_closing_should_succeed},
-          {"invalid - missing field type", k_invalid_missing_field_type_input, k_invalid_missing_field_type_expected,
+          {"invalid - missing field type",
+           k_invalid_missing_field_type_input,
+           k_invalid_missing_field_type_expected,
            k_invalid_missing_field_type_should_succeed},
           {"invalid - empty", k_invalid_empty_input, k_invalid_empty_expected, k_invalid_empty_should_succeed},
       })

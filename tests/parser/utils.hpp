@@ -126,10 +126,14 @@ inline std::string integer(std::string_view a_value) {
 }
 
 // String literal
-inline std::string string(std::string_view a_value) { return fmt::format(R"({{"String":{{"value":"{}"}}}})", a_value); }
+inline std::string string(std::string_view a_value) {
+  return fmt::format(R"({{"String":{{"value":"{}"}}}})", a_value);
+}
 
 // Wildcard pattern
-inline std::string wildcard_pattern() { return R"({"Wildcard_Pattern":{}})"; }
+inline std::string wildcard_pattern() {
+  return R"({"Wildcard_Pattern":{}})";
+}
 
 // Literal pattern (wraps an expression)
 inline std::string literal_pattern(std::string_view a_expr_json) {
@@ -160,9 +164,8 @@ inline std::string match_arm(std::string_view a_pattern, std::string_view a_resu
 }
 
 // Match arm with guard
-inline std::string match_arm_with_guard(
-    std::string_view a_pattern, std::string_view a_guard, std::string_view a_result
-) {
+inline std::string
+match_arm_with_guard(std::string_view a_pattern, std::string_view a_guard, std::string_view a_result) {
   return fmt::format(R"({{"Match_Arm":{{"pattern":{},"guard":{},"result":{}}}}})", a_pattern, a_guard, a_result);
 }
 
@@ -203,7 +206,9 @@ inline std::string field_access(std::string_view a_object, std::string_view a_fi
 }
 
 // Overload for integer that accepts int directly
-inline std::string integer(int a_value) { return fmt::format(R"({{"Integer":{{"value":"{}"}}}})", a_value); }
+inline std::string integer(int a_value) {
+  return fmt::format(R"({{"Integer":{{"value":"{}"}}}})", a_value);
+}
 
 // Block with statements
 inline std::string block(std::vector<std::string> const& a_statements) {
@@ -234,11 +239,17 @@ inline std::string assignment_expr(std::string_view a_target, std::string_view a
 
 // Let statement
 inline std::string let_statement(
-    std::string_view a_pattern, std::string_view a_value, bool a_is_mut = false, std::string_view a_type = "null"
+    std::string_view a_pattern,
+    std::string_view a_value,
+    bool a_is_mut = false,
+    std::string_view a_type = "null"
 ) {
   return fmt::format(
-      R"({{"Let_Statement":{{"is_mut":{},"pattern":{},"type":{},"value":{}}}}})", a_is_mut ? "true" : "false",
-      a_pattern, a_type, a_value
+      R"({{"Let_Statement":{{"is_mut":{},"pattern":{},"type":{},"value":{}}}}})",
+      a_is_mut ? "true" : "false",
+      a_pattern,
+      a_type,
+      a_value
   );
 }
 
@@ -248,11 +259,13 @@ inline std::string if_expr(std::string_view a_condition, std::string_view a_then
 }
 
 // If expression with else
-inline std::string if_else_expr(
-    std::string_view a_condition, std::string_view a_then_block, std::string_view a_else_block
-) {
+inline std::string
+if_else_expr(std::string_view a_condition, std::string_view a_then_block, std::string_view a_else_block) {
   return fmt::format(
-      R"({{"If_Expr":{{"condition":{},"then_block":{},"else_block":{}}}}})", a_condition, a_then_block, a_else_block
+      R"({{"If_Expr":{{"condition":{},"then_block":{},"else_block":{}}}}})",
+      a_condition,
+      a_then_block,
+      a_else_block
   );
 }
 
@@ -264,7 +277,10 @@ inline std::string while_expr(std::string_view a_condition, std::string_view a_b
 // Range expression
 inline std::string range_expr(std::string_view a_start, std::string_view a_end, bool a_inclusive) {
   return fmt::format(
-      R"({{"Range_Expr":{{"start":{},"end":{},"inclusive":{}}}}})", a_start, a_end, a_inclusive ? "true" : "false"
+      R"({{"Range_Expr":{{"start":{},"end":{},"inclusive":{}}}}})",
+      a_start,
+      a_end,
+      a_inclusive ? "true" : "false"
   );
 }
 
@@ -279,7 +295,9 @@ inline std::string break_statement(std::string_view a_value = "null") {
 }
 
 // Continue statement
-inline std::string continue_statement() { return R"({"Continue_Statement":null})"; }
+inline std::string continue_statement() {
+  return R"({"Continue_Statement":null})";
+}
 
 // Unary expression
 inline std::string unary_expr(std::string_view a_op, std::string_view a_operand) {
@@ -307,13 +325,18 @@ inline std::string struct_definition(std::string_view a_name, std::vector<std::s
 // Function parameter
 inline std::string function_parameter(std::string_view a_name, std::string_view a_type, bool a_is_mut = false) {
   return fmt::format(
-      R"({{"Function_Parameter":{{"is_mut":{},"name":"{}","type":{}}}}})", a_is_mut ? "true" : "false", a_name, a_type
+      R"({{"Function_Parameter":{{"is_mut":{},"name":"{}","type":{}}}}})",
+      a_is_mut ? "true" : "false",
+      a_name,
+      a_type
   );
 }
 
 // Function declaration
 inline std::string function_declaration(
-    std::string_view a_name, std::vector<std::string> const& a_params, std::string_view a_return_type
+    std::string_view a_name,
+    std::vector<std::string> const& a_params,
+    std::string_view a_return_type
 ) {
   std::string params = "[";
   for (size_t i = 0; i < a_params.size(); ++i) {
@@ -324,7 +347,10 @@ inline std::string function_declaration(
   }
   params += "]";
   return fmt::format(
-      R"({{"Function_Declaration":{{"name":"{}","parameters":{},"returnType":{}}}}})", a_name, params, a_return_type
+      R"({{"Function_Declaration":{{"name":"{}","parameters":{},"returnType":{}}}}})",
+      a_name,
+      params,
+      a_return_type
   );
 }
 
@@ -386,7 +412,9 @@ struct Parse_Test_Params {
 template <typename T>
 std::ostream& operator<<(std::ostream& a_os, Parse_Test_Params<T> const& a_params) {
   return a_os << fmt::format(
-             R"({{.input = "{}", .expected = {}, .shouldSucceed = {}}})", a_params.input,
-             get_expected_json(a_params.expected, -1), a_params.should_succeed
+             R"({{.input = "{}", .expected = {}, .shouldSucceed = {}}})",
+             a_params.input,
+             get_expected_json(a_params.expected, -1),
+             a_params.should_succeed
          );
 }

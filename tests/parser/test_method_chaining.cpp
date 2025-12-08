@@ -46,7 +46,8 @@ inline auto const k_path_function_call_expected =
 constexpr auto k_field_on_method_result_should_succeed = true;
 constexpr auto k_field_on_method_result_input = "foo().bar.baz";
 inline auto const k_field_on_method_result_expected = test_json::field_access(
-    test_json::field_access(test_json::function_call(test_json::var_name("foo"), {}), "bar"), "baz"
+    test_json::field_access(test_json::function_call(test_json::var_name("foo"), {}), "bar"),
+    "baz"
 );
 
 // Complex chain: foo().bar(1).baz().qux
@@ -68,20 +69,34 @@ inline auto const k_complex_chain_expected = test_json::field_access(
 TEST_CASE("Parse Method Chaining", "[parser]") {
   auto const params = GENERATE(
       Catch::Generators::values<Expr_Params>({
-          {"method on call result", k_method_on_call_result_input, k_method_on_call_result_expected,
+          {"method on call result",
+           k_method_on_call_result_input,
+           k_method_on_call_result_expected,
            k_method_on_call_result_should_succeed},
-          {"method with args on call", k_method_with_args_on_call_input, k_method_with_args_on_call_expected,
+          {"method with args on call",
+           k_method_with_args_on_call_input,
+           k_method_with_args_on_call_expected,
            k_method_with_args_on_call_should_succeed},
-          {"chained method calls", k_chained_method_calls_input, k_chained_method_calls_expected,
+          {"chained method calls",
+           k_chained_method_calls_input,
+           k_chained_method_calls_expected,
            k_chained_method_calls_should_succeed},
-          {"field on call result", k_field_on_call_result_input, k_field_on_call_result_expected,
+          {"field on call result",
+           k_field_on_call_result_input,
+           k_field_on_call_result_expected,
            k_field_on_call_result_should_succeed},
-          {"path-based function call", k_path_function_call_input, k_path_function_call_expected,
+          {"path-based function call",
+           k_path_function_call_input,
+           k_path_function_call_expected,
            k_path_function_call_should_succeed},
-          {"field on method result", k_field_on_method_result_input, k_field_on_method_result_expected,
+          {"field on method result",
+           k_field_on_method_result_input,
+           k_field_on_method_result_expected,
            k_field_on_method_result_should_succeed},
           {"complex chain", k_complex_chain_input, k_complex_chain_expected, k_complex_chain_should_succeed},
       })
   );
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

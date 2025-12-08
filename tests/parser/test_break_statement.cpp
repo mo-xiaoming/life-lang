@@ -115,17 +115,29 @@ TEST_CASE("Parse Break_Statement", "[parser]") {
       Catch::Generators::values<Statement_Params>({
           // Valid cases
           {"simple break", k_simple_break_input, k_simple_break_expected, k_simple_break_should_succeed},
-          {"break with integer", k_break_with_integer_input, k_break_with_integer_expected,
+          {"break with integer",
+           k_break_with_integer_input,
+           k_break_with_integer_expected,
            k_break_with_integer_should_succeed},
-          {"break with variable", k_break_with_variable_input, k_break_with_variable_expected,
+          {"break with variable",
+           k_break_with_variable_input,
+           k_break_with_variable_expected,
            k_break_with_variable_should_succeed},
-          {"break with expression", k_break_with_expression_input, k_break_with_expression_expected,
+          {"break with expression",
+           k_break_with_expression_input,
+           k_break_with_expression_expected,
            k_break_with_expression_should_succeed},
-          {"break with function call", k_break_with_function_call_input, k_break_with_function_call_expected,
+          {"break with function call",
+           k_break_with_function_call_input,
+           k_break_with_function_call_expected,
            k_break_with_function_call_should_succeed},
-          {"break with string", k_break_with_string_input, k_break_with_string_expected,
+          {"break with string",
+           k_break_with_string_input,
+           k_break_with_string_expected,
            k_break_with_string_should_succeed},
-          {"break with spaces", k_break_with_spaces_input, k_break_with_spaces_expected,
+          {"break with spaces",
+           k_break_with_spaces_input,
+           k_break_with_spaces_expected,
            k_break_with_spaces_should_succeed},
 
           // Invalid cases
@@ -133,5 +145,7 @@ TEST_CASE("Parse Break_Statement", "[parser]") {
           {"invalid - break as variable", k_break_as_variable_input, "", k_break_as_variable_should_succeed},
       })
   );
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

@@ -67,13 +67,16 @@ TEST_CASE("Parse Field Access", "[parser]") {
 
           // Plain expressions (not field access)
           {"not field access - just path", k_not_field_access_path_input, k_not_field_access_path_should_succeed},
-          {"not field access - just integer", k_not_field_access_integer_input,
+          {"not field access - just integer",
+           k_not_field_access_integer_input,
            k_not_field_access_integer_should_succeed},
-          {"not field access - range expression", k_valid_range_not_field_access_input,
+          {"not field access - range expression",
+           k_valid_range_not_field_access_input,
            k_valid_range_not_field_access_should_succeed},
 
           // Invalid cases
-          {"invalid - missing field name after dot", k_invalid_missing_field_name_input,
+          {"invalid - missing field name after dot",
+           k_invalid_missing_field_name_input,
            k_invalid_missing_field_name_should_succeed},
           {"invalid - empty", k_invalid_empty_input, k_invalid_empty_should_succeed},
       })

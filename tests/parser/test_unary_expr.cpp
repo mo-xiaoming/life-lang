@@ -89,5 +89,7 @@ TEST_CASE("Parse Unary_Expr", "[parser]") {
           {"neg function call", k_neg_call_input, k_neg_call_expected, k_neg_call_should_succeed},
       })
   );
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

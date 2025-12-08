@@ -173,20 +173,36 @@ struct Range_Expr : boost::spirit::x3::position_tagged {
 
 // Example: foo.bar.baz() or Point { x: 1 + 2, y: calculate(z) } or x = 42
 struct Expr : boost::spirit::x3::variant<
-                  Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
-                  boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
-                  boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
-                  boost::spirit::x3::forward_ast<While_Expr>, boost::spirit::x3::forward_ast<For_Expr>,
-                  boost::spirit::x3::forward_ast<Match_Expr>, boost::spirit::x3::forward_ast<Range_Expr>,
-                  boost::spirit::x3::forward_ast<Assignment_Expr>, Struct_Literal, String, Integer>,
+                  Variable_Name,
+                  boost::spirit::x3::forward_ast<Function_Call_Expr>,
+                  boost::spirit::x3::forward_ast<Field_Access_Expr>,
+                  boost::spirit::x3::forward_ast<Binary_Expr>,
+                  boost::spirit::x3::forward_ast<Unary_Expr>,
+                  boost::spirit::x3::forward_ast<If_Expr>,
+                  boost::spirit::x3::forward_ast<While_Expr>,
+                  boost::spirit::x3::forward_ast<For_Expr>,
+                  boost::spirit::x3::forward_ast<Match_Expr>,
+                  boost::spirit::x3::forward_ast<Range_Expr>,
+                  boost::spirit::x3::forward_ast<Assignment_Expr>,
+                  Struct_Literal,
+                  String,
+                  Integer>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
-      Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
-      boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
-      boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
-      boost::spirit::x3::forward_ast<While_Expr>, boost::spirit::x3::forward_ast<For_Expr>,
-      boost::spirit::x3::forward_ast<Match_Expr>, boost::spirit::x3::forward_ast<Range_Expr>,
-      boost::spirit::x3::forward_ast<Assignment_Expr>, Struct_Literal, String, Integer>;
+      Variable_Name,
+      boost::spirit::x3::forward_ast<Function_Call_Expr>,
+      boost::spirit::x3::forward_ast<Field_Access_Expr>,
+      boost::spirit::x3::forward_ast<Binary_Expr>,
+      boost::spirit::x3::forward_ast<Unary_Expr>,
+      boost::spirit::x3::forward_ast<If_Expr>,
+      boost::spirit::x3::forward_ast<While_Expr>,
+      boost::spirit::x3::forward_ast<For_Expr>,
+      boost::spirit::x3::forward_ast<Match_Expr>,
+      boost::spirit::x3::forward_ast<Range_Expr>,
+      boost::spirit::x3::forward_ast<Assignment_Expr>,
+      Struct_Literal,
+      String,
+      Integer>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -274,20 +290,33 @@ struct For_Statement : boost::spirit::x3::position_tagged {
 
 // Example: Can be function def, struct def, let binding, function call, return, break, continue, if, while, for, or
 // nested block
-struct Statement
-    : boost::spirit::x3::variant<
-          boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-          boost::spirit::x3::forward_ast<Let_Statement>, Function_Call_Statement,
-          boost::spirit::x3::forward_ast<Expression_Statement>, Return_Statement, Break_Statement, Continue_Statement,
-          boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<While_Statement>,
-          boost::spirit::x3::forward_ast<For_Statement>, boost::spirit::x3::forward_ast<Block>>,
-      boost::spirit::x3::position_tagged {
+struct Statement : boost::spirit::x3::variant<
+                       boost::spirit::x3::forward_ast<Function_Definition>,
+                       boost::spirit::x3::forward_ast<Struct_Definition>,
+                       boost::spirit::x3::forward_ast<Let_Statement>,
+                       Function_Call_Statement,
+                       boost::spirit::x3::forward_ast<Expression_Statement>,
+                       Return_Statement,
+                       Break_Statement,
+                       Continue_Statement,
+                       boost::spirit::x3::forward_ast<If_Statement>,
+                       boost::spirit::x3::forward_ast<While_Statement>,
+                       boost::spirit::x3::forward_ast<For_Statement>,
+                       boost::spirit::x3::forward_ast<Block>>,
+                   boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
-      boost::spirit::x3::forward_ast<Function_Definition>, boost::spirit::x3::forward_ast<Struct_Definition>,
-      boost::spirit::x3::forward_ast<Let_Statement>, Function_Call_Statement,
-      boost::spirit::x3::forward_ast<Expression_Statement>, Return_Statement, Break_Statement, Continue_Statement,
-      boost::spirit::x3::forward_ast<If_Statement>, boost::spirit::x3::forward_ast<While_Statement>,
-      boost::spirit::x3::forward_ast<For_Statement>, boost::spirit::x3::forward_ast<Block>>;
+      boost::spirit::x3::forward_ast<Function_Definition>,
+      boost::spirit::x3::forward_ast<Struct_Definition>,
+      boost::spirit::x3::forward_ast<Let_Statement>,
+      Function_Call_Statement,
+      boost::spirit::x3::forward_ast<Expression_Statement>,
+      Return_Statement,
+      Break_Statement,
+      Continue_Statement,
+      boost::spirit::x3::forward_ast<If_Statement>,
+      boost::spirit::x3::forward_ast<While_Statement>,
+      boost::spirit::x3::forward_ast<For_Statement>,
+      boost::spirit::x3::forward_ast<Block>>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -516,9 +545,8 @@ inline Type_Name make_type_name(Args&&... a_args) {
 }
 
 // Variable_Name helpers
-inline Variable_Name_Segment make_variable_name_segment(
-    std::string&& a_value, std::vector<Type_Name>&& a_template_parameters
-) {
+inline Variable_Name_Segment
+make_variable_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_template_parameters) {
   return Variable_Name_Segment{{}, std::move(a_value), std::move(a_template_parameters)};
 }
 
@@ -556,9 +584,13 @@ inline Variable_Name make_variable_name(Args&&... a_args) {
 }
 
 // Literal helpers
-inline String make_string(std::string&& a_value) { return String{{}, std::move(a_value)}; }
+inline String make_string(std::string&& a_value) {
+  return String{{}, std::move(a_value)};
+}
 
-inline Integer make_integer(std::string a_value) noexcept { return Integer{{}, std::move(a_value)}; }
+inline Integer make_integer(std::string a_value) noexcept {
+  return Integer{{}, std::move(a_value)};
+}
 
 // Struct literal helpers
 inline Field_Initializer make_field_initializer(std::string&& a_name, Expr&& a_value) {
@@ -570,20 +602,48 @@ inline Struct_Literal make_struct_literal(std::string&& a_type_name, std::vector
 }
 
 // Expression helpers
-inline Expr make_expr(Variable_Name&& a_name) { return Expr{std::move(a_name)}; }
-inline Expr make_expr(String&& a_str) { return Expr{std::move(a_str)}; }
-inline Expr make_expr(Integer&& a_integer) noexcept { return Expr{std::move(a_integer)}; }
-inline Expr make_expr(Function_Call_Expr&& a_call) { return Expr{std::move(a_call)}; }
-inline Expr make_expr(Field_Access_Expr&& a_access) { return Expr{std::move(a_access)}; }
-inline Expr make_expr(Assignment_Expr&& a_assignment) { return Expr{std::move(a_assignment)}; }
-inline Expr make_expr(Binary_Expr&& a_binary) { return Expr{std::move(a_binary)}; }
-inline Expr make_expr(Unary_Expr&& a_unary) { return Expr{std::move(a_unary)}; }
-inline Expr make_expr(If_Expr&& a_if) { return Expr{std::move(a_if)}; }
-inline Expr make_expr(While_Expr&& a_while) { return Expr{std::move(a_while)}; }
-inline Expr make_expr(For_Expr&& a_for) { return Expr{std::move(a_for)}; }
-inline Expr make_expr(Match_Expr&& a_match) { return Expr{std::move(a_match)}; }
-inline Expr make_expr(Range_Expr&& a_range) { return Expr{std::move(a_range)}; }
-inline Expr make_expr(Struct_Literal&& a_literal) { return Expr{std::move(a_literal)}; }
+inline Expr make_expr(Variable_Name&& a_name) {
+  return Expr{std::move(a_name)};
+}
+inline Expr make_expr(String&& a_str) {
+  return Expr{std::move(a_str)};
+}
+inline Expr make_expr(Integer&& a_integer) noexcept {
+  return Expr{std::move(a_integer)};
+}
+inline Expr make_expr(Function_Call_Expr&& a_call) {
+  return Expr{std::move(a_call)};
+}
+inline Expr make_expr(Field_Access_Expr&& a_access) {
+  return Expr{std::move(a_access)};
+}
+inline Expr make_expr(Assignment_Expr&& a_assignment) {
+  return Expr{std::move(a_assignment)};
+}
+inline Expr make_expr(Binary_Expr&& a_binary) {
+  return Expr{std::move(a_binary)};
+}
+inline Expr make_expr(Unary_Expr&& a_unary) {
+  return Expr{std::move(a_unary)};
+}
+inline Expr make_expr(If_Expr&& a_if) {
+  return Expr{std::move(a_if)};
+}
+inline Expr make_expr(While_Expr&& a_while) {
+  return Expr{std::move(a_while)};
+}
+inline Expr make_expr(For_Expr&& a_for) {
+  return Expr{std::move(a_for)};
+}
+inline Expr make_expr(Match_Expr&& a_match) {
+  return Expr{std::move(a_match)};
+}
+inline Expr make_expr(Range_Expr&& a_range) {
+  return Expr{std::move(a_range)};
+}
+inline Expr make_expr(Struct_Literal&& a_literal) {
+  return Expr{std::move(a_literal)};
+}
 
 inline Function_Call_Expr make_function_call_expr(Variable_Name&& a_name, std::vector<Expr>&& a_parameters) {
   return Function_Call_Expr{{}, std::move(a_name), std::move(a_parameters)};
@@ -602,7 +662,9 @@ inline Else_If_Clause make_else_if_clause(Expr&& a_condition, Block&& a_then_blo
 }
 
 inline If_Expr make_if_expr(
-    Expr&& a_condition, Block&& a_then_block, std::vector<Else_If_Clause>&& a_else_ifs = {},
+    Expr&& a_condition,
+    Block&& a_then_block,
+    std::vector<Else_If_Clause>&& a_else_ifs = {},
     boost::optional<Block>&& a_else_block = boost::none
 ) {
   boost::optional<boost::spirit::x3::forward_ast<Block>> else_block_wrapped;
@@ -610,7 +672,11 @@ inline If_Expr make_if_expr(
     else_block_wrapped = std::move(*std::move(a_else_block));
   }
   return If_Expr{
-      {}, std::move(a_condition), std::move(a_then_block), std::move(a_else_ifs), std::move(else_block_wrapped)
+      {},
+      std::move(a_condition),
+      std::move(a_then_block),
+      std::move(a_else_ifs),
+      std::move(else_block_wrapped)
   };
 }
 
@@ -619,15 +685,20 @@ inline While_Expr make_while_expr(Expr&& a_condition, Block&& a_body) {
 }
 
 // Pattern helpers
-inline Wildcard_Pattern make_wildcard_pattern() { return Wildcard_Pattern{{}}; }
+inline Wildcard_Pattern make_wildcard_pattern() {
+  return Wildcard_Pattern{{}};
+}
 
-inline Literal_Pattern make_literal_pattern(Expr&& a_value) { return Literal_Pattern{{}, std::move(a_value)}; }
+inline Literal_Pattern make_literal_pattern(Expr&& a_value) {
+  return Literal_Pattern{{}, std::move(a_value)};
+}
 
-inline Simple_Pattern make_simple_pattern(std::string&& a_name) { return Simple_Pattern{{}, std::move(a_name)}; }
+inline Simple_Pattern make_simple_pattern(std::string&& a_name) {
+  return Simple_Pattern{{}, std::move(a_name)};
+}
 
-inline Struct_Pattern make_struct_pattern(
-    Type_Name&& a_type_name, std::vector<boost::spirit::x3::forward_ast<Pattern>>&& a_fields
-) {
+inline Struct_Pattern
+make_struct_pattern(Type_Name&& a_type_name, std::vector<boost::spirit::x3::forward_ast<Pattern>>&& a_fields) {
   return Struct_Pattern{{}, std::move(a_type_name), std::move(a_fields)};
 }
 
@@ -635,11 +706,21 @@ inline Tuple_Pattern make_tuple_pattern(std::vector<boost::spirit::x3::forward_a
   return Tuple_Pattern{{}, std::move(a_elements)};
 }
 
-inline Pattern make_pattern(Wildcard_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
-inline Pattern make_pattern(Literal_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
-inline Pattern make_pattern(Simple_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
-inline Pattern make_pattern(Struct_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
-inline Pattern make_pattern(Tuple_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
+inline Pattern make_pattern(Wildcard_Pattern const& a_pattern) {
+  return Pattern{a_pattern};
+}
+inline Pattern make_pattern(Literal_Pattern&& a_pattern) {
+  return Pattern{std::move(a_pattern)};
+}
+inline Pattern make_pattern(Simple_Pattern&& a_pattern) {
+  return Pattern{std::move(a_pattern)};
+}
+inline Pattern make_pattern(Struct_Pattern&& a_pattern) {
+  return Pattern{std::move(a_pattern)};
+}
+inline Pattern make_pattern(Tuple_Pattern&& a_pattern) {
+  return Pattern{std::move(a_pattern)};
+}
 
 inline For_Expr make_for_expr(Pattern&& a_pattern, Expr&& a_iterator, Block&& a_body) {
   return For_Expr{{}, std::move(a_pattern), std::move(a_iterator), std::move(a_body)};
@@ -648,7 +729,7 @@ inline For_Expr make_for_expr(Pattern&& a_pattern, Expr&& a_iterator, Block&& a_
 inline Match_Arm make_match_arm(Pattern&& a_pattern, boost::optional<Expr>&& a_guard, Expr&& a_result) {
   boost::optional<boost::spirit::x3::forward_ast<Expr>> guard_wrapped;
   if (a_guard) {
-    guard_wrapped = std::move(*a_guard);
+    guard_wrapped = *std::move(a_guard);
   }
   return Match_Arm{{}, std::move(a_pattern), std::move(guard_wrapped), std::move(a_result)};
 }
@@ -670,35 +751,60 @@ inline Expression_Statement make_expression_statement(Expr&& a_expr) {
   return Expression_Statement{{}, std::move(a_expr)};
 }
 
-inline Return_Statement make_return_statement(Expr&& a_expr) { return Return_Statement{{}, std::move(a_expr)}; }
+inline Return_Statement make_return_statement(Expr&& a_expr) {
+  return Return_Statement{{}, std::move(a_expr)};
+}
 
 inline Break_Statement make_break_statement(boost::optional<Expr>&& a_value) {
   return Break_Statement{{}, std::move(a_value)};
 }
 
-inline Continue_Statement make_continue_statement() { return Continue_Statement{{}}; }
+inline Continue_Statement make_continue_statement() {
+  return Continue_Statement{{}};
+}
 
-inline If_Statement make_if_statement(If_Expr&& a_expr) { return If_Statement{{}, std::move(a_expr)}; }
+inline If_Statement make_if_statement(If_Expr&& a_expr) {
+  return If_Statement{{}, std::move(a_expr)};
+}
 
-inline While_Statement make_while_statement(While_Expr&& a_expr) { return While_Statement{{}, std::move(a_expr)}; }
+inline While_Statement make_while_statement(While_Expr&& a_expr) {
+  return While_Statement{{}, std::move(a_expr)};
+}
 
-inline For_Statement make_for_statement(For_Expr&& a_expr) { return For_Statement{{}, std::move(a_expr)}; }
+inline For_Statement make_for_statement(For_Expr&& a_expr) {
+  return For_Statement{{}, std::move(a_expr)};
+}
 
-inline Let_Statement make_let_statement(
-    bool a_is_mut, Pattern&& a_pattern, boost::optional<Type_Name>&& a_type, Expr&& a_value
-) {
+inline Let_Statement
+make_let_statement(bool a_is_mut, Pattern&& a_pattern, boost::optional<Type_Name>&& a_type, Expr&& a_value) {
   return Let_Statement{{}, a_is_mut, std::move(a_pattern), std::move(a_type), std::move(a_value)};
 }
 
-inline Statement make_statement(Function_Call_Statement&& a_call) { return Statement{std::move(a_call)}; }
-inline Statement make_statement(Expression_Statement&& a_expr) { return Statement{std::move(a_expr)}; }
-inline Statement make_statement(Return_Statement&& a_ret) { return Statement{std::move(a_ret)}; }
-inline Statement make_statement(Let_Statement&& a_let) { return Statement{std::move(a_let)}; }
-inline Statement make_statement(Block&& a_block) { return Statement{std::move(a_block)}; }
-inline Statement make_statement(Function_Definition&& a_def) { return Statement{std::move(a_def)}; }
-inline Statement make_statement(Struct_Definition&& a_def) { return Statement{std::move(a_def)}; }
+inline Statement make_statement(Function_Call_Statement&& a_call) {
+  return Statement{std::move(a_call)};
+}
+inline Statement make_statement(Expression_Statement&& a_expr) {
+  return Statement{std::move(a_expr)};
+}
+inline Statement make_statement(Return_Statement&& a_ret) {
+  return Statement{std::move(a_ret)};
+}
+inline Statement make_statement(Let_Statement&& a_let) {
+  return Statement{std::move(a_let)};
+}
+inline Statement make_statement(Block&& a_block) {
+  return Statement{std::move(a_block)};
+}
+inline Statement make_statement(Function_Definition&& a_def) {
+  return Statement{std::move(a_def)};
+}
+inline Statement make_statement(Struct_Definition&& a_def) {
+  return Statement{std::move(a_def)};
+}
 
-inline Block make_block(std::vector<Statement>&& a_statements) { return Block{{}, std::move(a_statements)}; }
+inline Block make_block(std::vector<Statement>&& a_statements) {
+  return Block{{}, std::move(a_statements)};
+}
 
 // Binary expression helper
 inline Binary_Expr make_binary_expr(Expr&& a_lhs, Binary_Op a_op, Expr&& a_rhs) {
@@ -716,7 +822,9 @@ inline Function_Parameter make_function_parameter(bool a_is_mut, std::string&& a
 }
 
 inline Function_Declaration make_function_declaration(
-    std::string&& a_name, std::vector<Function_Parameter>&& a_parameters, Type_Name&& a_return_type
+    std::string&& a_name,
+    std::vector<Function_Parameter>&& a_parameters,
+    Type_Name&& a_return_type
 ) {
   return Function_Declaration{{}, std::move(a_name), std::move(a_parameters), std::move(a_return_type)};
 }
@@ -735,7 +843,9 @@ inline Struct_Definition make_struct_definition(std::string&& a_name, std::vecto
 }
 
 // Module helpers
-inline Module make_module(std::vector<Statement>&& a_statements) { return Module{{}, std::move(a_statements)}; }
+inline Module make_module(std::vector<Statement>&& a_statements) {
+  return Module{{}, std::move(a_statements)};
+}
 
 // ============================================================================
 // JSON Serialization (using explicit construction for robustness)
@@ -813,7 +923,9 @@ inline void to_json(nlohmann::json& a_json, Variable_Name const& a_name) {
 }
 
 // Literal serialization
-inline void to_json(nlohmann::json& a_json, String const& a_str) { a_json[String::k_name] = {{"value", a_str.value}}; }
+inline void to_json(nlohmann::json& a_json, String const& a_str) {
+  a_json[String::k_name] = {{"value", a_str.value}};
+}
 
 inline void to_json(nlohmann::json& a_json, Integer const& a_integer) {
   a_json[Integer::k_name] = {{"value", a_integer.value}};

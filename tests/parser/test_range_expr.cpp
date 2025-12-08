@@ -36,7 +36,8 @@ inline auto const k_variable_range_inclusive_expected = fmt::format(
     "inclusive": true
   }}
 }})",
-    test_json::var_name("start"), test_json::var_name("end")
+    test_json::var_name("start"),
+    test_json::var_name("end")
 );
 
 // Range with arithmetic expressions
@@ -189,18 +190,30 @@ TEST_CASE("Parse Range_Expr", "[parser]") {
   auto const params = GENERATE(
       Catch::Generators::values<Expr_Params>({
           // Valid cases
-          {"simple exclusive", k_simple_exclusive_input, k_simple_exclusive_expected,
+          {"simple exclusive",
+           k_simple_exclusive_input,
+           k_simple_exclusive_expected,
            k_simple_exclusive_should_succeed},
-          {"simple inclusive", k_simple_inclusive_input, k_simple_inclusive_expected,
+          {"simple inclusive",
+           k_simple_inclusive_input,
+           k_simple_inclusive_expected,
            k_simple_inclusive_should_succeed},
           {"variable range", k_variable_range_input, k_variable_range_expected, k_variable_range_should_succeed},
-          {"variable range inclusive", k_variable_range_inclusive_input, k_variable_range_inclusive_expected,
+          {"variable range inclusive",
+           k_variable_range_inclusive_input,
+           k_variable_range_inclusive_expected,
            k_variable_range_inclusive_should_succeed},
-          {"arithmetic range", k_arithmetic_range_input, k_arithmetic_range_expected,
+          {"arithmetic range",
+           k_arithmetic_range_input,
+           k_arithmetic_range_expected,
            k_arithmetic_range_should_succeed},
-          {"range with spaces", k_range_with_spaces_input, k_range_with_spaces_expected,
+          {"range with spaces",
+           k_range_with_spaces_input,
+           k_range_with_spaces_expected,
            k_range_with_spaces_should_succeed},
-          {"range inclusive spaces", k_range_inclusive_spaces_input, k_range_inclusive_spaces_expected,
+          {"range inclusive spaces",
+           k_range_inclusive_spaces_input,
+           k_range_inclusive_spaces_expected,
            k_range_inclusive_spaces_should_succeed},
           {"negative range", k_negative_range_input, k_negative_range_expected, k_negative_range_should_succeed},
           {"large range", k_large_range_input, k_large_range_expected, k_large_range_should_succeed},
@@ -210,5 +223,7 @@ TEST_CASE("Parse Range_Expr", "[parser]") {
           {"invalid - only dots", k_only_dots_input, "", k_only_dots_should_succeed},
       })
   );
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }

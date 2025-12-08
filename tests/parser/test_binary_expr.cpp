@@ -83,39 +83,50 @@ inline auto const k_logical_or_expected =
 constexpr auto k_precedence_mul_add_should_succeed = true;
 constexpr auto k_precedence_mul_add_input = "1 + 2 * 3";
 inline auto const k_precedence_mul_add_expected = test_json::binary_expr(
-    "+", test_json::integer(1), test_json::binary_expr("*", test_json::integer(2), test_json::integer(3))
+    "+",
+    test_json::integer(1),
+    test_json::binary_expr("*", test_json::integer(2), test_json::integer(3))
 );
 
 constexpr auto k_precedence_div_sub_should_succeed = true;
 constexpr auto k_precedence_div_sub_input = "10 - 8 / 2";
 inline auto const k_precedence_div_sub_expected = test_json::binary_expr(
-    "-", test_json::integer(10), test_json::binary_expr("/", test_json::integer(8), test_json::integer(2))
+    "-",
+    test_json::integer(10),
+    test_json::binary_expr("/", test_json::integer(8), test_json::integer(2))
 );
 
 // Left associativity: same precedence evaluates left to right
 constexpr auto k_left_assoc_add_should_succeed = true;
 constexpr auto k_left_assoc_add_input = "1 + 2 + 3";
 inline auto const k_left_assoc_add_expected = test_json::binary_expr(
-    "+", test_json::binary_expr("+", test_json::integer(1), test_json::integer(2)), test_json::integer(3)
+    "+",
+    test_json::binary_expr("+", test_json::integer(1), test_json::integer(2)),
+    test_json::integer(3)
 );
 
 constexpr auto k_left_assoc_mul_should_succeed = true;
 constexpr auto k_left_assoc_mul_input = "2 * 3 * 4";
 inline auto const k_left_assoc_mul_expected = test_json::binary_expr(
-    "*", test_json::binary_expr("*", test_json::integer(2), test_json::integer(3)), test_json::integer(4)
+    "*",
+    test_json::binary_expr("*", test_json::integer(2), test_json::integer(3)),
+    test_json::integer(4)
 );
 
 constexpr auto k_left_assoc_sub_should_succeed = true;
 constexpr auto k_left_assoc_sub_input = "10 - 3 - 2";
 inline auto const k_left_assoc_sub_expected = test_json::binary_expr(
-    "-", test_json::binary_expr("-", test_json::integer(10), test_json::integer(3)), test_json::integer(2)
+    "-",
+    test_json::binary_expr("-", test_json::integer(10), test_json::integer(3)),
+    test_json::integer(2)
 );
 
 // Comparison has lower precedence than additive
 constexpr auto k_precedence_cmp_add_should_succeed = true;
 constexpr auto k_precedence_cmp_add_input = "1 + 2 > 3 + 4";
 inline auto const k_precedence_cmp_add_expected = test_json::binary_expr(
-    ">", test_json::binary_expr("+", test_json::integer(1), test_json::integer(2)),
+    ">",
+    test_json::binary_expr("+", test_json::integer(1), test_json::integer(2)),
     test_json::binary_expr("+", test_json::integer(3), test_json::integer(4))
 );
 
@@ -123,7 +134,8 @@ inline auto const k_precedence_cmp_add_expected = test_json::binary_expr(
 constexpr auto k_precedence_eq_cmp_should_succeed = true;
 constexpr auto k_precedence_eq_cmp_input = "1 > 2 == 3 < 4";
 inline auto const k_precedence_eq_cmp_expected = test_json::binary_expr(
-    "==", test_json::binary_expr(">", test_json::integer(1), test_json::integer(2)),
+    "==",
+    test_json::binary_expr(">", test_json::integer(1), test_json::integer(2)),
     test_json::binary_expr("<", test_json::integer(3), test_json::integer(4))
 );
 
@@ -131,7 +143,8 @@ inline auto const k_precedence_eq_cmp_expected = test_json::binary_expr(
 constexpr auto k_precedence_and_eq_should_succeed = true;
 constexpr auto k_precedence_and_eq_input = "a == 1 && b == 2";
 inline auto const k_precedence_and_eq_expected = test_json::binary_expr(
-    "&&", test_json::binary_expr("==", test_json::var_name("a"), test_json::integer(1)),
+    "&&",
+    test_json::binary_expr("==", test_json::var_name("a"), test_json::integer(1)),
     test_json::binary_expr("==", test_json::var_name("b"), test_json::integer(2))
 );
 
@@ -139,7 +152,8 @@ inline auto const k_precedence_and_eq_expected = test_json::binary_expr(
 constexpr auto k_precedence_or_and_should_succeed = true;
 constexpr auto k_precedence_or_and_input = "a && b || c && d";
 inline auto const k_precedence_or_and_expected = test_json::binary_expr(
-    "||", test_json::binary_expr("&&", test_json::var_name("a"), test_json::var_name("b")),
+    "||",
+    test_json::binary_expr("&&", test_json::var_name("a"), test_json::var_name("b")),
     test_json::binary_expr("&&", test_json::var_name("c"), test_json::var_name("d"))
 );
 
@@ -151,7 +165,9 @@ inline auto const k_complex_expr_expected = test_json::binary_expr(
     test_json::binary_expr(
         "==",
         test_json::binary_expr(
-            "+", test_json::integer(1), test_json::binary_expr("*", test_json::integer(2), test_json::integer(3))
+            "+",
+            test_json::integer(1),
+            test_json::binary_expr("*", test_json::integer(2), test_json::integer(3))
         ),
         test_json::integer(7)
     ),
@@ -178,7 +194,9 @@ inline auto const k_var_addition_expected =
 constexpr auto k_var_complex_should_succeed = true;
 constexpr auto k_var_complex_input = "a * b + c";
 inline auto const k_var_complex_expected = test_json::binary_expr(
-    "+", test_json::binary_expr("*", test_json::var_name("a"), test_json::var_name("b")), test_json::var_name("c")
+    "+",
+    test_json::binary_expr("*", test_json::var_name("a"), test_json::var_name("b")),
+    test_json::var_name("c")
 );
 
 // === Trailing Content ===
@@ -208,7 +226,9 @@ TEST_CASE("Parse Binary_Expr", "[parser]") {
           // Arithmetic operators
           {"addition", k_addition_input, k_addition_expected, k_addition_should_succeed},
           {"subtraction", k_subtraction_input, k_subtraction_expected, k_subtraction_should_succeed},
-          {"addition no spaces", k_addition_no_spaces_input, k_addition_no_spaces_expected,
+          {"addition no spaces",
+           k_addition_no_spaces_input,
+           k_addition_no_spaces_expected,
            k_addition_no_spaces_should_succeed},
           {"multiplication", k_multiplication_input, k_multiplication_expected, k_multiplication_should_succeed},
           {"division", k_division_input, k_division_expected, k_division_should_succeed},
@@ -229,23 +249,41 @@ TEST_CASE("Parse Binary_Expr", "[parser]") {
           {"logical OR", k_logical_or_input, k_logical_or_expected, k_logical_or_should_succeed},
 
           // Precedence tests
-          {"precedence: mul before add", k_precedence_mul_add_input, k_precedence_mul_add_expected,
+          {"precedence: mul before add",
+           k_precedence_mul_add_input,
+           k_precedence_mul_add_expected,
            k_precedence_mul_add_should_succeed},
-          {"precedence: div before sub", k_precedence_div_sub_input, k_precedence_div_sub_expected,
+          {"precedence: div before sub",
+           k_precedence_div_sub_input,
+           k_precedence_div_sub_expected,
            k_precedence_div_sub_should_succeed},
-          {"left associativity: add", k_left_assoc_add_input, k_left_assoc_add_expected,
+          {"left associativity: add",
+           k_left_assoc_add_input,
+           k_left_assoc_add_expected,
            k_left_assoc_add_should_succeed},
-          {"left associativity: mul", k_left_assoc_mul_input, k_left_assoc_mul_expected,
+          {"left associativity: mul",
+           k_left_assoc_mul_input,
+           k_left_assoc_mul_expected,
            k_left_assoc_mul_should_succeed},
-          {"left associativity: sub", k_left_assoc_sub_input, k_left_assoc_sub_expected,
+          {"left associativity: sub",
+           k_left_assoc_sub_input,
+           k_left_assoc_sub_expected,
            k_left_assoc_sub_should_succeed},
-          {"precedence: cmp after add", k_precedence_cmp_add_input, k_precedence_cmp_add_expected,
+          {"precedence: cmp after add",
+           k_precedence_cmp_add_input,
+           k_precedence_cmp_add_expected,
            k_precedence_cmp_add_should_succeed},
-          {"precedence: eq after cmp", k_precedence_eq_cmp_input, k_precedence_eq_cmp_expected,
+          {"precedence: eq after cmp",
+           k_precedence_eq_cmp_input,
+           k_precedence_eq_cmp_expected,
            k_precedence_eq_cmp_should_succeed},
-          {"precedence: and after eq", k_precedence_and_eq_input, k_precedence_and_eq_expected,
+          {"precedence: and after eq",
+           k_precedence_and_eq_input,
+           k_precedence_and_eq_expected,
            k_precedence_and_eq_should_succeed},
-          {"precedence: or after and", k_precedence_or_and_input, k_precedence_or_and_expected,
+          {"precedence: or after and",
+           k_precedence_or_and_input,
+           k_precedence_or_and_expected,
            k_precedence_or_and_should_succeed},
           {"complex expression", k_complex_expr_input, k_complex_expr_expected, k_complex_expr_should_succeed},
 
@@ -261,11 +299,15 @@ TEST_CASE("Parse Binary_Expr", "[parser]") {
           {"with trailing", k_with_trailing_input, k_with_trailing_expected, k_with_trailing_should_succeed},
 
           // Invalid cases
-          {"invalid - only operator", k_invalid_only_operator_input, k_invalid_only_operator_expected,
+          {"invalid - only operator",
+           k_invalid_only_operator_input,
+           k_invalid_only_operator_expected,
            k_invalid_only_operator_should_succeed},
           {"invalid - empty", k_invalid_empty_input, k_invalid_empty_expected, k_invalid_empty_should_succeed},
       })
   );
 
-  DYNAMIC_SECTION(params.name) { check_parse(params); }
+  DYNAMIC_SECTION(params.name) {
+    check_parse(params);
+  }
 }
