@@ -10,54 +10,20 @@ namespace {
 // Simple integer range (exclusive)
 constexpr auto k_simple_exclusive_should_succeed = true;
 constexpr auto k_simple_exclusive_input = "0..10";
-inline auto const k_simple_exclusive_expected = R"({
-  "Range_Expr": {
-    "start": {
-      "Integer": {
-        "value": "0"
-      }
-    },
-    "end": {
-      "Integer": {
-        "value": "10"
-      }
-    },
-    "inclusive": false
-  }
-})";
+inline auto const k_simple_exclusive_expected =
+    test_json::range_expr(test_json::integer(0), test_json::integer(10), false);
 
 // Simple integer range (inclusive)
 constexpr auto k_simple_inclusive_should_succeed = true;
 constexpr auto k_simple_inclusive_input = "0..=10";
-inline auto const k_simple_inclusive_expected = R"({
-  "Range_Expr": {
-    "start": {
-      "Integer": {
-        "value": "0"
-      }
-    },
-    "end": {
-      "Integer": {
-        "value": "10"
-      }
-    },
-    "inclusive": true
-  }
-})";
+inline auto const k_simple_inclusive_expected =
+    test_json::range_expr(test_json::integer(0), test_json::integer(10), true);
 
 // Variable range (exclusive)
 constexpr auto k_variable_range_should_succeed = true;
 constexpr auto k_variable_range_input = "start..end";
-inline auto const k_variable_range_expected = fmt::format(
-    R"({{
-  "Range_Expr": {{
-    "start": {},
-    "end": {},
-    "inclusive": false
-  }}
-}})",
-    test_json::var_name("start"), test_json::var_name("end")
-);
+inline auto const k_variable_range_expected =
+    test_json::range_expr(test_json::var_name("start"), test_json::var_name("end"), false);
 
 // Variable range (inclusive)
 constexpr auto k_variable_range_inclusive_should_succeed = true;

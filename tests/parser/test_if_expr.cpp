@@ -10,70 +10,16 @@ namespace {
 // Basic if without else
 constexpr auto k_if_only_should_succeed = true;
 constexpr auto k_if_only_input = "if x { return 1; }";
-inline auto const k_if_only_expected = fmt::format(
-    R"({{
-  "If_Expr": {{
-    "condition": {},
-    "then_block": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Return_Statement": {{
-              "expr": {{
-                "Integer": {{
-                  "value": "1"
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    var_name("x")
+inline auto const k_if_only_expected = test_json::if_expr(
+    test_json::var_name("x"), test_json::block({test_json::return_statement(test_json::integer(1))})
 );
 
 // If with else
 constexpr auto k_if_else_should_succeed = true;
 constexpr auto k_if_else_input = "if condition { return 1; } else { return 2; }";
-inline auto const k_if_else_expected = fmt::format(
-    R"({{
-  "If_Expr": {{
-    "condition": {},
-    "then_block": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Return_Statement": {{
-              "expr": {{
-                "Integer": {{
-                  "value": "1"
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }},
-    "else_block": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Return_Statement": {{
-              "expr": {{
-                "Integer": {{
-                  "value": "2"
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    var_name("condition")
+inline auto const k_if_else_expected = test_json::if_else_expr(
+    test_json::var_name("condition"), test_json::block({test_json::return_statement(test_json::integer(1))}),
+    test_json::block({test_json::return_statement(test_json::integer(2))})
 );
 
 // If with single else-if

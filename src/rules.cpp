@@ -45,7 +45,9 @@ using x3::ascii::lit;
 
 struct Keyword_Symbols : x3::symbols<> {
   Keyword_Symbols() {
-    add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while")("for")("in")("break")("continue");
+    add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while")("for")("in")("match")("break")(
+        "continue"
+    );
   }
 } const k_keywords;
 
@@ -61,6 +63,7 @@ auto const k_kw_else = lexeme[lit("else") >> !(alnum | '_')];
 auto const k_kw_while = lexeme[lit("while") >> !(alnum | '_')];
 auto const k_kw_for = lexeme[lit("for") >> !(alnum | '_')];
 auto const k_kw_in = lexeme[lit("in") >> !(alnum | '_')];
+auto const k_kw_match = lexeme[lit("match") >> !(alnum | '_')];
 auto const k_kw_break = lexeme[lit("break") >> !(alnum | '_')];
 auto const k_kw_continue = lexeme[lit("continue") >> !(alnum | '_')];
 
@@ -854,6 +857,27 @@ BOOST_SPIRIT_DEFINE(k_while_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_while_expr_rule), Iterator_Type, Context_Type)
 
 // Pattern parsing for for-loop bindings (supports nested patterns)
+// Wildcard pattern: _ (matches anything, doesn't bind)
+struct Wildcard_Pattern_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Wildcard_Pattern_Tag, ast::Wildcard_Pattern> const k_wildcard_pattern_rule = "wildcard pattern";
+auto const k_wildcard_pattern_rule_def =
+    lit('_')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_wildcard_pattern(); })];
+BOOST_SPIRIT_DEFINE(k_wildcard_pattern_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_wildcard_pattern_rule), Iterator_Type, Context_Type)
+
+// Literal pattern: integer or string literal (matches exact value)
+struct Literal_Pattern_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Literal_Pattern_Tag, ast::Literal_Pattern> const k_literal_pattern_rule = "literal pattern";
+auto const k_literal_pattern_rule_def =
+    (k_integer_rule[([](auto& a_ctx) {
+       x3::_val(a_ctx) = ast::make_literal_pattern(ast::make_expr(std::move(x3::_attr(a_ctx))));
+     })] |
+     k_string_rule[([](auto& a_ctx) {
+       x3::_val(a_ctx) = ast::make_literal_pattern(ast::make_expr(std::move(x3::_attr(a_ctx))));
+     })]);
+BOOST_SPIRIT_DEFINE(k_literal_pattern_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_literal_pattern_rule), Iterator_Type, Context_Type)
+
 // Simple pattern: just an identifier (for item in ...)
 struct Simple_Pattern_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Simple_Pattern_Tag, ast::Simple_Pattern> const k_simple_pattern_rule = "simple pattern";
@@ -898,11 +922,13 @@ auto const k_tuple_pattern_rule_def = (('(' > (k_pattern_rule % ',') > ')')[([](
 BOOST_SPIRIT_DEFINE(k_tuple_pattern_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_tuple_pattern_rule), Iterator_Type, Context_Type)
 
-// Pattern: struct pattern, tuple pattern, or simple pattern
-// Try struct first (longest), then tuple, then simple
+// Pattern: try in order - struct, tuple, wildcard, literal, simple
+// Order matters: literals must come before simple to match numbers
 auto const k_pattern_rule_def =
     (k_struct_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
     (k_tuple_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
+    (k_wildcard_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
+    (k_literal_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
     (k_simple_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]);
 BOOST_SPIRIT_DEFINE(k_pattern_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_pattern_rule), Iterator_Type, Context_Type)
@@ -923,14 +949,48 @@ auto const k_for_expr_rule_def =
 BOOST_SPIRIT_DEFINE(k_for_expr_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_for_expr_rule), Iterator_Type, Context_Type)
 
+// Match arm: pattern [if guard] => result
+// Examples: "0 => \"zero\"", "n if n > 0 => \"positive\"", "Point { x, y } => format(x, y)"
+struct Match_Arm_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Match_Arm_Tag, ast::Match_Arm> const k_match_arm_rule = "match arm";
+auto const k_match_arm_rule_def =
+    (k_pattern_rule >> -(k_kw_if >> k_logical_or_expr) >> lit("=>") > k_expr_rule)[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      auto& pattern = boost::fusion::at_c<0>(attr);    // Pattern
+      auto& guard_opt = boost::fusion::at_c<1>(attr);  // optional<Expr>
+      auto& result = boost::fusion::at_c<2>(attr);     // Expr
+      x3::_val(a_ctx) = ast::make_match_arm(std::move(pattern), std::move(guard_opt), std::move(result));
+    })];
+BOOST_SPIRIT_DEFINE(k_match_arm_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_match_arm_rule), Iterator_Type, Context_Type)
+
+// Match expression: match scrutinee { arms }
+// Syntax: match <expr> { <pattern> [if <guard>] => <expr>, ... }
+// Examples:
+//   Simple:  "match x { 0 => \"zero\", 1 => \"one\", _ => \"other\" }"
+//   Guard:   "match x { n if n < 0 => \"neg\", 0 => \"zero\", _ => \"pos\" }"
+//   Pattern: "match point { Point { x: 0, y: 0 } => \"origin\", Point { x, y } => format(x, y) }"
+struct Match_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Match_Expr_Tag, ast::Match_Expr> const k_match_expr_rule = "match expression";
+auto const k_match_expr_rule_def =
+    (k_kw_match > k_logical_or_expr > '{' > (k_match_arm_rule % ',') > -lit(',') > '}')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      auto& scrutinee = boost::fusion::at_c<0>(attr);  // Expr
+      auto& arms = boost::fusion::at_c<1>(attr);       // vector<Match_Arm>
+      x3::_val(a_ctx) = ast::make_match_expr(std::move(scrutinee), std::move(arms));
+    })];
+BOOST_SPIRIT_DEFINE(k_match_expr_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_match_expr_rule), Iterator_Type, Context_Type)
+
 // Parse assignment expression: "target = value" (right-associative, lowest precedence)
 // Target must be an lvalue (variable or field access) - checked in semantic analysis
 // Examples: "x = 42", "point.x = 10", "count = count + 1", "x = y = z" (right-associative)
 struct Assignment_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Assignment_Expr_Tag, ast::Expr> const k_assignment_expr_rule = "assignment expression";
 // Right-associative: parse as (non_assignment = assignment_expr)
-// Non-assignment is: if | while | for | logical_or (everything except assignment)
-auto const k_non_assignment_expr = k_if_expr_rule | k_while_expr_rule | k_for_expr_rule | k_logical_or_expr;
+// Non-assignment is: if | while | for | match | logical_or (everything except assignment)
+auto const k_non_assignment_expr =
+    k_if_expr_rule | k_while_expr_rule | k_for_expr_rule | k_match_expr_rule | k_logical_or_expr;
 auto const k_assignment_expr_rule_def = (k_non_assignment_expr >> '=' > k_expr_rule)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   // Extract Expr from variant<If_Expr, While_Expr, For_Expr, Expr>

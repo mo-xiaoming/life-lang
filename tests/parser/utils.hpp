@@ -76,6 +76,19 @@ inline std::string var_name(std::string_view a_name) {
   );
 }
 
+// Variable name with multiple path segments (no templates)
+inline std::string var_name_path(std::vector<std::string_view> const& a_segments) {
+  std::string segments_json;
+  for (size_t i = 0; i < a_segments.size(); ++i) {
+    if (i > 0) {
+      segments_json += ",";
+    }
+    segments_json +=
+        fmt::format(R"({{"Variable_Name_Segment":{{"value":"{}","template_parameters":[]}}}})", a_segments[i]);
+  }
+  return fmt::format(R"({{"Variable_Name":{{"segments":[{}]}}}})", segments_json);
+}
+
 // Type name with single segment (no templates)
 inline std::string type_name(std::string_view a_name) {
   return fmt::format(
@@ -95,9 +108,229 @@ inline std::string type_name(std::string_view a_name) {
   );
 }
 
+// Type name with multiple path segments (no templates)
+inline std::string type_name_path(std::vector<std::string_view> const& a_segments) {
+  std::string segments_json;
+  for (size_t i = 0; i < a_segments.size(); ++i) {
+    if (i > 0) {
+      segments_json += ",";
+    }
+    segments_json += fmt::format(R"({{"Type_Name_Segment":{{"value":"{}","template_parameters":[]}}}})", a_segments[i]);
+  }
+  return fmt::format(R"({{"Type_Name":{{"segments":[{}]}}}})", segments_json);
+}
+
 // Integer literal
 inline std::string integer(std::string_view a_value) {
   return fmt::format(R"({{"Integer":{{"value":"{}"}}}})", a_value);
+}
+
+// String literal
+inline std::string string(std::string_view a_value) { return fmt::format(R"({{"String":{{"value":"{}"}}}})", a_value); }
+
+// Wildcard pattern
+inline std::string wildcard_pattern() { return R"({"Wildcard_Pattern":{}})"; }
+
+// Literal pattern (wraps an expression)
+inline std::string literal_pattern(std::string_view a_expr_json) {
+  return fmt::format(R"({{"Literal_Pattern":{{"value":{}}}}})", a_expr_json);
+}
+
+// Simple pattern (identifier)
+inline std::string simple_pattern(std::string_view a_name) {
+  return fmt::format(R"({{"Simple_Pattern":{{"name":"{}"}}}})", a_name);
+}
+
+// Tuple pattern
+inline std::string tuple_pattern(std::vector<std::string> const& a_elements) {
+  std::string elements = "[";
+  for (size_t i = 0; i < a_elements.size(); ++i) {
+    if (i > 0) {
+      elements += ",";
+    }
+    elements += a_elements[i];
+  }
+  elements += "]";
+  return fmt::format(R"({{"Tuple_Pattern":{{"elements":{}}}}})", elements);
+}
+
+// Match arm without guard
+inline std::string match_arm(std::string_view a_pattern, std::string_view a_result) {
+  return fmt::format(R"({{"Match_Arm":{{"pattern":{},"result":{}}}}})", a_pattern, a_result);
+}
+
+// Match arm with guard
+inline std::string match_arm_with_guard(
+    std::string_view a_pattern, std::string_view a_guard, std::string_view a_result
+) {
+  return fmt::format(R"({{"Match_Arm":{{"pattern":{},"guard":{},"result":{}}}}})", a_pattern, a_guard, a_result);
+}
+
+// Binary expression
+inline std::string binary_expr(std::string_view a_op, std::string_view a_lhs, std::string_view a_rhs) {
+  return fmt::format(R"({{"Binary_Expr":{{"lhs":{},"op":"{}","rhs":{}}}}})", a_lhs, a_op, a_rhs);
+}
+
+// Function call expression
+inline std::string function_call(std::string_view a_name, std::vector<std::string> const& a_args) {
+  std::string params = "[";
+  for (size_t i = 0; i < a_args.size(); ++i) {
+    if (i > 0) {
+      params += ",";
+    }
+    params += a_args[i];
+  }
+  params += "]";
+  return fmt::format(R"({{"Function_Call_Expr":{{"name":{},"parameters":{}}}}})", a_name, params);
+}
+
+// Match expression
+inline std::string match_expr(std::string_view a_scrutinee, std::vector<std::string> const& a_arms) {
+  std::string arms = "[";
+  for (size_t i = 0; i < a_arms.size(); ++i) {
+    if (i > 0) {
+      arms += ",";
+    }
+    arms += a_arms[i];
+  }
+  arms += "]";
+  return fmt::format(R"({{"Match_Expr":{{"scrutinee":{},"arms":{}}}}})", a_scrutinee, arms);
+}
+
+// Field access expression
+inline std::string field_access(std::string_view a_object, std::string_view a_field_name) {
+  return fmt::format(R"({{"Field_Access_Expr":{{"object":{},"field_name":"{}"}}}})", a_object, a_field_name);
+}
+
+// Overload for integer that accepts int directly
+inline std::string integer(int a_value) { return fmt::format(R"({{"Integer":{{"value":"{}"}}}})", a_value); }
+
+// Block with statements
+inline std::string block(std::vector<std::string> const& a_statements) {
+  std::string statements_json;
+  for (size_t i = 0; i < a_statements.size(); ++i) {
+    if (i > 0) {
+      statements_json += ",";
+    }
+    statements_json += a_statements[i];
+  }
+  return fmt::format(R"({{"Block":{{"statements":[{}]}}}})", statements_json);
+}
+
+// Return statement
+inline std::string return_statement(std::string_view a_expr) {
+  return fmt::format(R"({{"Return_Statement":{{"expr":{}}}}})", a_expr);
+}
+
+// Function call statement
+inline std::string function_call_statement(std::string_view a_expr) {
+  return fmt::format(R"({{"Function_Call_Statement":{{"expr":{}}}}})", a_expr);
+}
+
+// Assignment expression
+inline std::string assignment_expr(std::string_view a_target, std::string_view a_value) {
+  return fmt::format(R"({{"Assignment_Expr":{{"target":{},"value":{}}}}})", a_target, a_value);
+}
+
+// Let statement
+inline std::string let_statement(
+    std::string_view a_pattern, std::string_view a_value, bool a_is_mut = false, std::string_view a_type = "null"
+) {
+  return fmt::format(
+      R"({{"Let_Statement":{{"is_mut":{},"pattern":{},"type":{},"value":{}}}}})", a_is_mut ? "true" : "false",
+      a_pattern, a_type, a_value
+  );
+}
+
+// If expression without else
+inline std::string if_expr(std::string_view a_condition, std::string_view a_then_block) {
+  return fmt::format(R"({{"If_Expr":{{"condition":{},"then_block":{}}}}})", a_condition, a_then_block);
+}
+
+// If expression with else
+inline std::string if_else_expr(
+    std::string_view a_condition, std::string_view a_then_block, std::string_view a_else_block
+) {
+  return fmt::format(
+      R"({{"If_Expr":{{"condition":{},"then_block":{},"else_block":{}}}}})", a_condition, a_then_block, a_else_block
+  );
+}
+
+// While expression
+inline std::string while_expr(std::string_view a_condition, std::string_view a_body) {
+  return fmt::format(R"({{"While_Expr":{{"condition":{},"body":{}}}}})", a_condition, a_body);
+}
+
+// Range expression
+inline std::string range_expr(std::string_view a_start, std::string_view a_end, bool a_inclusive) {
+  return fmt::format(
+      R"({{"Range_Expr":{{"start":{},"end":{},"inclusive":{}}}}})", a_start, a_end, a_inclusive ? "true" : "false"
+  );
+}
+
+// For expression
+inline std::string for_expr(std::string_view a_pattern, std::string_view a_iterator, std::string_view a_body) {
+  return fmt::format(R"({{"For_Expr":{{"pattern":{},"iterator":{},"body":{}}}}})", a_pattern, a_iterator, a_body);
+}
+
+// Break statement (with optional value)
+inline std::string break_statement(std::string_view a_value = "null") {
+  return fmt::format(R"({{"Break_Statement":{{"value":{}}}}})", a_value);
+}
+
+// Continue statement
+inline std::string continue_statement() { return R"({"Continue_Statement":null})"; }
+
+// Unary expression
+inline std::string unary_expr(std::string_view a_op, std::string_view a_operand) {
+  return fmt::format(R"({{"Unary_Expr":{{"op":"{}","operand":{}}}}})", a_op, a_operand);
+}
+
+// Struct field
+inline std::string struct_field(std::string_view a_name, std::string_view a_type) {
+  return fmt::format(R"({{"Struct_Field":{{"name":"{}","type":{}}}}})", a_name, a_type);
+}
+
+// Struct definition
+inline std::string struct_definition(std::string_view a_name, std::vector<std::string> const& a_fields) {
+  std::string fields = "[";
+  for (size_t i = 0; i < a_fields.size(); ++i) {
+    if (i > 0) {
+      fields += ",";
+    }
+    fields += a_fields[i];
+  }
+  fields += "]";
+  return fmt::format(R"({{"Struct_Definition":{{"fields":{},"name":"{}"}}}})", fields, a_name);
+}
+
+// Function parameter
+inline std::string function_parameter(std::string_view a_name, std::string_view a_type, bool a_is_mut = false) {
+  return fmt::format(
+      R"({{"Function_Parameter":{{"is_mut":{},"name":"{}","type":{}}}}})", a_is_mut ? "true" : "false", a_name, a_type
+  );
+}
+
+// Function declaration
+inline std::string function_declaration(
+    std::string_view a_name, std::vector<std::string> const& a_params, std::string_view a_return_type
+) {
+  std::string params = "[";
+  for (size_t i = 0; i < a_params.size(); ++i) {
+    if (i > 0) {
+      params += ",";
+    }
+    params += a_params[i];
+  }
+  params += "]";
+  return fmt::format(
+      R"({{"Function_Declaration":{{"name":"{}","parameters":{},"returnType":{}}}}})", a_name, params, a_return_type
+  );
+}
+
+// Function definition
+inline std::string function_definition(std::string_view a_declaration, std::string_view a_body) {
+  return fmt::format(R"({{"Function_Definition":{{"declaration":{},"body":{}}}}})", a_declaration, a_body);
 }
 
 }  // namespace test_json
@@ -113,27 +346,31 @@ std::string get_expected_json(std::variant<Ast_Type, std::string> const& a_expec
   return json.dump(a_indent);
 }
 
-#define PARSE_TEST(AstType, fn_name)                                               \
-  namespace {                                                                      \
-  using AstType##_Params = Parse_Test_Params<AstType>;                             \
-  void check_parse(AstType##_Params const& params) {                               \
-    auto input_start = params.input.cbegin();                                      \
-    auto const input_end = params.input.cend();                                    \
-    auto const got = life_lang::internal::parse_##fn_name(input_start, input_end); \
-    CHECK(params.should_succeed == bool(got));                                     \
-    if (params.should_succeed != bool(got)) {                                      \
-      if (got) {                                                                   \
-        UNSCOPED_INFO(to_json_string(*got, 2));                                    \
-      } else {                                                                     \
-        UNSCOPED_INFO(got.error());                                                \
-      }                                                                            \
-    }                                                                              \
-    if (got) {                                                                     \
-      auto const expected_json = get_expected_json(params.expected, 2);            \
-      auto const actual_json = to_json_string(*got, 2);                            \
-      CHECK(expected_json == actual_json);                                         \
-    }                                                                              \
-  }                                                                                \
+#define PARSE_TEST(AstType, fn_name)                                                                           \
+  namespace {                                                                                                  \
+  using AstType##_Params = Parse_Test_Params<AstType>;                                                         \
+  void check_parse(AstType##_Params const& params) {                                                           \
+    auto input_start = params.input.cbegin();                                                                  \
+    auto const input_end = params.input.cend();                                                                \
+    auto const got = life_lang::internal::parse_##fn_name(input_start, input_end);                             \
+    CHECK(params.should_succeed == bool(got));                                                                 \
+    if (params.should_succeed != bool(got)) {                                                                  \
+      if (got) {                                                                                               \
+        UNSCOPED_INFO(to_json_string(*got, 2));                                                                \
+      } else {                                                                                                 \
+        UNSCOPED_INFO(got.error());                                                                            \
+      }                                                                                                        \
+    }                                                                                                          \
+    if (got) {                                                                                                 \
+      bool const has_expected =                                                                                \
+          std::holds_alternative<AstType>(params.expected) || !std::get<std::string>(params.expected).empty(); \
+      if (has_expected) {                                                                                      \
+        auto const expected_json = get_expected_json(params.expected, 2);                                      \
+        auto const actual_json = to_json_string(*got, 2);                                                      \
+        CHECK(expected_json == actual_json);                                                                   \
+      }                                                                                                        \
+    }                                                                                                          \
+  }                                                                                                            \
   }  // namespace
 
 template <typename Ast_Type>

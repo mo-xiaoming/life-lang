@@ -11,133 +11,38 @@ namespace {
 // Simple function definitions
 constexpr auto k_empty_body_should_succeed = true;
 constexpr auto k_empty_body_input = "fn hello(): Int {}";
-inline auto const k_empty_body_expected = fmt::format(
-    R"({{
-  "Function_Definition": {{
-    "declaration": {{
-      "Function_Declaration": {{
-        "name": "hello",
-        "parameters": [],
-        "returnType": {}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": []
-      }}
-    }}
-  }}
-}})",
-    type_name("Int")
+inline auto const k_empty_body_expected = test_json::function_definition(
+    test_json::function_declaration("hello", {}, type_name("Int")), test_json::block({})
 );
 
 // Functions with parameters
 constexpr auto k_with_parameters_should_succeed = true;
 constexpr auto k_with_parameters_input = "fn hello(a: Int, b: Double): Int {}";
-inline auto const k_with_parameters_expected = fmt::format(
-    R"({{
-  "Function_Definition": {{
-    "declaration": {{
-      "Function_Declaration": {{
-        "name": "hello",
-        "parameters": [
-          {{
-            "Function_Parameter": {{
-              "is_mut": false,
-              "name": "a",
-              "type": {}
-            }}
-          }},
-          {{
-            "Function_Parameter": {{
-              "is_mut": false,
-              "name": "b",
-              "type": {}
-            }}
-          }}
-        ],
-        "returnType": {}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": []
-      }}
-    }}
-  }}
-}})",
-    type_name("Int"), type_name("Double"), type_name("Int")
+inline auto const k_with_parameters_expected = test_json::function_definition(
+    test_json::function_declaration(
+        "hello",
+        {test_json::function_parameter("a", type_name("Int")), test_json::function_parameter("b", type_name("Double"))},
+        type_name("Int")
+    ),
+    test_json::block({})
 );
 
 // Functions with statements
 constexpr auto k_with_return_should_succeed = true;
 constexpr auto k_with_return_input = "fn hello(): Int {return world;}";
-inline auto const k_with_return_expected = fmt::format(
-    R"({{
-  "Function_Definition": {{
-    "declaration": {{
-      "Function_Declaration": {{
-        "name": "hello",
-        "parameters": [],
-        "returnType": {}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Return_Statement": {{
-              "expr": {}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    type_name("Int"), var_name("world")
+inline auto const k_with_return_expected = test_json::function_definition(
+    test_json::function_declaration("hello", {}, type_name("Int")),
+    test_json::block({test_json::return_statement(var_name("world"))})
 );
 
 constexpr auto k_with_statements_should_succeed = true;
 constexpr auto k_with_statements_input = "fn hello(): Int {foo(); return 0;}";
-inline auto const k_with_statements_expected = fmt::format(
-    R"({{
-  "Function_Definition": {{
-    "declaration": {{
-      "Function_Declaration": {{
-        "name": "hello",
-        "parameters": [],
-        "returnType": {}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Call_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": []
-                }}
-              }}
-            }}
-          }},
-          {{
-            "Return_Statement": {{
-              "expr": {{
-                "Integer": {{
-                  "value": "0"
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    type_name("Int"), var_name("foo")
+inline auto const k_with_statements_expected = test_json::function_definition(
+    test_json::function_declaration("hello", {}, type_name("Int")),
+    test_json::block(
+        {test_json::function_call_statement(test_json::function_call(var_name("foo"), {})),
+         test_json::return_statement(test_json::integer("0"))}
+    )
 );
 
 // Nested constructs
@@ -148,54 +53,12 @@ constexpr auto k_nested_block_input = R"(fn hello(a: Int): Int {
         return world;
     }
 })";
-inline auto const k_nested_block_expected = fmt::format(
-    R"({{
-  "Function_Definition": {{
-    "declaration": {{
-      "Function_Declaration": {{
-        "name": "hello",
-        "parameters": [
-          {{
-            "Function_Parameter": {{
-              "is_mut": false,
-              "name": "a",
-              "type": {}
-            }}
-          }}
-        ],
-        "returnType": {}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Call_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": []
-                }}
-              }}
-            }}
-          }},
-          {{
-            "Block": {{
-              "statements": [
-                {{
-                  "Return_Statement": {{
-                    "expr": {}
-                  }}
-                }}
-              ]
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    type_name("Int"), type_name("Int"), var_name("hello"), var_name("world")
+inline auto const k_nested_block_expected = test_json::function_definition(
+    test_json::function_declaration("hello", {test_json::function_parameter("a", type_name("Int"))}, type_name("Int")),
+    test_json::block(
+        {test_json::function_call_statement(test_json::function_call(var_name("hello"), {})),
+         test_json::block({test_json::return_statement(var_name("world"))})}
+    )
 );
 
 constexpr auto k_nested_function_should_succeed = true;
@@ -205,61 +68,15 @@ constexpr auto k_nested_function_input = R"(fn hello(): Int {
     }
     return world();
 })";
-inline auto const k_nested_function_expected = fmt::format(
-    R"({{
-  "Function_Definition": {{
-    "declaration": {{
-      "Function_Declaration": {{
-        "name": "hello",
-        "parameters": [],
-        "returnType": {}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Definition": {{
-              "declaration": {{
-                "Function_Declaration": {{
-                  "name": "world",
-                  "parameters": [],
-                  "returnType": {}
-                }}
-              }},
-              "body": {{
-                "Block": {{
-                  "statements": [
-                    {{
-                      "Return_Statement": {{
-                        "expr": {{
-                          "Integer": {{
-                            "value": "0"
-                          }}
-                        }}
-                      }}
-                    }}
-                  ]
-                }}
-              }}
-            }}
-          }},
-          {{
-            "Return_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": []
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    type_name("Int"), type_name("Int"), var_name("world")
+inline auto const k_nested_function_expected = test_json::function_definition(
+    test_json::function_declaration("hello", {}, type_name("Int")),
+    test_json::block(
+        {test_json::function_definition(
+             test_json::function_declaration("world", {}, type_name("Int")),
+             test_json::block({test_json::return_statement(test_json::integer("0"))})
+         ),
+         test_json::return_statement(test_json::function_call(var_name("world"), {}))}
+    )
 );
 
 // Complex real-world examples
@@ -386,25 +203,8 @@ inline auto const k_hello_world_expected = R"({
 // Trailing content
 constexpr auto k_with_trailing_code_should_succeed = true;
 constexpr auto k_with_trailing_code_input = "fn foo(): Int {} bar";
-inline auto const k_with_trailing_code_expected = fmt::format(
-    R"({{
-  "Function_Definition": {{
-    "declaration": {{
-      "Function_Declaration": {{
-        "name": "foo",
-        "parameters": [],
-        "returnType": {}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": []
-      }}
-    }}
-  }}
-}})",
-    type_name("Int")
-);
+inline auto const k_with_trailing_code_expected =
+    test_json::function_definition(test_json::function_declaration("foo", {}, type_name("Int")), test_json::block({}));
 
 // Invalid cases
 constexpr auto k_invalid_no_fn_keyword_should_succeed = false;

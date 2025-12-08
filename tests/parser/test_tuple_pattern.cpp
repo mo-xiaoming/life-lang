@@ -10,256 +10,54 @@ namespace {
 // Two element tuple pattern
 constexpr auto k_tuple_two_elements_should_succeed = true;
 constexpr auto k_tuple_two_elements_input = "for (a, b) in pairs { process(a, b); }";
-inline auto const k_tuple_two_elements_expected = R"({
-  "For_Expr": {
-    "pattern": {
-      "Tuple_Pattern": {
-        "elements": [
-          {"Simple_Pattern": {"name": "a"}},
-          {"Simple_Pattern": {"name": "b"}}
-        ]
-      }
-    },
-    "iterator": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "pairs"}}
-        ]
-      }
-    },
-    "body": {
-      "Block": {
-        "statements": [
-          {
-            "Function_Call_Statement": {
-              "expr": {
-                "Function_Call_Expr": {
-                  "name": {
-                    "Variable_Name": {
-                      "segments": [
-                        {"Variable_Name_Segment": {"template_parameters": [], "value": "process"}}
-                      ]
-                    }
-                  },
-                  "parameters": [
-                    {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "a"}}
-                        ]
-                      }
-                    },
-                    {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "b"}}
-                        ]
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        ]
-      }
-    }
-  }
-})";
+inline auto const k_tuple_two_elements_expected = test_json::for_expr(
+    test_json::tuple_pattern({test_json::simple_pattern("a"), test_json::simple_pattern("b")}),
+    test_json::var_name("pairs"),
+    test_json::block({test_json::function_call_statement(
+        test_json::function_call(test_json::var_name("process"), {test_json::var_name("a"), test_json::var_name("b")})
+    )})
+);
 
 // Three element tuple pattern
 constexpr auto k_tuple_three_elements_should_succeed = true;
 constexpr auto k_tuple_three_elements_input = "for (x, y, z) in coords { move(x, y, z); }";
-inline auto const k_tuple_three_elements_expected = R"({
-  "For_Expr": {
-    "pattern": {
-      "Tuple_Pattern": {
-        "elements": [
-          {"Simple_Pattern": {"name": "x"}},
-          {"Simple_Pattern": {"name": "y"}},
-          {"Simple_Pattern": {"name": "z"}}
-        ]
-      }
-    },
-    "iterator": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "coords"}}
-        ]
-      }
-    },
-    "body": {
-      "Block": {
-        "statements": [
-          {
-            "Function_Call_Statement": {
-              "expr": {
-                "Function_Call_Expr": {
-                  "name": {
-                    "Variable_Name": {
-                      "segments": [
-                        {"Variable_Name_Segment": {"template_parameters": [], "value": "move"}}
-                      ]
-                    }
-                  },
-                  "parameters": [
-                    {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "x"}}
-                        ]
-                      }
-                    },
-                    {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "y"}}
-                        ]
-                      }
-                    },
-                    {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "z"}}
-                        ]
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        ]
-      }
-    }
-  }
-})";
+inline auto const k_tuple_three_elements_expected = test_json::for_expr(
+    test_json::tuple_pattern(
+        {test_json::simple_pattern("x"), test_json::simple_pattern("y"), test_json::simple_pattern("z")}
+    ),
+    test_json::var_name("coords"),
+    test_json::block({test_json::function_call_statement(
+        test_json::function_call(
+            test_json::var_name("move"), {test_json::var_name("x"), test_json::var_name("y"), test_json::var_name("z")}
+        )
+    )})
+);
 
 // Single element tuple (edge case)
 constexpr auto k_tuple_single_element_should_succeed = true;
 constexpr auto k_tuple_single_element_input = "for (item) in items { process(item); }";
-inline auto const k_tuple_single_element_expected = R"({
-  "For_Expr": {
-    "pattern": {
-      "Tuple_Pattern": {
-        "elements": [
-          {"Simple_Pattern": {"name": "item"}}
-        ]
-      }
-    },
-    "iterator": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "items"}}
-        ]
-      }
-    },
-    "body": {
-      "Block": {
-        "statements": [
-          {
-            "Function_Call_Statement": {
-              "expr": {
-                "Function_Call_Expr": {
-                  "name": {
-                    "Variable_Name": {
-                      "segments": [
-                        {"Variable_Name_Segment": {"template_parameters": [], "value": "process"}}
-                      ]
-                    }
-                  },
-                  "parameters": [
-                    {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "item"}}
-                        ]
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        ]
-      }
-    }
-  }
-})";
+inline auto const k_tuple_single_element_expected = test_json::for_expr(
+    test_json::tuple_pattern({test_json::simple_pattern("item")}), test_json::var_name("items"),
+    test_json::block({test_json::function_call_statement(
+        test_json::function_call(test_json::var_name("process"), {test_json::var_name("item")})
+    )})
+);
 
 // Nested tuple in tuple: for ((a, b), c) in ...
 constexpr auto k_nested_tuple_in_tuple_should_succeed = true;
 constexpr auto k_nested_tuple_in_tuple_input = "for ((a, b), c) in nested { print(a, b, c); }";
-inline auto const k_nested_tuple_in_tuple_expected = R"({
-  "For_Expr": {
-    "pattern": {
-      "Tuple_Pattern": {
-        "elements": [
-          {
-            "Tuple_Pattern": {
-              "elements": [
-                {"Simple_Pattern": {"name": "a"}},
-                {"Simple_Pattern": {"name": "b"}}
-              ]
-            }
-          },
-          {"Simple_Pattern": {"name": "c"}}
-        ]
-      }
-    },
-    "iterator": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "nested"}}
-        ]
-      }
-    },
-    "body": {
-      "Block": {
-        "statements": [
-          {
-            "Function_Call_Statement": {
-              "expr": {
-                "Function_Call_Expr": {
-                  "name": {
-                    "Variable_Name": {
-                      "segments": [
-                        {"Variable_Name_Segment": {"template_parameters": [], "value": "print"}}
-                      ]
-                    }
-                  },
-                  "parameters": [
-                    {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "a"}}
-                        ]
-                      }
-                    },
-                    {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "b"}}
-                        ]
-                      }
-                    },
-                    {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "c"}}
-                        ]
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        ]
-      }
-    }
-  }
-})";
+inline auto const k_nested_tuple_in_tuple_expected = test_json::for_expr(
+    test_json::tuple_pattern(
+        {test_json::tuple_pattern({test_json::simple_pattern("a"), test_json::simple_pattern("b")}),
+         test_json::simple_pattern("c")}
+    ),
+    test_json::var_name("nested"),
+    test_json::block({test_json::function_call_statement(
+        test_json::function_call(
+            test_json::var_name("print"), {test_json::var_name("a"), test_json::var_name("b"), test_json::var_name("c")}
+        )
+    )})
+);
 
 // Nested struct in tuple: for (Point { x, y }, z) in ...
 constexpr auto k_nested_struct_in_tuple_should_succeed = true;
