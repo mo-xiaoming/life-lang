@@ -17,6 +17,7 @@ target_sources(tests
         parser/test_diagnostics.cpp
         parser/test_expr.cpp
         parser/test_field_access.cpp
+        parser/test_float.cpp
         parser/test_for_expr.cpp
         parser/test_function_definition.cpp
         parser/test_if_expr.cpp

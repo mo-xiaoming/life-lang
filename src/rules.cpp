@@ -266,6 +266,34 @@ auto const k_integer_rule_def =
 BOOST_SPIRIT_DEFINE(k_integer_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_integer_rule), Iterator_Type, Context_Type)
 
+// === Float Literal Rules ===
+// Float literals with optional digit separators and scientific notation
+// Examples:
+//   Simple:      3.14, 0.5, 123.456
+//   Separated:   1_000.5, 123_456.789_012
+//   Scientific:  1.0e10, 2.5E-3, 1e+5
+//   Edge cases:  0.0, 1.0, .5 (leading dot not allowed)
+// Parse float: digits with decimal point and/or exponent
+struct Float_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Float_Tag, ast::Float> const k_float_rule = "float literal";
+auto const k_float_rule_def =
+    raw[lexeme
+            [(+(char_('0', '9') | '_') >> '.' >> +(char_('0', '9') | '_') >>
+              -(x3::no_case[char_('e')] >> -char_("+-") >> +(char_('0', '9') | '_'))) |
+             (+(char_('0', '9') | '_') >> x3::no_case[char_('e')] >> -char_("+-") >> +(char_('0', '9') | '_'))]]
+       [([](auto& a_ctx) {
+         auto const& attr = x3::_attr(a_ctx);
+         std::string str{attr.begin(), attr.end()};
+         if (str.back() == '_') {
+           x3::_pass(a_ctx) = false;  // Reject trailing underscore
+         } else {
+           std::erase(str, '_');  // Remove digit separators
+           x3::_val(a_ctx) = ast::make_float(str);
+         }
+       })];
+BOOST_SPIRIT_DEFINE(k_float_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_float_rule), Iterator_Type, Context_Type)
+
 // === Function Declaration Rules ===
 // Function declarations specify function signature (name, parameters, return type)
 // Examples:
@@ -457,8 +485,8 @@ x3::rule<struct primary_expr_tag, ast::Expr> const k_primary_expr = "primary exp
 // 2. function_call second: Requires name + '(', specific delimiter
 // 3. variable_name later: More general
 // This prevents "if x {}" ambiguity: x{} won't match struct_literal (x is lowercase)
-auto const k_primary_expr_def =
-    k_struct_literal_rule | k_function_call_expr_rule | k_string_rule | k_variable_name_rule | k_integer_rule;
+auto const k_primary_expr_def = k_struct_literal_rule | k_function_call_expr_rule | k_string_rule |
+                                k_variable_name_rule | k_float_rule | k_integer_rule;
 BOOST_SPIRIT_DEFINE(k_primary_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_primary_expr), Iterator_Type, Context_Type)
 
@@ -1308,6 +1336,7 @@ PARSE_FN_IMPL(Block, block)                              // NOLINT(misc-use-inte
 PARSE_FN_IMPL(Expr, expr)                                // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Type_Name, type_name)                      // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Integer, integer)                          // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Float, float)                              // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(String, string)                            // NOLINT(misc-use-internal-linkage)
 #undef PARSE_FN_IMPL
 
