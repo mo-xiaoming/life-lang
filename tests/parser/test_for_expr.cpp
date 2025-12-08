@@ -10,157 +10,51 @@ namespace {
 // Simple range iteration (exclusive)
 constexpr auto k_simple_range_exclusive_should_succeed = true;
 constexpr auto k_simple_range_exclusive_input = "for i in 0..10 { process(i); }";
-inline auto const k_simple_range_exclusive_expected = fmt::format(
-    R"({{
-  "For_Expr": {{
-    "pattern": {{ "Simple_Pattern": {{ "name": "i" }} }},
-    "iterator": {{
-      "Range_Expr": {{
-        "start": {{ "Integer": {{ "value": "0" }} }},
-        "end": {{ "Integer": {{ "value": "10" }} }},
-        "inclusive": false
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Call_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": [{}]
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    test_json::var_name("process"), test_json::var_name("i")
+inline auto const k_simple_range_exclusive_expected = test_json::for_expr(
+    test_json::simple_pattern("i"), test_json::range_expr(test_json::integer(0), test_json::integer(10), false),
+    test_json::block({test_json::function_call_statement(
+        test_json::function_call(test_json::var_name("process"), {test_json::var_name("i")})
+    )})
 );
 
 // Simple range iteration (inclusive)
 constexpr auto k_simple_range_inclusive_should_succeed = true;
 constexpr auto k_simple_range_inclusive_input = "for i in 0..=10 { process(i); }";
-inline auto const k_simple_range_inclusive_expected = fmt::format(
-    R"({{
-  "For_Expr": {{
-    "pattern": {{ "Simple_Pattern": {{ "name": "i" }} }},
-    "iterator": {{
-      "Range_Expr": {{
-        "start": {{ "Integer": {{ "value": "0" }} }},
-        "end": {{ "Integer": {{ "value": "10" }} }},
-        "inclusive": true
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Call_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": [{}]
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    test_json::var_name("process"), test_json::var_name("i")
+inline auto const k_simple_range_inclusive_expected = test_json::for_expr(
+    test_json::simple_pattern("i"), test_json::range_expr(test_json::integer(0), test_json::integer(10), true),
+    test_json::block({test_json::function_call_statement(
+        test_json::function_call(test_json::var_name("process"), {test_json::var_name("i")})
+    )})
 );
 
 // Variable range
 constexpr auto k_variable_range_should_succeed = true;
 constexpr auto k_variable_range_input = "for item in start..end { work(item); }";
-inline auto const k_variable_range_expected = fmt::format(
-    R"({{
-  "For_Expr": {{
-    "pattern": {{ "Simple_Pattern": {{ "name": "item" }} }},
-    "iterator": {{
-      "Range_Expr": {{
-        "start": {},
-        "end": {},
-        "inclusive": false
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Call_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": [{}]
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    test_json::var_name("start"), test_json::var_name("end"), test_json::var_name("work"), test_json::var_name("item")
+inline auto const k_variable_range_expected = test_json::for_expr(
+    test_json::simple_pattern("item"),
+    test_json::range_expr(test_json::var_name("start"), test_json::var_name("end"), false),
+    test_json::block({test_json::function_call_statement(
+        test_json::function_call(test_json::var_name("work"), {test_json::var_name("item")})
+    )})
 );
 
 // Collection variable iteration
 constexpr auto k_collection_iteration_should_succeed = true;
 constexpr auto k_collection_iteration_input = "for user in users { handle(user); }";
-inline auto const k_collection_iteration_expected = fmt::format(
-    R"({{
-  "For_Expr": {{
-    "pattern": {{ "Simple_Pattern": {{ "name": "user" }} }},
-    "iterator": {},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Call_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": [{}]
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    test_json::var_name("users"), test_json::var_name("handle"), test_json::var_name("user")
+inline auto const k_collection_iteration_expected = test_json::for_expr(
+    test_json::simple_pattern("user"), test_json::var_name("users"),
+    test_json::block({test_json::function_call_statement(
+        test_json::function_call(test_json::var_name("handle"), {test_json::var_name("user")})
+    )})
 );
 
 // Empty body
 constexpr auto k_empty_body_should_succeed = true;
 constexpr auto k_empty_body_input = "for x in 0..10 {}";
-inline auto const k_empty_body_expected = R"({
-  "For_Expr": {
-    "pattern": { "Simple_Pattern": { "name": "x" } },
-    "iterator": {
-      "Range_Expr": {
-        "start": { "Integer": { "value": "0" } },
-        "end": { "Integer": { "value": "10" } },
-        "inclusive": false
-      }
-    },
-    "body": {
-      "Block": {
-        "statements": []
-      }
-    }
-  }
-})";
+inline auto const k_empty_body_expected = test_json::for_expr(
+    test_json::simple_pattern("x"), test_json::range_expr(test_json::integer(0), test_json::integer(10), false),
+    test_json::block({})
+);
 
 // Nested for loops
 constexpr auto k_nested_for_loops_should_succeed = true;

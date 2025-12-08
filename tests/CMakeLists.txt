@@ -23,6 +23,7 @@ target_sources(tests
         parser/test_internal_parse_errors.cpp
         parser/test_keywords.cpp
         parser/test_let_statement.cpp
+        parser/test_match_expr.cpp
         parser/test_method_chaining.cpp
         parser/test_range_expr.cpp
         parser/test_string.cpp

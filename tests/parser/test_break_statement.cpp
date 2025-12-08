@@ -11,36 +11,17 @@ namespace {
 // Simple break without value
 constexpr auto k_simple_break_should_succeed = true;
 constexpr auto k_simple_break_input = "break;";
-inline auto const k_simple_break_expected = R"({
-  "Break_Statement": {
-    "value": null
-  }
-})";
+inline auto const k_simple_break_expected = test_json::break_statement();
 
 // Break with integer value
 constexpr auto k_break_with_integer_should_succeed = true;
 constexpr auto k_break_with_integer_input = "break 42;";
-inline auto const k_break_with_integer_expected = R"({
-  "Break_Statement": {
-    "value": {
-      "Integer": {
-        "value": "42"
-      }
-    }
-  }
-})";
+inline auto const k_break_with_integer_expected = test_json::break_statement(test_json::integer(42));
 
 // Break with variable
 constexpr auto k_break_with_variable_should_succeed = true;
 constexpr auto k_break_with_variable_input = "break result;";
-inline auto const k_break_with_variable_expected = fmt::format(
-    R"({{
-  "Break_Statement": {{
-    "value": {}
-  }}
-}})",
-    test_json::var_name("result")
-);
+inline auto const k_break_with_variable_expected = test_json::break_statement(test_json::var_name("result"));
 
 // Break with expression
 constexpr auto k_break_with_expression_should_succeed = true;

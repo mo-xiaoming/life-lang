@@ -10,138 +10,49 @@ namespace {
 // Basic while loop
 constexpr auto k_basic_while_should_succeed = true;
 constexpr auto k_basic_while_input = "while x { return 1; }";
-inline auto const k_basic_while_expected = fmt::format(
-    R"({{
-  "While_Expr": {{
-    "condition": {},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Return_Statement": {{
-              "expr": {{
-                "Integer": {{
-                  "value": "1"
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    var_name("x")
+inline auto const k_basic_while_expected = test_json::while_expr(
+    test_json::var_name("x"), test_json::block({test_json::return_statement(test_json::integer(1))})
 );
 
 // While with comparison condition
 constexpr auto k_while_comparison_should_succeed = true;
 constexpr auto k_while_comparison_input = "while x < 10 { return x; }";
-inline auto const k_while_comparison_expected = fmt::format(
-    R"({{
-  "While_Expr": {{
-    "condition": {{
-      "Binary_Expr": {{
-        "lhs": {},
-        "op": "<",
-        "rhs": {{
-          "Integer": {{
-            "value": "10"
-          }}
-        }}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Return_Statement": {{
-              "expr": {}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    var_name("x"), var_name("x")
+inline auto const k_while_comparison_expected = test_json::while_expr(
+    test_json::binary_expr("<", test_json::var_name("x"), test_json::integer(10)),
+    test_json::block({test_json::return_statement(test_json::var_name("x"))})
 );
 
 // While with complex condition
 constexpr auto k_while_complex_condition_should_succeed = true;
 constexpr auto k_while_complex_condition_input = "while x > 0 && y < 100 { foo(); }";
-inline auto const k_while_complex_condition_expected = fmt::format(
-    R"({{
-  "While_Expr": {{
-    "condition": {{
-      "Binary_Expr": {{
-        "lhs": {{
-          "Binary_Expr": {{
-            "lhs": {},
-            "op": ">",
-            "rhs": {{
-              "Integer": {{
-                "value": "0"
-              }}
-            }}
-          }}
-        }},
-        "op": "&&",
-        "rhs": {{
-          "Binary_Expr": {{
-            "lhs": {},
-            "op": "<",
-            "rhs": {{
-              "Integer": {{
-                "value": "100"
-              }}
-            }}
-          }}
-        }}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Call_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": []
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    var_name("x"), var_name("y"), var_name("foo")
+inline auto const k_while_complex_condition_expected = test_json::while_expr(
+    test_json::binary_expr(
+        "&&", test_json::binary_expr(">", test_json::var_name("x"), test_json::integer(0)),
+        test_json::binary_expr("<", test_json::var_name("y"), test_json::integer(100))
+    ),
+    test_json::block({test_json::function_call_statement(test_json::function_call(test_json::var_name("foo"), {}))})
 );
 
 // While with empty body
 constexpr auto k_while_empty_body_should_succeed = true;
 constexpr auto k_while_empty_body_input = "while condition {}";
-inline auto const k_while_empty_body_expected = fmt::format(
-    R"({{
-  "While_Expr": {{
-    "condition": {},
-    "body": {{
-      "Block": {{
-        "statements": []
-      }}
-    }}
-  }}
-}})",
-    var_name("condition")
-);
+inline auto const k_while_empty_body_expected =
+    test_json::while_expr(test_json::var_name("condition"), test_json::block({}));
 
 // While with multiple statements
 constexpr auto k_while_multiple_statements_should_succeed = true;
 constexpr auto k_while_multiple_statements_input = "while x { foo(); bar(); return x; }";
-inline auto const k_while_multiple_statements_expected = fmt::format(
+inline auto const k_while_multiple_statements_expected = test_json::while_expr(
+    test_json::var_name("x"),
+    test_json::block(
+        {test_json::function_call_statement(test_json::function_call(test_json::var_name("foo"), {})),
+         test_json::function_call_statement(test_json::function_call(test_json::var_name("bar"), {})),
+         test_json::return_statement(test_json::var_name("x"))}
+    )
+);
+
+// Placeholder to remove old fmt::format version
+inline auto const k_placeholder_remove_me = fmt::format(
     R"({{
   "While_Expr": {{
     "condition": {},
@@ -184,67 +95,17 @@ inline auto const k_while_multiple_statements_expected = fmt::format(
 // While with function call condition
 constexpr auto k_while_function_condition_should_succeed = true;
 constexpr auto k_while_function_condition_input = "while has_more() { process(); }";
-inline auto const k_while_function_condition_expected = fmt::format(
-    R"({{
-  "While_Expr": {{
-    "condition": {{
-      "Function_Call_Expr": {{
-        "name": {},
-        "parameters": []
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Call_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": []
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    var_name("has_more"), var_name("process")
+inline auto const k_while_function_condition_expected = test_json::while_expr(
+    test_json::function_call(test_json::var_name("has_more"), {}),
+    test_json::block({test_json::function_call_statement(test_json::function_call(test_json::var_name("process"), {}))})
 );
 
 // While with unary operator condition
 constexpr auto k_while_unary_condition_should_succeed = true;
 constexpr auto k_while_unary_condition_input = "while !done { work(); }";
-inline auto const k_while_unary_condition_expected = fmt::format(
-    R"({{
-  "While_Expr": {{
-    "condition": {{
-      "Unary_Expr": {{
-        "op": "!",
-        "operand": {}
-      }}
-    }},
-    "body": {{
-      "Block": {{
-        "statements": [
-          {{
-            "Function_Call_Statement": {{
-              "expr": {{
-                "Function_Call_Expr": {{
-                  "name": {},
-                  "parameters": []
-                }}
-              }}
-            }}
-          }}
-        ]
-      }}
-    }}
-  }}
-}})",
-    var_name("done"), var_name("work")
+inline auto const k_while_unary_condition_expected = test_json::while_expr(
+    test_json::unary_expr("!", test_json::var_name("done")),
+    test_json::block({test_json::function_call_statement(test_json::function_call(test_json::var_name("work"), {}))})
 );
 
 // Nested while loops

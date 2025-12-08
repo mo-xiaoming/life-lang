@@ -26,6 +26,7 @@ struct Binary_Expr;
 struct If_Expr;
 struct While_Expr;
 struct For_Expr;
+struct Match_Expr;
 struct Range_Expr;
 struct Function_Definition;
 struct Block;
@@ -176,16 +177,16 @@ struct Expr : boost::spirit::x3::variant<
                   boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
                   boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
                   boost::spirit::x3::forward_ast<While_Expr>, boost::spirit::x3::forward_ast<For_Expr>,
-                  boost::spirit::x3::forward_ast<Range_Expr>, boost::spirit::x3::forward_ast<Assignment_Expr>,
-                  Struct_Literal, String, Integer>,
+                  boost::spirit::x3::forward_ast<Match_Expr>, boost::spirit::x3::forward_ast<Range_Expr>,
+                  boost::spirit::x3::forward_ast<Assignment_Expr>, Struct_Literal, String, Integer>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       Variable_Name, boost::spirit::x3::forward_ast<Function_Call_Expr>,
       boost::spirit::x3::forward_ast<Field_Access_Expr>, boost::spirit::x3::forward_ast<Binary_Expr>,
       boost::spirit::x3::forward_ast<Unary_Expr>, boost::spirit::x3::forward_ast<If_Expr>,
       boost::spirit::x3::forward_ast<While_Expr>, boost::spirit::x3::forward_ast<For_Expr>,
-      boost::spirit::x3::forward_ast<Range_Expr>, boost::spirit::x3::forward_ast<Assignment_Expr>, Struct_Literal,
-      String, Integer>;
+      boost::spirit::x3::forward_ast<Match_Expr>, boost::spirit::x3::forward_ast<Range_Expr>,
+      boost::spirit::x3::forward_ast<Assignment_Expr>, Struct_Literal, String, Integer>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -319,6 +320,17 @@ struct If_Expr : boost::spirit::x3::position_tagged {
 // ============================================================================
 
 // Example: item (simple variable binding in for loops)
+// Wildcard pattern: _ (matches anything, doesn't bind)
+struct Wildcard_Pattern : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Wildcard_Pattern";
+};
+
+// Literal pattern: 42, "hello", true (matches exact value)
+struct Literal_Pattern : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Literal_Pattern";
+  boost::spirit::x3::forward_ast<Expr> value;  // Integer or String literal
+};
+
 struct Simple_Pattern : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Simple_Pattern";
   std::string name;
@@ -340,9 +352,11 @@ struct Tuple_Pattern : boost::spirit::x3::position_tagged {
 };
 
 // Pattern variant supporting all pattern types
-struct Pattern : boost::spirit::x3::variant<Simple_Pattern, Struct_Pattern, Tuple_Pattern>,
-                 boost::spirit::x3::position_tagged {
-  using Base_Type = boost::spirit::x3::variant<Simple_Pattern, Struct_Pattern, Tuple_Pattern>;
+struct Pattern
+    : boost::spirit::x3::variant<Wildcard_Pattern, Literal_Pattern, Simple_Pattern, Struct_Pattern, Tuple_Pattern>,
+      boost::spirit::x3::position_tagged {
+  using Base_Type =
+      boost::spirit::x3::variant<Wildcard_Pattern, Literal_Pattern, Simple_Pattern, Struct_Pattern, Tuple_Pattern>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -380,6 +394,23 @@ struct For_Expr : boost::spirit::x3::position_tagged {
   Pattern pattern;                                // Pattern for destructuring (simple, struct, or tuple)
   boost::spirit::x3::forward_ast<Expr> iterator;  // Collection or range expression
   boost::spirit::x3::forward_ast<Block> body;
+};
+
+// Example: Point { x: 0, y } if y > 0 => "positive"
+// Single arm in a match expression with optional guard
+struct Match_Arm : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Match_Arm";
+  Pattern pattern;                                              // Pattern to match against
+  boost::optional<boost::spirit::x3::forward_ast<Expr>> guard;  // Optional guard condition (if guard_expr)
+  boost::spirit::x3::forward_ast<Expr> result;                  // Expression to evaluate if pattern matches
+};
+
+// Example: match value { 0 => "zero", n if n > 0 => "positive", _ => "other" }
+// Pattern matching expression with exhaustive case analysis
+struct Match_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Match_Expr";
+  boost::spirit::x3::forward_ast<Expr> scrutinee;  // Expression to match against
+  std::vector<Match_Arm> arms;                     // Match arms (pattern => result)
 };
 
 // ============================================================================
@@ -550,6 +581,7 @@ inline Expr make_expr(Unary_Expr&& a_unary) { return Expr{std::move(a_unary)}; }
 inline Expr make_expr(If_Expr&& a_if) { return Expr{std::move(a_if)}; }
 inline Expr make_expr(While_Expr&& a_while) { return Expr{std::move(a_while)}; }
 inline Expr make_expr(For_Expr&& a_for) { return Expr{std::move(a_for)}; }
+inline Expr make_expr(Match_Expr&& a_match) { return Expr{std::move(a_match)}; }
 inline Expr make_expr(Range_Expr&& a_range) { return Expr{std::move(a_range)}; }
 inline Expr make_expr(Struct_Literal&& a_literal) { return Expr{std::move(a_literal)}; }
 
@@ -587,6 +619,10 @@ inline While_Expr make_while_expr(Expr&& a_condition, Block&& a_body) {
 }
 
 // Pattern helpers
+inline Wildcard_Pattern make_wildcard_pattern() { return Wildcard_Pattern{{}}; }
+
+inline Literal_Pattern make_literal_pattern(Expr&& a_value) { return Literal_Pattern{{}, std::move(a_value)}; }
+
 inline Simple_Pattern make_simple_pattern(std::string&& a_name) { return Simple_Pattern{{}, std::move(a_name)}; }
 
 inline Struct_Pattern make_struct_pattern(
@@ -599,12 +635,26 @@ inline Tuple_Pattern make_tuple_pattern(std::vector<boost::spirit::x3::forward_a
   return Tuple_Pattern{{}, std::move(a_elements)};
 }
 
+inline Pattern make_pattern(Wildcard_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
+inline Pattern make_pattern(Literal_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
 inline Pattern make_pattern(Simple_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
 inline Pattern make_pattern(Struct_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
 inline Pattern make_pattern(Tuple_Pattern&& a_pattern) { return Pattern{std::move(a_pattern)}; }
 
 inline For_Expr make_for_expr(Pattern&& a_pattern, Expr&& a_iterator, Block&& a_body) {
   return For_Expr{{}, std::move(a_pattern), std::move(a_iterator), std::move(a_body)};
+}
+
+inline Match_Arm make_match_arm(Pattern&& a_pattern, boost::optional<Expr>&& a_guard, Expr&& a_result) {
+  boost::optional<boost::spirit::x3::forward_ast<Expr>> guard_wrapped;
+  if (a_guard) {
+    guard_wrapped = std::move(*a_guard);
+  }
+  return Match_Arm{{}, std::move(a_pattern), std::move(guard_wrapped), std::move(a_result)};
+}
+
+inline Match_Expr make_match_expr(Expr&& a_scrutinee, std::vector<Match_Arm>&& a_arms) {
+  return Match_Expr{{}, std::move(a_scrutinee), std::move(a_arms)};
 }
 
 inline Range_Expr make_range_expr(Expr&& a_start, Expr&& a_end, bool a_inclusive) {
@@ -702,6 +752,8 @@ void to_json(nlohmann::json& a_json, Field_Access_Expr const& a_access);
 void to_json(nlohmann::json& a_json, Assignment_Expr const& a_assignment);
 void to_json(nlohmann::json& a_json, Field_Initializer const& a_initializer);
 void to_json(nlohmann::json& a_json, Let_Statement const& a_let);
+void to_json(nlohmann::json& a_json, Match_Arm const& a_arm);
+void to_json(nlohmann::json& a_json, Match_Expr const& a_match);
 void to_json(nlohmann::json& a_json, Function_Definition const& a_def);
 void to_json(nlohmann::json& a_json, Struct_Definition const& a_def);
 void to_json(nlohmann::json& a_json, Block const& a_block);
@@ -955,6 +1007,18 @@ inline void to_json(nlohmann::json& a_json, If_Expr const& a_if) {
 // Pattern JSON serialization (forward declare for recursion)
 inline void to_json(nlohmann::json& a_json, Pattern const& a_pattern);
 
+inline void to_json(nlohmann::json& a_json, Wildcard_Pattern const& /*a_pattern*/) {
+  a_json[Wildcard_Pattern::k_name] = nlohmann::json::object();
+}
+
+inline void to_json(nlohmann::json& a_json, Literal_Pattern const& a_pattern) {
+  nlohmann::json obj;
+  nlohmann::json value_json;
+  to_json(value_json, a_pattern.value.get());
+  obj["value"] = value_json;
+  a_json[Literal_Pattern::k_name] = obj;
+}
+
 inline void to_json(nlohmann::json& a_json, Simple_Pattern const& a_pattern) {
   nlohmann::json obj;
   obj["name"] = a_pattern.name;
@@ -1021,6 +1085,42 @@ inline void to_json(nlohmann::json& a_json, For_Expr const& a_for) {
   obj["body"] = body_json;
 
   a_json[For_Expr::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Match_Arm const& a_arm) {
+  nlohmann::json obj;
+  nlohmann::json pattern_json;
+  to_json(pattern_json, a_arm.pattern);
+  obj["pattern"] = pattern_json;
+
+  if (a_arm.guard) {
+    nlohmann::json guard_json;
+    to_json(guard_json, a_arm.guard.get().get());
+    obj["guard"] = guard_json;
+  }
+
+  nlohmann::json result_json;
+  to_json(result_json, a_arm.result.get());
+  obj["result"] = result_json;
+
+  a_json[Match_Arm::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Match_Expr const& a_match) {
+  nlohmann::json obj;
+  nlohmann::json scrutinee_json;
+  to_json(scrutinee_json, a_match.scrutinee.get());
+  obj["scrutinee"] = scrutinee_json;
+
+  nlohmann::json arms_json = nlohmann::json::array();
+  for (auto const& arm : a_match.arms) {
+    nlohmann::json arm_json;
+    to_json(arm_json, arm);
+    arms_json.push_back(arm_json);
+  }
+  obj["arms"] = arms_json;
+
+  a_json[Match_Expr::k_name] = obj;
 }
 
 inline void to_json(nlohmann::json& a_json, Range_Expr const& a_range) {

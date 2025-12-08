@@ -10,51 +10,18 @@ namespace {
 // Empty block
 constexpr auto k_empty_block_should_succeed = true;
 constexpr auto k_empty_block_input = "{}";
-inline auto const k_empty_block_expected = R"({
-  "Block": {
-    "statements": []
-  }
-})";
+inline auto const k_empty_block_expected = test_json::block({});
 
 // Single statement blocks
 constexpr auto k_single_return_should_succeed = true;
 constexpr auto k_single_return_input = "{return hello;}";
-inline auto const k_single_return_expected = fmt::format(
-    R"({{
-  "Block": {{
-    "statements": [
-      {{
-        "Return_Statement": {{
-          "expr": {}
-        }}
-      }}
-    ]
-  }}
-}})",
-    var_name("hello")
-);
+inline auto const k_single_return_expected =
+    test_json::block({test_json::return_statement(test_json::var_name("hello"))});
 
 constexpr auto k_single_function_call_should_succeed = true;
 constexpr auto k_single_function_call_input = "{foo();}";
-inline auto const k_single_function_call_expected = fmt::format(
-    R"({{
-  "Block": {{
-    "statements": [
-      {{
-        "Function_Call_Statement": {{
-          "expr": {{
-            "Function_Call_Expr": {{
-              "name": {},
-              "parameters": []
-            }}
-          }}
-        }}
-      }}
-    ]
-  }}
-}})",
-    var_name("foo")
-);
+inline auto const k_single_function_call_expected =
+    test_json::block({test_json::function_call_statement(test_json::function_call(test_json::var_name("foo"), {}))});
 
 // Multiple statements
 constexpr auto k_two_statements_should_succeed = true;

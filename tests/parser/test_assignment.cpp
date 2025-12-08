@@ -11,69 +11,15 @@ namespace {
 // Simple variable assignment
 constexpr auto k_simple_assignment_should_succeed = true;
 constexpr auto k_simple_assignment_input = "x = 42";
-inline auto const k_simple_assignment_expected = R"({
-  "Assignment_Expr": {
-    "target": {
-      "Variable_Name": {
-        "segments": [
-          {
-            "Variable_Name_Segment": {
-              "template_parameters": [],
-              "value": "x"
-            }
-          }
-        ]
-      }
-    },
-    "value": {
-      "Integer": {
-        "value": "42"
-      }
-    }
-  }
-})";
+inline auto const k_simple_assignment_expected =
+    test_json::assignment_expr(test_json::var_name("x"), test_json::integer(42));
 
 // Assignment with expression
 constexpr auto k_assignment_with_expr_should_succeed = true;
 constexpr auto k_assignment_with_expr_input = "x = y + 10";
-inline auto const k_assignment_with_expr_expected = R"({
-  "Assignment_Expr": {
-    "target": {
-      "Variable_Name": {
-        "segments": [
-          {
-            "Variable_Name_Segment": {
-              "template_parameters": [],
-              "value": "x"
-            }
-          }
-        ]
-      }
-    },
-    "value": {
-      "Binary_Expr": {
-        "lhs": {
-          "Variable_Name": {
-            "segments": [
-              {
-                "Variable_Name_Segment": {
-                  "template_parameters": [],
-                  "value": "y"
-                }
-              }
-            ]
-          }
-        },
-        "op": "+",
-        "rhs": {
-          "Integer": {
-            "value": "10"
-          }
-        }
-      }
-    }
-  }
-})";
+inline auto const k_assignment_with_expr_expected = test_json::assignment_expr(
+    test_json::var_name("x"), test_json::binary_expr("+", test_json::var_name("y"), test_json::integer(10))
+);
 
 // Field access assignment
 constexpr auto k_field_assignment_should_succeed = true;

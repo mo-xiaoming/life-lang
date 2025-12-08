@@ -6,97 +6,68 @@ using life_lang::ast::Expr;
 PARSE_TEST(Expr, expr)
 
 namespace {
-// Test helpers
-auto unary_json(std::string_view a_op, std::string_view a_operand_json) -> std::string {
-  return fmt::format(R"({{"Unary_Expr":{{"op":"{}","operand":{}}}}})", a_op, a_operand_json);
-}
-
 // Arithmetic negation tests
 constexpr auto k_neg_integer_should_succeed = true;
 constexpr auto k_neg_integer_input = "-42";
-inline auto const k_neg_integer_expected = unary_json("-", test_json::integer("42"));
+inline auto const k_neg_integer_expected = test_json::unary_expr("-", test_json::integer("42"));
 
 constexpr auto k_neg_variable_should_succeed = true;
 constexpr auto k_neg_variable_input = "-x";
-inline auto const k_neg_variable_expected = unary_json("-", test_json::var_name("x"));
+inline auto const k_neg_variable_expected = test_json::unary_expr("-", test_json::var_name("x"));
 
 constexpr auto k_double_neg_should_succeed = true;
 constexpr auto k_double_neg_input = "--x";
-inline auto const k_double_neg_expected = unary_json("-", unary_json("-", test_json::var_name("x")));
+inline auto const k_double_neg_expected =
+    test_json::unary_expr("-", test_json::unary_expr("-", test_json::var_name("x")));
 
 // Arithmetic positive tests
 constexpr auto k_pos_integer_should_succeed = true;
 constexpr auto k_pos_integer_input = "+42";
-inline auto const k_pos_integer_expected = unary_json("+", test_json::integer("42"));
+inline auto const k_pos_integer_expected = test_json::unary_expr("+", test_json::integer("42"));
 
 constexpr auto k_pos_variable_should_succeed = true;
 constexpr auto k_pos_variable_input = "+x";
-inline auto const k_pos_variable_expected = unary_json("+", test_json::var_name("x"));
+inline auto const k_pos_variable_expected = test_json::unary_expr("+", test_json::var_name("x"));
 
 // Logical NOT tests
 constexpr auto k_not_variable_should_succeed = true;
 constexpr auto k_not_variable_input = "!flag";
-inline auto const k_not_variable_expected = unary_json("!", test_json::var_name("flag"));
+inline auto const k_not_variable_expected = test_json::unary_expr("!", test_json::var_name("flag"));
 
 constexpr auto k_double_not_should_succeed = true;
 constexpr auto k_double_not_input = "!!x";
-inline auto const k_double_not_expected = unary_json("!", unary_json("!", test_json::var_name("x")));
+inline auto const k_double_not_expected =
+    test_json::unary_expr("!", test_json::unary_expr("!", test_json::var_name("x")));
 
 // Bitwise NOT tests
 constexpr auto k_bitnot_variable_should_succeed = true;
 constexpr auto k_bitnot_variable_input = "~bits";
-inline auto const k_bitnot_variable_expected = unary_json("~", test_json::var_name("bits"));
+inline auto const k_bitnot_variable_expected = test_json::unary_expr("~", test_json::var_name("bits"));
 
 constexpr auto k_bitnot_integer_should_succeed = true;
 constexpr auto k_bitnot_integer_input = "~255";
-inline auto const k_bitnot_integer_expected = unary_json("~", test_json::integer("255"));
+inline auto const k_bitnot_integer_expected = test_json::unary_expr("~", test_json::integer("255"));
 
 // Mixed unary operators
 constexpr auto k_neg_not_should_succeed = true;
 constexpr auto k_neg_not_input = "-!x";
-inline auto const k_neg_not_expected = unary_json("-", unary_json("!", test_json::var_name("x")));
+inline auto const k_neg_not_expected = test_json::unary_expr("-", test_json::unary_expr("!", test_json::var_name("x")));
 
 constexpr auto k_not_neg_should_succeed = true;
 constexpr auto k_not_neg_input = "!-x";
-inline auto const k_not_neg_expected = unary_json("!", unary_json("-", test_json::var_name("x")));
+inline auto const k_not_neg_expected = test_json::unary_expr("!", test_json::unary_expr("-", test_json::var_name("x")));
 
 // Unary with field access
 constexpr auto k_neg_field_should_succeed = true;
 constexpr auto k_neg_field_input = "-obj.field";
-inline auto const k_neg_field_expected = unary_json(
-    "-",
-    R"({
-      "Field_Access_Expr": {
-        "object": {
-          "Variable_Name": {
-            "segments": [
-              {"Variable_Name_Segment": {"value": "obj", "template_parameters": []}}
-            ]
-          }
-        },
-        "field_name": "field"
-      }
-    })"
-);
+inline auto const k_neg_field_expected =
+    test_json::unary_expr("-", test_json::field_access(test_json::var_name("obj"), "field"));
 
 // Unary with function call
 constexpr auto k_neg_call_should_succeed = true;
 constexpr auto k_neg_call_input = "-calculate()";
-inline auto const k_neg_call_expected = unary_json(
-    "-",
-    R"({
-      "Function_Call_Expr": {
-        "name": {
-          "Variable_Name": {
-            "segments": [
-              {"Variable_Name_Segment": {"value": "calculate", "template_parameters": []}}
-            ]
-          }
-        },
-        "parameters": []
-      }
-    })"
-);
+inline auto const k_neg_call_expected =
+    test_json::unary_expr("-", test_json::function_call(test_json::var_name("calculate"), {}));
 
 }  // namespace
 

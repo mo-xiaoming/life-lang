@@ -10,218 +10,58 @@ namespace {
 // Simple method call on function result: foo().bar()
 constexpr auto k_method_on_call_result_should_succeed = true;
 constexpr auto k_method_on_call_result_input = "foo().bar()";
-inline auto const k_method_on_call_result_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "bar"}}
-        ]
-      }
-    },
-    "parameters": [
-      {
-        "Function_Call_Expr": {
-          "name": {
-            "Variable_Name": {
-              "segments": [
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "foo"}}
-              ]
-            }
-          },
-          "parameters": []
-        }
-      }
-    ]
-  }
-})";
+inline auto const k_method_on_call_result_expected =
+    test_json::function_call(test_json::var_name("bar"), {test_json::function_call(test_json::var_name("foo"), {})});
 
 // Method call with arguments on function result: foo().bar(1, 2)
 constexpr auto k_method_with_args_on_call_should_succeed = true;
 constexpr auto k_method_with_args_on_call_input = "foo().bar(1, 2)";
-inline auto const k_method_with_args_on_call_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "bar"}}
-        ]
-      }
-    },
-    "parameters": [
-      {
-        "Function_Call_Expr": {
-          "name": {
-            "Variable_Name": {
-              "segments": [
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "foo"}}
-              ]
-            }
-          },
-          "parameters": []
-        }
-      },
-      {"Integer": {"value": "1"}},
-      {"Integer": {"value": "2"}}
-    ]
-  }
-})";
+inline auto const k_method_with_args_on_call_expected = test_json::function_call(
+    test_json::var_name("bar"),
+    {test_json::function_call(test_json::var_name("foo"), {}), test_json::integer(1), test_json::integer(2)}
+);
 
 // Chained method calls: foo().bar().baz()
 constexpr auto k_chained_method_calls_should_succeed = true;
 constexpr auto k_chained_method_calls_input = "foo().bar().baz()";
-inline auto const k_chained_method_calls_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "baz"}}
-        ]
-      }
-    },
-    "parameters": [
-      {
-        "Function_Call_Expr": {
-          "name": {
-            "Variable_Name": {
-              "segments": [
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "bar"}}
-              ]
-            }
-          },
-          "parameters": [
-            {
-              "Function_Call_Expr": {
-                "name": {
-                  "Variable_Name": {
-                    "segments": [
-                      {"Variable_Name_Segment": {"template_parameters": [], "value": "foo"}}
-                    ]
-                  }
-                },
-                "parameters": []
-              }
-            }
-          ]
-        }
-      }
-    ]
-  }
-})";
+inline auto const k_chained_method_calls_expected = test_json::function_call(
+    test_json::var_name("baz"),
+    {test_json::function_call(test_json::var_name("bar"), {test_json::function_call(test_json::var_name("foo"), {})})}
+);
 
 // Field access on function result: foo().field
 constexpr auto k_field_on_call_result_should_succeed = true;
 constexpr auto k_field_on_call_result_input = "foo().field";
-inline auto const k_field_on_call_result_expected = R"({
-  "Field_Access_Expr": {
-    "field_name": "field",
-    "object": {
-      "Function_Call_Expr": {
-        "name": {
-          "Variable_Name": {
-            "segments": [
-              {"Variable_Name_Segment": {"template_parameters": [], "value": "foo"}}
-            ]
-          }
-        },
-        "parameters": []
-      }
-    }
-  }
-})";
+inline auto const k_field_on_call_result_expected =
+    test_json::field_access(test_json::function_call(test_json::var_name("foo"), {}), "field");
 
 // Path-based function call: obj.field.method() parses as qualified function name
 // This is NOT a method call in UFCS style - it's a function call where the name is a dotted path
 constexpr auto k_path_function_call_should_succeed = true;
 constexpr auto k_path_function_call_input = "obj.field.method()";
-inline auto const k_path_function_call_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "obj"}},
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "field"}},
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "method"}}
-        ]
-      }
-    },
-    "parameters": []
-  }
-})";
+inline auto const k_path_function_call_expected =
+    test_json::function_call(test_json::var_name_path({"obj", "field", "method"}), {});
 
 // Mixed: field access on method result: foo().bar.baz
 constexpr auto k_field_on_method_result_should_succeed = true;
 constexpr auto k_field_on_method_result_input = "foo().bar.baz";
-inline auto const k_field_on_method_result_expected = R"({
-  "Field_Access_Expr": {
-    "field_name": "baz",
-    "object": {
-      "Field_Access_Expr": {
-        "field_name": "bar",
-        "object": {
-          "Function_Call_Expr": {
-            "name": {
-              "Variable_Name": {
-                "segments": [
-                  {"Variable_Name_Segment": {"template_parameters": [], "value": "foo"}}
-                ]
-              }
-            },
-            "parameters": []
-          }
-        }
-      }
-    }
-  }
-})";
+inline auto const k_field_on_method_result_expected = test_json::field_access(
+    test_json::field_access(test_json::function_call(test_json::var_name("foo"), {}), "bar"), "baz"
+);
 
 // Complex chain: foo().bar(1).baz().qux
 constexpr auto k_complex_chain_should_succeed = true;
 constexpr auto k_complex_chain_input = "foo().bar(1).baz().qux";
-inline auto const k_complex_chain_expected = R"({
-  "Field_Access_Expr": {
-    "field_name": "qux",
-    "object": {
-      "Function_Call_Expr": {
-        "name": {
-          "Variable_Name": {
-            "segments": [
-              {"Variable_Name_Segment": {"template_parameters": [], "value": "baz"}}
-            ]
-          }
-        },
-        "parameters": [
-          {
-            "Function_Call_Expr": {
-              "name": {
-                "Variable_Name": {
-                  "segments": [
-                    {"Variable_Name_Segment": {"template_parameters": [], "value": "bar"}}
-                  ]
-                }
-              },
-              "parameters": [
-                {
-                  "Function_Call_Expr": {
-                    "name": {
-                      "Variable_Name": {
-                        "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "foo"}}
-                        ]
-                      }
-                    },
-                    "parameters": []
-                  }
-                },
-                {"Integer": {"value": "1"}}
-              ]
-            }
-          }
-        ]
-      }
-    }
-  }
-})";
+inline auto const k_complex_chain_expected = test_json::field_access(
+    test_json::function_call(
+        test_json::var_name("baz"),
+        {test_json::function_call(
+            test_json::var_name("bar"),
+            {test_json::function_call(test_json::var_name("foo"), {}), test_json::integer(1)}
+        )}
+    ),
+    "qux"
+);
 
 }  // namespace
 

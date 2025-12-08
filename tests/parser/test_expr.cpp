@@ -10,251 +10,74 @@ namespace {
 // Variable_Name expressions
 constexpr auto k_simple_variable_name_should_succeed = true;
 constexpr auto k_simple_variable_name_input = "hello";
-constexpr auto k_simple_variable_name_expected = R"({
-  "Variable_Name": {
-    "segments": [
-      {
-        "Variable_Name_Segment": {
-          "template_parameters": [],
-          "value": "hello"
-        }
-      }
-    ]
-  }
-})";
+inline auto const k_simple_variable_name_expected = test_json::var_name("hello");
 
 constexpr auto k_dotted_path_should_succeed = true;
 constexpr auto k_dotted_path_input = "a.b.c";
-constexpr auto k_dotted_path_expected = R"({
-  "Field_Access_Expr": {
-    "field_name": "c",
-    "object": {
-      "Field_Access_Expr": {
-        "field_name": "b",
-        "object": {
-          "Variable_Name": {
-            "segments": [
-              {
-                "Variable_Name_Segment": {
-                  "template_parameters": [],
-                  "value": "a"
-                }
-              }
-            ]
-          }
-        }
-      }
-    }
-  }
-})";
+inline auto const k_dotted_path_expected =
+    test_json::field_access(test_json::field_access(test_json::var_name("a"), "b"), "c");
 
 // Integer literals
 constexpr auto k_integer_should_succeed = true;
 constexpr auto k_integer_input = "42";
-constexpr auto k_integer_expected = R"({
-  "Integer": {
-    "value": "42"
-  }
-})";
+inline auto const k_integer_expected = test_json::integer(42);
 
 constexpr auto k_zero_should_succeed = true;
 constexpr auto k_zero_input = "0";
-constexpr auto k_zero_expected = R"({
-  "Integer": {
-    "value": "0"
-  }
-})";
+inline auto const k_zero_expected = test_json::integer(0);
 
 // String literals
 constexpr auto k_string_should_succeed = true;
 constexpr auto k_string_input = R"("hello")";
-constexpr auto k_string_expected = R"({
-  "String": {
-    "value": "\"hello\""
-  }
-})";
+inline auto const k_string_expected = test_json::string(R"(\"hello\")");
 
 // Function calls - no arguments
 constexpr auto k_function_call_should_succeed = true;
 constexpr auto k_function_call_input = "hello()";
-constexpr auto k_function_call_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "hello"}}
-        ]
-      }
-    },
-    "parameters": []
-  }
-})";
+inline auto const k_function_call_expected = test_json::function_call(test_json::var_name("hello"), {});
 
 constexpr auto k_function_call_with_path_should_succeed = true;
 constexpr auto k_function_call_with_path_input = "hello.a.b()";
-constexpr auto k_function_call_with_path_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "hello"}},
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "a"}},
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "b"}}
-        ]
-      }
-    },
-    "parameters": []
-  }
-})";
+inline auto const k_function_call_with_path_expected =
+    test_json::function_call(test_json::var_name_path({"hello", "a", "b"}), {});
 
 constexpr auto k_function_call_with_namespace_should_succeed = true;
 constexpr auto k_function_call_with_namespace_input = "A.B.hello()";
-constexpr auto k_function_call_with_namespace_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "A"}},
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "B"}},
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "hello"}}
-        ]
-      }
-    },
-    "parameters": []
-  }
-})";
+inline auto const k_function_call_with_namespace_expected =
+    test_json::function_call(test_json::var_name_path({"A", "B", "hello"}), {});
 
 // Function calls - with arguments
 constexpr auto k_function_call_with_args_should_succeed = true;
 constexpr auto k_function_call_with_args_input = "hello(a, b, c)";
-constexpr auto k_function_call_with_args_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "hello"}}
-        ]
-      }
-    },
-    "parameters": [
-      {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"template_parameters": [], "value": "a"}}]}},
-      {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"template_parameters": [], "value": "b"}}]}},
-      {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"template_parameters": [], "value": "c"}}]}}
-    ]
-  }
-})";
+inline auto const k_function_call_with_args_expected = test_json::function_call(
+    test_json::var_name("hello"), {test_json::var_name("a"), test_json::var_name("b"), test_json::var_name("c")}
+);
 
 constexpr auto k_function_call_with_path_args_should_succeed = true;
 constexpr auto k_function_call_with_path_args_input = "hello(a, b.c.world, c.world)";
-constexpr auto k_function_call_with_path_args_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "hello"}}
-        ]
-      }
-    },
-    "parameters": [
-      {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"template_parameters": [], "value": "a"}}]}},
-      {
-        "Field_Access_Expr": {
-          "field_name": "world",
-          "object": {
-            "Field_Access_Expr": {
-              "field_name": "c",
-              "object": {
-                "Variable_Name": {
-                  "segments": [
-                    {"Variable_Name_Segment": {"template_parameters": [], "value": "b"}}
-                  ]
-                }
-              }
-            }
-          }
-        }
-      },
-      {
-        "Field_Access_Expr": {
-          "field_name": "world",
-          "object": {
-            "Variable_Name": {
-              "segments": [
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "c"}}
-              ]
-            }
-          }
-        }
-      }
-    ]
-  }
-})";
+inline auto const k_function_call_with_path_args_expected = test_json::function_call(
+    test_json::var_name("hello"),
+    {test_json::var_name("a"), test_json::field_access(test_json::field_access(test_json::var_name("b"), "c"), "world"),
+     test_json::field_access(test_json::var_name("c"), "world")}
+);
 
 // Function calls - nested
 constexpr auto k_nested_function_calls_should_succeed = true;
 constexpr auto k_nested_function_calls_input = "hello(A.B.a.d(), c.world(a))";
-constexpr auto k_nested_function_calls_expected = R"({
-  "Function_Call_Expr": {
-    "name": {
-      "Variable_Name": {
-        "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "hello"}}
-        ]
-      }
-    },
-    "parameters": [
-      {
-        "Function_Call_Expr": {
-          "name": {
-            "Variable_Name": {
-              "segments": [
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "A"}},
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "B"}},
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "a"}},
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "d"}}
-              ]
-            }
-          },
-          "parameters": []
-        }
-      },
-      {
-        "Function_Call_Expr": {
-          "name": {
-            "Variable_Name": {
-              "segments": [
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "c"}},
-                {"Variable_Name_Segment": {"template_parameters": [], "value": "world"}}
-              ]
-            }
-          },
-          "parameters": [
-            {"Variable_Name": {"segments": [{"Variable_Name_Segment": {"template_parameters": [], "value": "a"}}]}}
-          ]
-        }
-      }
-    ]
-  }
-})";
+inline auto const k_nested_function_calls_expected = test_json::function_call(
+    test_json::var_name("hello"),
+    {test_json::function_call(test_json::var_name_path({"A", "B", "a", "d"}), {}),
+     test_json::function_call(test_json::var_name_path({"c", "world"}), {test_json::var_name("a")})}
+);
 
 constexpr auto k_with_trailing_text_should_succeed = true;
 constexpr auto k_with_trailing_text_input = "hello )";
-constexpr auto k_with_trailing_text_expected = R"({
-  "Variable_Name": {
-    "segments": [
-      {"Variable_Name_Segment": {"template_parameters": [], "value": "hello"}}
-    ]
-  }
-})";
+inline auto const k_with_trailing_text_expected = test_json::var_name("hello");
 
 // Invalid cases
 constexpr auto k_invalid_empty_should_succeed = false;
 constexpr auto k_invalid_empty_input = "";
-constexpr auto k_invalid_empty_expected = R"({
-  "Variable_Name": {
-    "segments": []
-  }
-})";
+inline auto const k_invalid_empty_expected = test_json::var_name_path({});
 
 }  // namespace
 

@@ -11,16 +11,12 @@ namespace {
 // Simple continue
 constexpr auto k_simple_continue_should_succeed = true;
 constexpr auto k_simple_continue_input = "continue;";
-inline auto const k_simple_continue_expected = R"({
-  "Continue_Statement": null
-})";
+inline auto const k_simple_continue_expected = test_json::continue_statement();
 
 // Continue with spaces
 constexpr auto k_continue_with_spaces_should_succeed = true;
 constexpr auto k_continue_with_spaces_input = "continue  ;";
-inline auto const k_continue_with_spaces_expected = R"({
-  "Continue_Statement": null
-})";
+inline auto const k_continue_with_spaces_expected = test_json::continue_statement();
 
 // === Invalid Continue Statements ===
 
