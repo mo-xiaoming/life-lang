@@ -158,6 +158,24 @@ inline std::string tuple_pattern(std::vector<std::string> const& a_elements) {
   return fmt::format(R"({{"Tuple_Pattern":{{"elements":{}}}}})", elements);
 }
 
+// Field pattern (name: pattern)
+inline std::string field_pattern(std::string_view a_name, std::string_view a_pattern) {
+  return fmt::format(R"({{"Field_Pattern":{{"name":"{}","pattern":{}}}}})", a_name, a_pattern);
+}
+
+// Struct pattern
+inline std::string struct_pattern(std::string_view a_type_name, std::vector<std::string> const& a_fields) {
+  std::string fields = "[";
+  for (size_t i = 0; i < a_fields.size(); ++i) {
+    if (i > 0) {
+      fields += ",";
+    }
+    fields += a_fields[i];
+  }
+  fields += "]";
+  return fmt::format(R"({{"Struct_Pattern":{{"type_name":{},"fields":{}}}}})", a_type_name, fields);
+}
+
 // Match arm without guard
 inline std::string match_arm(std::string_view a_pattern, std::string_view a_result) {
   return fmt::format(R"({{"Match_Arm":{{"pattern":{},"result":{}}}}})", a_pattern, a_result);

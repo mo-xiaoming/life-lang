@@ -62,9 +62,9 @@ inline auto const k_nested_tuple_in_tuple_expected = test_json::for_expr(
     )})
 );
 
-// Nested struct in tuple: for (Point { x, y }, z) in ...
+// Nested struct in tuple: for (Point { x: px, y: py }, z) in ...
 constexpr auto k_nested_struct_in_tuple_should_succeed = true;
-constexpr auto k_nested_struct_in_tuple_input = "for (Point { x, y }, z) in data { use(x, y, z); }";
+constexpr auto k_nested_struct_in_tuple_input = "for (Point { x: px, y: py }, z) in data { use(px, py, z); }";
 inline auto const k_nested_struct_in_tuple_expected = R"({
   "For_Expr": {
     "pattern": {
@@ -80,8 +80,8 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
                 }
               },
               "fields": [
-                {"Simple_Pattern": {"name": "x"}},
-                {"Simple_Pattern": {"name": "y"}}
+                {"Field_Pattern": {"name": "x", "pattern": {"Simple_Pattern": {"name": "px"}}}},
+                {"Field_Pattern": {"name": "y", "pattern": {"Simple_Pattern": {"name": "py"}}}}
               ]
             }
           },
@@ -114,14 +114,14 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
                     {
                       "Variable_Name": {
                         "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "x"}}
+                          {"Variable_Name_Segment": {"template_parameters": [], "value": "px"}}
                         ]
                       }
                     },
                     {
                       "Variable_Name": {
                         "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "y"}}
+                          {"Variable_Name_Segment": {"template_parameters": [], "value": "py"}}
                         ]
                       }
                     },
