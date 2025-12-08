@@ -36,6 +36,7 @@ PARSE_FN_DECL(Type_Name, type_name);
 
 // Literal building blocks
 PARSE_FN_DECL(Integer, integer);
+PARSE_FN_DECL(Float, float);
 PARSE_FN_DECL(String, string);
 
 #undef PARSE_FN_DECL

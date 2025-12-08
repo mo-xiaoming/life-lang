@@ -85,6 +85,12 @@ struct Integer : boost::spirit::x3::position_tagged {
   std::string value;
 };
 
+// Example: 3.14 or 1.0e-10 or 2.5E+3 (stored as string for arbitrary precision)
+struct Float : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Float";
+  std::string value;
+};
+
 // ============================================================================
 // Struct Literal Types (for initialization)
 // ============================================================================
@@ -186,7 +192,8 @@ struct Expr : boost::spirit::x3::variant<
                   boost::spirit::x3::forward_ast<Assignment_Expr>,
                   Struct_Literal,
                   String,
-                  Integer>,
+                  Integer,
+                  Float>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       Variable_Name,
@@ -202,7 +209,8 @@ struct Expr : boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Assignment_Expr>,
       Struct_Literal,
       String,
-      Integer>;
+      Integer,
+      Float>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -354,10 +362,10 @@ struct Wildcard_Pattern : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Wildcard_Pattern";
 };
 
-// Literal pattern: 42, "hello", true (matches exact value)
+// Literal pattern: 42, 3.14, "hello" (matches exact value)
 struct Literal_Pattern : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Literal_Pattern";
-  boost::spirit::x3::forward_ast<Expr> value;  // Integer or String literal
+  boost::spirit::x3::forward_ast<Expr> value;  // Integer, Float, or String literal
 };
 
 struct Simple_Pattern : boost::spirit::x3::position_tagged {
@@ -597,6 +605,10 @@ inline String make_string(std::string&& a_value) {
 
 inline Integer make_integer(std::string a_value) noexcept {
   return Integer{{}, std::move(a_value)};
+}
+
+inline Float make_float(std::string a_value) noexcept {
+  return Float{{}, std::move(a_value)};
 }
 
 // Struct literal helpers
@@ -939,6 +951,10 @@ inline void to_json(nlohmann::json& a_json, String const& a_str) {
 
 inline void to_json(nlohmann::json& a_json, Integer const& a_integer) {
   a_json[Integer::k_name] = {{"value", a_integer.value}};
+}
+
+inline void to_json(nlohmann::json& a_json, Float const& a_float) {
+  a_json[Float::k_name] = {{"value", a_float.value}};
 }
 
 // Struct literal serialization
