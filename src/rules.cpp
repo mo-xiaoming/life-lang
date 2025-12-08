@@ -42,6 +42,19 @@ using x3::ascii::char_;
 using x3::ascii::digit;
 using x3::ascii::lit;
 
+// Comment parsers (used in skipper)
+// Line comment: // ... until end of line
+// Block comment: /* ... */ (not nested)
+// Note: Using x3::char_ (not x3::ascii::char_) to support UTF-8 in comments
+namespace {
+auto const k_line_comment = lit("//") >> *(x3::char_ - x3::eol);
+auto const k_block_comment = lit("/*") >> *(x3::char_ - "*/") >> "*/";
+auto const k_comment = k_line_comment | k_block_comment;
+}  // namespace
+
+// Skipper combines whitespace and comments
+auto const k_skipper = x3::ascii::space | k_comment;
+
 struct Keyword_Symbols : x3::symbols<> {
   Keyword_Symbols() {
     add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while")("for")("in")("match")("break")(
@@ -210,18 +223,20 @@ BOOST_SPIRIT_DEFINE(k_qualified_variable_name_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_qualified_variable_name_rule), Iterator_Type, Context_Type)
 
 // === String Literal Rules ===
-// String literals with escape sequences
+// String literals with escape sequences and UTF-8 support
 // Examples:
 //   Simple:   "hello"
 //   Escaped:  "hello\nworld", "say \"hi\""
 //   Hex:      "null byte: \x00"
-auto const k_escaped_char = lexeme[lit('\\') > (char_("\"\\ntr") | ('x' > x3::repeat(2)[x3::xdigit]))];
+//   UTF-8:    "hello 世界" "emoji: 🎉"
+// Note: Using x3::char_ (not x3::ascii::char_) to support UTF-8 content
+auto const k_escaped_char = lexeme[lit('\\') > (x3::char_("\"\\ntr") | ('x' > x3::repeat(2)[x3::xdigit]))];
 
 // Parse string literal: quoted text with escape sequences
 struct String_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<String_Tag, ast::String> const k_string_rule = "string literal";
 auto const k_string_rule_def =
-    raw[lexeme[(lit('"') > *(k_escaped_char | (char_ - '"' - '\\'))) > lit('"')]][([](auto& a_ctx) {
+    raw[lexeme[(lit('"') > *(k_escaped_char | (x3::char_ - '"' - '\\'))) > lit('"')]][([](auto& a_ctx) {
       auto const& raw_string = x3::_attr(a_ctx);
       x3::_val(a_ctx) = ast::make_string(std::string(raw_string.begin(), raw_string.end()));
     })];
@@ -1231,7 +1246,7 @@ parser::Parse_Result<Ast> parse_with_rule(
   // Create parser with error_handler context
   auto const parser = with<parser::x3::error_handler_tag>(std::ref(error_handler))[a_rule];
   Ast ast;
-  bool const success = phrase_parse(a_begin, a_end, parser, parser::Space_Type{}, ast);
+  bool const success = phrase_parse(a_begin, a_end, parser, parser::k_skipper, ast);
 
   // Check if there were any errors logged during parsing, even if parse "succeeded"
   // This handles cases like `*rule` matching zero items after an expectation failure

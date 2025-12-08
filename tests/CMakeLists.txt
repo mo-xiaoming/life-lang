@@ -12,6 +12,7 @@ target_sources(tests
         parser/test_binary_expr.cpp
         parser/test_block.cpp
         parser/test_break_statement.cpp
+        parser/test_comment.cpp
         parser/test_continue_statement.cpp
         parser/test_diagnostics.cpp
         parser/test_expr.cpp
