@@ -365,12 +365,19 @@ struct Simple_Pattern : boost::spirit::x3::position_tagged {
   std::string name;
 };
 
-// Example: Point { x, y } (destructure struct fields in for loops)
-// Supports nesting: Point { x, Line { a, b } } where fields are patterns
+// Example: x: 3 in pattern Point { x: 3, y: 4 }
+struct Field_Pattern : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Field_Pattern";
+  std::string name;
+  boost::spirit::x3::forward_ast<Pattern> pattern;
+};
+
+// Example: Point { x: 3, y: 4 } (destructure struct fields in match expressions)
+// Supports nesting: Point { x: 3, inner: Line { a: 1, b: 2 } } where fields have patterns
 struct Struct_Pattern : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Struct_Pattern";
   Type_Name type_name;
-  std::vector<boost::spirit::x3::forward_ast<Pattern>> fields;
+  std::vector<Field_Pattern> fields;
 };
 
 // Example: (a, b, c) (destructure tuple elements in for loops)
@@ -697,8 +704,11 @@ inline Simple_Pattern make_simple_pattern(std::string&& a_name) {
   return Simple_Pattern{{}, std::move(a_name)};
 }
 
-inline Struct_Pattern
-make_struct_pattern(Type_Name&& a_type_name, std::vector<boost::spirit::x3::forward_ast<Pattern>>&& a_fields) {
+inline Field_Pattern make_field_pattern(std::string&& a_name, Pattern&& a_pattern) {
+  return Field_Pattern{{}, std::move(a_name), std::move(a_pattern)};
+}
+
+inline Struct_Pattern make_struct_pattern(Type_Name&& a_type_name, std::vector<Field_Pattern>&& a_fields) {
   return Struct_Pattern{{}, std::move(a_type_name), std::move(a_fields)};
 }
 
@@ -1137,6 +1147,15 @@ inline void to_json(nlohmann::json& a_json, Simple_Pattern const& a_pattern) {
   a_json[Simple_Pattern::k_name] = obj;
 }
 
+inline void to_json(nlohmann::json& a_json, Field_Pattern const& a_pattern) {
+  nlohmann::json obj;
+  obj["name"] = a_pattern.name;
+  nlohmann::json pattern_json;
+  to_json(pattern_json, a_pattern.pattern.get());
+  obj["pattern"] = pattern_json;
+  a_json[Field_Pattern::k_name] = obj;
+}
+
 inline void to_json(nlohmann::json& a_json, Struct_Pattern const& a_pattern) {
   nlohmann::json obj;
   nlohmann::json type_json;
@@ -1146,7 +1165,7 @@ inline void to_json(nlohmann::json& a_json, Struct_Pattern const& a_pattern) {
   nlohmann::json fields_array = nlohmann::json::array();
   for (auto const& field : a_pattern.fields) {
     nlohmann::json field_json;
-    to_json(field_json, field.get());
+    to_json(field_json, field);
     fields_array.push_back(field_json);
   }
   obj["fields"] = fields_array;

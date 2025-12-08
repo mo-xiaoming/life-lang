@@ -38,14 +38,39 @@ constexpr auto k_tuple_pattern_input = R"(
 )";
 inline auto const k_tuple_pattern_expected = "";
 
-// Match with struct pattern (positional fields only)
+// Match with struct pattern with field values
 constexpr auto k_struct_pattern_should_succeed = true;
 constexpr auto k_struct_pattern_input = R"(
   match point {
-    Point { x, y } => add(x, y)
+    Point { x: 0, y: 0 } => "origin",
+    Point { x: 3, y: 4 } => "specific"
   }
 )";
-inline auto const k_struct_pattern_expected = "";
+inline auto const k_struct_pattern_expected = test_json::match_expr(
+    test_json::var_name("point"),
+    {
+        test_json::match_arm(
+            test_json::struct_pattern(
+                test_json::type_name("Point"),
+                {
+                    test_json::field_pattern("x", test_json::literal_pattern(test_json::integer("0"))),
+                    test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("0"))),
+                }
+            ),
+            test_json::string(R"(\"origin\")")
+        ),
+        test_json::match_arm(
+            test_json::struct_pattern(
+                test_json::type_name("Point"),
+                {
+                    test_json::field_pattern("x", test_json::literal_pattern(test_json::integer("3"))),
+                    test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("4"))),
+                }
+            ),
+            test_json::string(R"(\"specific\")")
+        ),
+    }
+);
 
 // Literal integer patterns
 constexpr auto k_literal_int_should_succeed = true;
@@ -289,6 +314,141 @@ constexpr auto k_nested_match_input = R"(
 )";
 inline auto const k_nested_match_expected = "";
 
+// Struct pattern with identifier bindings
+constexpr auto k_struct_with_bindings_should_succeed = true;
+constexpr auto k_struct_with_bindings_input = R"(
+  match point {
+    Point { x: px, y: py } => add(px, py)
+  }
+)";
+inline auto const k_struct_with_bindings_expected = test_json::match_expr(
+    test_json::var_name("point"),
+    {
+        test_json::match_arm(
+            test_json::struct_pattern(
+                test_json::type_name("Point"),
+                {
+                    test_json::field_pattern("x", test_json::simple_pattern("px")),
+                    test_json::field_pattern("y", test_json::simple_pattern("py")),
+                }
+            ),
+            test_json::function_call(test_json::var_name("add"), {test_json::var_name("px"), test_json::var_name("py")})
+        ),
+    }
+);
+
+// Struct pattern with wildcard fields
+constexpr auto k_struct_with_wildcard_should_succeed = true;
+constexpr auto k_struct_with_wildcard_input = R"(
+  match point {
+    Point { x: _, y: 0 } => "on x-axis"
+  }
+)";
+inline auto const k_struct_with_wildcard_expected = test_json::match_expr(
+    test_json::var_name("point"),
+    {
+        test_json::match_arm(
+            test_json::struct_pattern(
+                test_json::type_name("Point"),
+                {
+                    test_json::field_pattern("x", test_json::wildcard_pattern()),
+                    test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("0"))),
+                }
+            ),
+            test_json::string(R"(\"on x-axis\")")
+        ),
+    }
+);
+
+// Nested struct pattern
+constexpr auto k_nested_struct_should_succeed = true;
+constexpr auto k_nested_struct_input = R"(
+  match line {
+    Line { start: Point { x: 0, y: 0 }, end: p } => process(p)
+  }
+)";
+inline auto const k_nested_struct_expected = test_json::match_expr(
+    test_json::var_name("line"),
+    {
+        test_json::match_arm(
+            test_json::struct_pattern(
+                test_json::type_name("Line"),
+                {
+                    test_json::field_pattern(
+                        "start",
+                        test_json::struct_pattern(
+                            test_json::type_name("Point"),
+                            {
+                                test_json::field_pattern("x", test_json::literal_pattern(test_json::integer("0"))),
+                                test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("0"))),
+                            }
+                        )
+                    ),
+                    test_json::field_pattern("end", test_json::simple_pattern("p")),
+                }
+            ),
+            test_json::function_call(test_json::var_name("process"), {test_json::var_name("p")})
+        ),
+    }
+);
+
+// Struct pattern with shorthand syntax
+constexpr auto k_struct_shorthand_should_succeed = true;
+constexpr auto k_struct_shorthand_input = R"(
+  match point {
+    Point { x, y } => add(x, y)
+  }
+)";
+inline auto const k_struct_shorthand_expected = test_json::match_expr(
+    test_json::var_name("point"),
+    {
+        test_json::match_arm(
+            test_json::struct_pattern(
+                test_json::type_name("Point"),
+                {
+                    test_json::field_pattern("x", test_json::simple_pattern("x")),
+                    test_json::field_pattern("y", test_json::simple_pattern("y")),
+                }
+            ),
+            test_json::function_call(test_json::var_name("add"), {test_json::var_name("x"), test_json::var_name("y")})
+        ),
+    }
+);
+
+// Mixed shorthand and explicit field patterns
+constexpr auto k_struct_mixed_should_succeed = true;
+constexpr auto k_struct_mixed_input = R"(
+  match point {
+    Point { x, y: 0 } => "on x-axis",
+    Point { x: 0, y } => "on y-axis"
+  }
+)";
+inline auto const k_struct_mixed_expected = test_json::match_expr(
+    test_json::var_name("point"),
+    {
+        test_json::match_arm(
+            test_json::struct_pattern(
+                test_json::type_name("Point"),
+                {
+                    test_json::field_pattern("x", test_json::simple_pattern("x")),
+                    test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("0"))),
+                }
+            ),
+            test_json::string(R"(\"on x-axis\")")
+        ),
+        test_json::match_arm(
+            test_json::struct_pattern(
+                test_json::type_name("Point"),
+                {
+                    test_json::field_pattern("x", test_json::literal_pattern(test_json::integer("0"))),
+                    test_json::field_pattern("y", test_json::simple_pattern("y")),
+                }
+            ),
+            test_json::string(R"(\"on y-axis\")")
+        ),
+    }
+);
+
 // Complex guard with logical operators
 constexpr auto k_complex_guard_should_succeed = true;
 constexpr auto k_complex_guard_input = R"(
@@ -335,6 +495,20 @@ TEST_CASE("Parse Match_Expr", "[parser]") {
           {"with guard", k_with_guard_input, k_with_guard_expected, k_with_guard_should_succeed},
           {"tuple pattern", k_tuple_pattern_input, k_tuple_pattern_expected, k_tuple_pattern_should_succeed},
           {"struct pattern", k_struct_pattern_input, k_struct_pattern_expected, k_struct_pattern_should_succeed},
+          {"struct with bindings",
+           k_struct_with_bindings_input,
+           k_struct_with_bindings_expected,
+           k_struct_with_bindings_should_succeed},
+          {"struct with wildcard",
+           k_struct_with_wildcard_input,
+           k_struct_with_wildcard_expected,
+           k_struct_with_wildcard_should_succeed},
+          {"nested struct", k_nested_struct_input, k_nested_struct_expected, k_nested_struct_should_succeed},
+          {"struct shorthand",
+           k_struct_shorthand_input,
+           k_struct_shorthand_expected,
+           k_struct_shorthand_should_succeed},
+          {"struct mixed", k_struct_mixed_input, k_struct_mixed_expected, k_struct_mixed_should_succeed},
           {"trailing comma", k_trailing_comma_input, k_trailing_comma_expected, k_trailing_comma_should_succeed},
           {"single arm", k_single_arm_input, k_single_arm_expected, k_single_arm_should_succeed},
           {"nested match", k_nested_match_input, k_nested_match_expected, k_nested_match_should_succeed},

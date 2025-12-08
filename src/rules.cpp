@@ -889,21 +889,37 @@ auto const k_simple_pattern_rule_def =
 BOOST_SPIRIT_DEFINE(k_simple_pattern_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_simple_pattern_rule), Iterator_Type, Context_Type)
 
-// Struct pattern: Type { pattern1, pattern2, ... }
-// Example: for Point { x, y } in points { } or nested: for Pair { Point { x, y }, z } in ...
+// Field pattern: name: pattern (for struct pattern matching)
+// Supports two forms:
+//   - Explicit: x: 3, y: px (field x matches 3, field y binds to px)
+//   - Shorthand: x, y (equivalent to x: x, y: y - binds field to same-named variable)
+struct Field_Pattern_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Field_Pattern_Tag, ast::Field_Pattern> const k_field_pattern_rule = "field pattern";
+auto const k_field_pattern_rule_def =
+    // Explicit form: name: pattern
+    ((k_segment_name >> ':' > k_pattern_rule)[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) =
+          ast::make_field_pattern(std::move(boost::fusion::at_c<0>(attr)), std::move(boost::fusion::at_c<1>(attr)));
+    })]) |
+    // Shorthand form: name (desugars to name: name)
+    (k_segment_name[([](auto& a_ctx) {
+      auto& name = x3::_attr(a_ctx);
+      auto pattern = ast::make_pattern(ast::make_simple_pattern(std::string(name)));
+      x3::_val(a_ctx) = ast::make_field_pattern(std::move(name), std::move(pattern));
+    })]);
+BOOST_SPIRIT_DEFINE(k_field_pattern_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_field_pattern_rule), Iterator_Type, Context_Type)
+
+// Struct pattern: Type { name: pattern, ... }
+// Example: Point { x: 3, y: 4 } or nested: Pair { first: Point { x: 1, y: 2 }, second: 5 }
 struct Struct_Pattern_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Struct_Pattern_Tag, ast::Struct_Pattern> const k_struct_pattern_rule = "struct pattern";
-auto const k_struct_pattern_rule_def = (k_type_name_rule >> '{' > (k_pattern_rule % ',') > '}')[([](auto& a_ctx) {
+auto const k_struct_pattern_rule_def = (k_type_name_rule >> '{' > (k_field_pattern_rule % ',') > '}')[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   auto& type_name = boost::fusion::at_c<0>(attr);
-  auto& patterns = boost::fusion::at_c<1>(attr);
-  // Wrap each Pattern in forward_ast
-  std::vector<x3::forward_ast<ast::Pattern>> fields;
-  fields.reserve(patterns.size());
-  for (auto& p : patterns) {
-    fields.emplace_back(std::move(p));
-  }
-  x3::_val(a_ctx) = ast::make_struct_pattern(std::move(type_name), std::move(fields));
+  auto& field_patterns = boost::fusion::at_c<1>(attr);
+  x3::_val(a_ctx) = ast::make_struct_pattern(std::move(type_name), std::move(field_patterns));
 })];
 BOOST_SPIRIT_DEFINE(k_struct_pattern_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_pattern_rule), Iterator_Type, Context_Type)
