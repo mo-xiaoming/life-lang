@@ -95,6 +95,12 @@ struct Float : boost::spirit::x3::position_tagged {
   boost::optional<std::string> suffix;  // Type suffix like "F32", "F64"
 };
 
+// Example: 'a' or '\n' or '世' (stored with quotes as "'a'")
+struct Char : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Char";
+  std::string value;
+};
+
 // ============================================================================
 // Struct Literal Types (for initialization)
 // ============================================================================
@@ -197,7 +203,8 @@ struct Expr : boost::spirit::x3::variant<
                   Struct_Literal,
                   String,
                   Integer,
-                  Float>,
+                  Float,
+                  Char>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
       Variable_Name,
@@ -214,7 +221,8 @@ struct Expr : boost::spirit::x3::variant<
       Struct_Literal,
       String,
       Integer,
-      Float>;
+      Float,
+      Char>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -615,6 +623,10 @@ inline Float make_float(std::string a_value, boost::optional<std::string> a_suff
   return Float{{}, std::move(a_value), std::move(a_suffix)};
 }
 
+inline Char make_char(std::string&& a_value) {
+  return Char{{}, std::move(a_value)};
+}
+
 // Struct literal helpers
 inline Field_Initializer make_field_initializer(std::string&& a_name, Expr&& a_value) {
   return Field_Initializer{{}, std::move(a_name), std::move(a_value)};
@@ -633,6 +645,12 @@ inline Expr make_expr(String&& a_str) {
 }
 inline Expr make_expr(Integer&& a_integer) noexcept {
   return Expr{std::move(a_integer)};
+}
+inline Expr make_expr(Float&& a_float) noexcept {
+  return Expr{std::move(a_float)};
+}
+inline Expr make_expr(Char&& a_char) {
+  return Expr{std::move(a_char)};
 }
 inline Expr make_expr(Function_Call_Expr&& a_call) {
   return Expr{std::move(a_call)};
@@ -969,6 +987,10 @@ inline void to_json(nlohmann::json& a_json, Float const& a_float) {
     obj["suffix"] = *a_float.suffix;
   }
   a_json[Float::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Char const& a_char) {
+  a_json[Char::k_name] = {{"value", a_char.value}};
 }
 
 // Struct literal serialization

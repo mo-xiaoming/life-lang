@@ -130,6 +130,11 @@ inline std::string string(std::string_view a_value) {
   return fmt::format(R"({{"String":{{"value":"{}"}}}})", a_value);
 }
 
+// Character literal
+inline std::string char_literal(std::string_view a_value) {
+  return fmt::format(R"({{"Char":{{"value":"{}"}}}})", a_value);
+}
+
 // Wildcard pattern
 inline std::string wildcard_pattern() {
   return R"({"Wildcard_Pattern":{}})";
