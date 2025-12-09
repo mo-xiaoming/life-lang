@@ -80,15 +80,19 @@ struct String : boost::spirit::x3::position_tagged {
 };
 
 // Example: 42 or 0x2A or 0b101010 (stored as string for arbitrary precision)
+// Optional suffix: I8, I16, I32, I64, U8, U16, U32, U64
 struct Integer : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Integer";
   std::string value;
+  boost::optional<std::string> suffix;  // Type suffix like "I32", "U64", etc.
 };
 
 // Example: 3.14 or 1.0e-10 or 2.5E+3 (stored as string for arbitrary precision)
+// Optional suffix: F32, F64
 struct Float : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Float";
   std::string value;
+  boost::optional<std::string> suffix;  // Type suffix like "F32", "F64"
 };
 
 // ============================================================================
@@ -603,12 +607,12 @@ inline String make_string(std::string&& a_value) {
   return String{{}, std::move(a_value)};
 }
 
-inline Integer make_integer(std::string a_value) noexcept {
-  return Integer{{}, std::move(a_value)};
+inline Integer make_integer(std::string a_value, boost::optional<std::string> a_suffix = boost::none) noexcept {
+  return Integer{{}, std::move(a_value), std::move(a_suffix)};
 }
 
-inline Float make_float(std::string a_value) noexcept {
-  return Float{{}, std::move(a_value)};
+inline Float make_float(std::string a_value, boost::optional<std::string> a_suffix = boost::none) noexcept {
+  return Float{{}, std::move(a_value), std::move(a_suffix)};
 }
 
 // Struct literal helpers
@@ -950,11 +954,21 @@ inline void to_json(nlohmann::json& a_json, String const& a_str) {
 }
 
 inline void to_json(nlohmann::json& a_json, Integer const& a_integer) {
-  a_json[Integer::k_name] = {{"value", a_integer.value}};
+  nlohmann::json obj;
+  obj["value"] = a_integer.value;
+  if (a_integer.suffix) {
+    obj["suffix"] = *a_integer.suffix;
+  }
+  a_json[Integer::k_name] = obj;
 }
 
 inline void to_json(nlohmann::json& a_json, Float const& a_float) {
-  a_json[Float::k_name] = {{"value", a_float.value}};
+  nlohmann::json obj;
+  obj["value"] = a_float.value;
+  if (a_float.suffix) {
+    obj["suffix"] = *a_float.suffix;
+  }
+  a_json[Float::k_name] = obj;
 }
 
 // Struct literal serialization

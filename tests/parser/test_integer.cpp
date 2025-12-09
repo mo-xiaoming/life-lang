@@ -55,6 +55,43 @@ constexpr auto k_with_trailing_text_expected = R"({
   }
 })";
 
+// With type suffixes
+constexpr auto k_with_i32_suffix_should_succeed = true;
+constexpr auto k_with_i32_suffix_input = "42I32";
+constexpr auto k_with_i32_suffix_expected = R"({
+  "Integer": {
+    "value": "42",
+    "suffix": "I32"
+  }
+})";
+
+constexpr auto k_with_u8_suffix_should_succeed = true;
+constexpr auto k_with_u8_suffix_input = "255U8";
+constexpr auto k_with_u8_suffix_expected = R"({
+  "Integer": {
+    "value": "255",
+    "suffix": "U8"
+  }
+})";
+
+constexpr auto k_with_i64_suffix_should_succeed = true;
+constexpr auto k_with_i64_suffix_input = "1000I64";
+constexpr auto k_with_i64_suffix_expected = R"({
+  "Integer": {
+    "value": "1000",
+    "suffix": "I64"
+  }
+})";
+
+constexpr auto k_with_suffix_and_underscores_should_succeed = true;
+constexpr auto k_with_suffix_and_underscores_input = "1_000_000I32";
+constexpr auto k_with_suffix_and_underscores_expected = R"({
+  "Integer": {
+    "value": "1000000",
+    "suffix": "I32"
+  }
+})";
+
 // Invalid cases
 constexpr auto k_invalid_starts_with_zero_should_succeed = false;
 constexpr auto k_invalid_starts_with_zero_input = "0123";
@@ -104,6 +141,13 @@ TEST_CASE("Parse Integer", "[parser]") {
            k_with_trailing_text_input,
            k_with_trailing_text_expected,
            k_with_trailing_text_should_succeed},
+          {"with I32 suffix", k_with_i32_suffix_input, k_with_i32_suffix_expected, k_with_i32_suffix_should_succeed},
+          {"with U8 suffix", k_with_u8_suffix_input, k_with_u8_suffix_expected, k_with_u8_suffix_should_succeed},
+          {"with I64 suffix", k_with_i64_suffix_input, k_with_i64_suffix_expected, k_with_i64_suffix_should_succeed},
+          {"with suffix and underscores",
+           k_with_suffix_and_underscores_input,
+           k_with_suffix_and_underscores_expected,
+           k_with_suffix_and_underscores_should_succeed},
           {"invalid - starts with zero",
            k_invalid_starts_with_zero_input,
            k_invalid_starts_with_zero_expected,
