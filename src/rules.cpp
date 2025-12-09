@@ -230,7 +230,7 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_qualified_variable_name_rule), Iterator_Type
 //   Hex:      "null byte: \x00"
 //   UTF-8:    "hello 世界" "emoji: 🎉"
 // Note: Using x3::char_ (not x3::ascii::char_) to support UTF-8 content
-auto const k_escaped_char = lexeme[lit('\\') > (x3::char_("\"\\ntr") | ('x' > x3::repeat(2)[x3::xdigit]))];
+auto const k_escaped_char = lexeme[lit('\\') > (x3::char_("\"'\\ntr") | ('x' > x3::repeat(2)[x3::xdigit]))];
 
 // Parse string literal: quoted text with escape sequences
 struct String_Tag : x3::annotate_on_success, Error_Handler {};
@@ -242,6 +242,37 @@ auto const k_string_rule_def =
     })];
 BOOST_SPIRIT_DEFINE(k_string_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_string_rule), Iterator_Type, Context_Type)
+
+// === Character Literal Rules ===
+// Character literals with escape sequences and UTF-8 support
+// Examples:
+//   Simple:   'a', 'X', '9'
+//   Escaped:  '\n', '\t', '\r', '\\', '\''
+//   Hex:      '\x41' (letter A)
+//   UTF-8:    '世', '🎉'
+// Note: Using x3::char_ (not x3::ascii::char_) to support UTF-8 content
+// For UTF-8, we need to handle:
+// - 1 byte: 0xxxxxxx (ASCII)
+// - 2 bytes: 110xxxxx 10xxxxxx
+// - 3 bytes: 1110xxxx 10xxxxxx 10xxxxxx
+// - 4 bytes: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+// Continuation bytes: 10xxxxxx
+auto const k_utf8_continuation = x3::char_('\x80', '\xBF');
+auto const k_utf8_2byte = x3::char_('\xC0', '\xDF') >> k_utf8_continuation;
+auto const k_utf8_3byte = x3::char_('\xE0', '\xEF') >> k_utf8_continuation >> k_utf8_continuation;
+auto const k_utf8_4byte =
+    x3::char_('\xF0', '\xF7') >> k_utf8_continuation >> k_utf8_continuation >> k_utf8_continuation;
+auto const k_utf8_char =
+    k_utf8_4byte | k_utf8_3byte | k_utf8_2byte | (x3::char_ - '\'' - '\\' - x3::char_('\x80', '\xFF'));
+
+struct Char_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Char_Tag, ast::Char> const k_char_rule = "character literal";
+auto const k_char_rule_def = raw[lexeme[(lit('\'') > (k_escaped_char | k_utf8_char) > lit('\''))]][([](auto& a_ctx) {
+  auto const& raw_char = x3::_attr(a_ctx);
+  x3::_val(a_ctx) = ast::make_char(std::string(raw_char.begin(), raw_char.end()));
+})];
+BOOST_SPIRIT_DEFINE(k_char_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_char_rule), Iterator_Type, Context_Type)
 
 // === Integer Literal Rules ===
 // Integer literals with optional digit separators and type suffix
@@ -257,7 +288,7 @@ auto const k_integer_rule_def = raw
     [lexeme[((lit('0') >> !(digit | '_')) | (char_('1', '9') >> *(char_('0', '9') | '_'))) >> -(char_("IU") >> +digit)]]
     [([](auto& a_ctx) {
       auto const& attr = x3::_attr(a_ctx);
-      std::string full{attr.begin(), attr.end()};
+      std::string const full{attr.begin(), attr.end()};
 
       // Split value and suffix
       std::string value;
@@ -301,7 +332,7 @@ auto const k_float_rule_def =
                (+(char_('0', '9') | '_') >> x3::no_case[char_('e')] >> -char_("+-") >> +(char_('0', '9') | '_')))) >>
              -(char_('F') >> +digit)]][([](auto& a_ctx) {
       auto const& attr = x3::_attr(a_ctx);
-      std::string full{attr.begin(), attr.end()};
+      std::string const full{attr.begin(), attr.end()};
 
       // Split value and suffix
       std::string value;
@@ -545,7 +576,7 @@ x3::rule<struct primary_expr_tag, ast::Expr> const k_primary_expr = "primary exp
 // 2. function_call second: Requires name + '(', specific delimiter
 // 3. variable_name later: More general
 // This prevents "if x {}" ambiguity: x{} won't match struct_literal (x is lowercase)
-auto const k_primary_expr_def = k_struct_literal_rule | k_function_call_expr_rule | k_string_rule |
+auto const k_primary_expr_def = k_struct_literal_rule | k_function_call_expr_rule | k_string_rule | k_char_rule |
                                 k_variable_name_rule | k_float_rule | k_integer_rule;
 BOOST_SPIRIT_DEFINE(k_primary_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_primary_expr), Iterator_Type, Context_Type)
@@ -971,14 +1002,20 @@ auto const k_wildcard_pattern_rule_def =
 BOOST_SPIRIT_DEFINE(k_wildcard_pattern_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_wildcard_pattern_rule), Iterator_Type, Context_Type)
 
-// Literal pattern: integer or string literal (matches exact value)
+// Literal pattern: integer, float, string, or char literal (matches exact value)
 struct Literal_Pattern_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Literal_Pattern_Tag, ast::Literal_Pattern> const k_literal_pattern_rule = "literal pattern";
 auto const k_literal_pattern_rule_def =
     (k_integer_rule[([](auto& a_ctx) {
        x3::_val(a_ctx) = ast::make_literal_pattern(ast::make_expr(std::move(x3::_attr(a_ctx))));
      })] |
+     k_float_rule[([](auto& a_ctx) {
+       x3::_val(a_ctx) = ast::make_literal_pattern(ast::make_expr(std::move(x3::_attr(a_ctx))));
+     })] |
      k_string_rule[([](auto& a_ctx) {
+       x3::_val(a_ctx) = ast::make_literal_pattern(ast::make_expr(std::move(x3::_attr(a_ctx))));
+     })] |
+     k_char_rule[([](auto& a_ctx) {
        x3::_val(a_ctx) = ast::make_literal_pattern(ast::make_expr(std::move(x3::_attr(a_ctx))));
      })]);
 BOOST_SPIRIT_DEFINE(k_literal_pattern_rule)
@@ -1398,6 +1435,7 @@ PARSE_FN_IMPL(Type_Name, type_name)                      // NOLINT(misc-use-inte
 PARSE_FN_IMPL(Integer, integer)                          // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Float, float)                              // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(String, string)                            // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Char, char)                                // NOLINT(misc-use-internal-linkage)
 #undef PARSE_FN_IMPL
 
 }  // namespace life_lang::internal
