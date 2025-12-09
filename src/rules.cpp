@@ -244,53 +244,113 @@ BOOST_SPIRIT_DEFINE(k_string_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_string_rule), Iterator_Type, Context_Type)
 
 // === Integer Literal Rules ===
-// Integer literals with optional digit separators
+// Integer literals with optional digit separators and type suffix
 // Examples:
 //   Simple:      0, 42, 123
 //   Separated:   1_000_000, 123_456
+//   With suffix: 42I32, 255U8, 1000I64
 //   Invalid:     01 (leading zero), 123_ (trailing underscore)
-// Parse integer: '0' or non-zero digit followed by digits/underscores
+// Suffixes: I8, I16, I32, I64, U8, U16, U32, U64 (uppercase)
 struct Integer_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Integer_Tag, ast::Integer> const k_integer_rule = "integer literal";
-auto const k_integer_rule_def =
-    raw[lexeme[(lit('0') >> !(digit | '_')) | (char_('1', '9') >> *(char_('0', '9') | '_'))]][([](auto& a_ctx) {
+auto const k_integer_rule_def = raw
+    [lexeme[((lit('0') >> !(digit | '_')) | (char_('1', '9') >> *(char_('0', '9') | '_'))) >> -(char_("IU") >> +digit)]]
+    [([](auto& a_ctx) {
       auto const& attr = x3::_attr(a_ctx);
-      std::string str{attr.begin(), attr.end()};
-      if (str.back() == '_') {
-        x3::_pass(a_ctx) = false;  // Reject trailing underscore
+      std::string full{attr.begin(), attr.end()};
+
+      // Split value and suffix
+      std::string value;
+      boost::optional<std::string> suffix;
+
+      // Find where suffix starts (I or U followed by digits)
+      auto suffix_start = full.find_first_of("IU");
+      if (suffix_start != std::string::npos) {
+        value = full.substr(0, suffix_start);
+        suffix = full.substr(suffix_start);
       } else {
-        std::erase(str, '_');  // Remove digit separators
-        x3::_val(a_ctx) = ast::make_integer(str);
+        value = full;
       }
+
+      if (!value.empty() && value.back() == '_') {
+        x3::_pass(a_ctx) = false;  // Reject trailing underscore
+        return;
+      }
+      std::erase(value, '_');  // Remove digit separators
+
+      x3::_val(a_ctx) = ast::make_integer(value, suffix);
     })];
 BOOST_SPIRIT_DEFINE(k_integer_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_integer_rule), Iterator_Type, Context_Type)
 
 // === Float Literal Rules ===
-// Float literals with optional digit separators and scientific notation
+// Float literals with optional digit separators, scientific notation, and type suffix
 // Examples:
 //   Simple:      3.14, 0.5, 123.456
 //   Separated:   1_000.5, 123_456.789_012
 //   Scientific:  1.0e10, 2.5E-3, 1e+5
+//   With suffix: 3.14F32, 2.5F64, 1.0e10F64
 //   Edge cases:  0.0, 1.0, .5 (leading dot not allowed)
-// Parse float: digits with decimal point and/or exponent
+// Suffixes: F32, F64 (uppercase)
 struct Float_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Float_Tag, ast::Float> const k_float_rule = "float literal";
 auto const k_float_rule_def =
     raw[lexeme
-            [(+(char_('0', '9') | '_') >> '.' >> +(char_('0', '9') | '_') >>
-              -(x3::no_case[char_('e')] >> -char_("+-") >> +(char_('0', '9') | '_'))) |
-             (+(char_('0', '9') | '_') >> x3::no_case[char_('e')] >> -char_("+-") >> +(char_('0', '9') | '_'))]]
-       [([](auto& a_ctx) {
-         auto const& attr = x3::_attr(a_ctx);
-         std::string str{attr.begin(), attr.end()};
-         if (str.back() == '_') {
-           x3::_pass(a_ctx) = false;  // Reject trailing underscore
-         } else {
-           std::erase(str, '_');  // Remove digit separators
-           x3::_val(a_ctx) = ast::make_float(str);
-         }
-       })];
+            [(((+(char_('0', '9') | '_') >> '.' >> +(char_('0', '9') | '_') >>
+                -(x3::no_case[char_('e')] >> -char_("+-") >> +(char_('0', '9') | '_'))) |
+               (+(char_('0', '9') | '_') >> x3::no_case[char_('e')] >> -char_("+-") >> +(char_('0', '9') | '_')))) >>
+             -(char_('F') >> +digit)]][([](auto& a_ctx) {
+      auto const& attr = x3::_attr(a_ctx);
+      std::string full{attr.begin(), attr.end()};
+
+      // Split value and suffix
+      std::string value;
+      boost::optional<std::string> suffix;
+
+      // Find where suffix starts (F followed by digits)
+      auto suffix_start = full.find('F');
+      if (suffix_start != std::string::npos) {
+        value = full.substr(0, suffix_start);
+        suffix = full.substr(suffix_start);
+      } else {
+        value = full;
+      }
+
+      // Find dot and 'e'/'E' positions
+      auto const dot_pos = value.find('.');
+      auto const e_pos = value.find_first_of("eE");
+
+      // Check for trailing underscore in different parts
+      if (dot_pos != std::string::npos && dot_pos > 0 && value[dot_pos - 1] == '_') {
+        x3::_pass(a_ctx) = false;  // Reject trailing _ before dot
+        return;
+      }
+      if (e_pos != std::string::npos) {
+        if (e_pos > 0 && value[e_pos - 1] == '_') {
+          x3::_pass(a_ctx) = false;  // Reject trailing _ before e
+          return;
+        }
+        // Check if there's a +/- after 'e'/'E'
+        auto const sign_pos =
+            (e_pos + 1 < value.size() && (value[e_pos + 1] == '+' || value[e_pos + 1] == '-')) ? e_pos + 1 : e_pos;
+        if (sign_pos + 1 < value.size() && value[sign_pos + 1] == '_') {
+          x3::_pass(a_ctx) = false;  // Reject leading _ after e or e+/-
+          return;
+        }
+        // Check for trailing _ after the exponent
+        if (!value.empty() && value.back() == '_') {
+          x3::_pass(a_ctx) = false;  // Reject trailing _ at end of exponent
+          return;
+        }
+      } else if (!value.empty() && value.back() == '_') {
+        x3::_pass(a_ctx) = false;  // Reject trailing _ at end (no exponent case)
+        return;
+      }
+
+      // Remove all underscores
+      std::erase(value, '_');
+      x3::_val(a_ctx) = ast::make_float(value, suffix);
+    })];
 BOOST_SPIRIT_DEFINE(k_float_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_float_rule), Iterator_Type, Context_Type)
 

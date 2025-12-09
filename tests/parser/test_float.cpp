@@ -119,6 +119,43 @@ constexpr auto k_with_trailing_text_expected = R"({
   }
 })";
 
+// With type suffixes
+constexpr auto k_with_f32_suffix_should_succeed = true;
+constexpr auto k_with_f32_suffix_input = "3.14F32";
+constexpr auto k_with_f32_suffix_expected = R"({
+  "Float": {
+    "value": "3.14",
+    "suffix": "F32"
+  }
+})";
+
+constexpr auto k_with_f64_suffix_should_succeed = true;
+constexpr auto k_with_f64_suffix_input = "2.5F64";
+constexpr auto k_with_f64_suffix_expected = R"({
+  "Float": {
+    "value": "2.5",
+    "suffix": "F64"
+  }
+})";
+
+constexpr auto k_with_suffix_and_exp_should_succeed = true;
+constexpr auto k_with_suffix_and_exp_input = "1.0e10F64";
+constexpr auto k_with_suffix_and_exp_expected = R"({
+  "Float": {
+    "value": "1.0e10",
+    "suffix": "F64"
+  }
+})";
+
+constexpr auto k_with_suffix_and_underscores_should_succeed = true;
+constexpr auto k_with_suffix_and_underscores_input = "1_234.567_89F32";
+constexpr auto k_with_suffix_and_underscores_expected = R"({
+  "Float": {
+    "value": "1234.56789",
+    "suffix": "F32"
+  }
+})";
+
 // Invalid cases
 constexpr auto k_invalid_leading_dot_should_succeed = false;
 constexpr auto k_invalid_leading_dot_input = ".5";
@@ -213,6 +250,16 @@ TEST_CASE("Parse Float", "[parser]") {
            k_invalid_no_dot_no_exp_input,
            k_invalid_no_dot_no_exp_expected,
            k_invalid_no_dot_no_exp_should_succeed},
+          {"with F32 suffix", k_with_f32_suffix_input, k_with_f32_suffix_expected, k_with_f32_suffix_should_succeed},
+          {"with F64 suffix", k_with_f64_suffix_input, k_with_f64_suffix_expected, k_with_f64_suffix_should_succeed},
+          {"with suffix and exponent",
+           k_with_suffix_and_exp_input,
+           k_with_suffix_and_exp_expected,
+           k_with_suffix_and_exp_should_succeed},
+          {"with suffix and underscores",
+           k_with_suffix_and_underscores_input,
+           k_with_suffix_and_underscores_expected,
+           k_with_suffix_and_underscores_should_succeed},
           {"invalid - ends with underscore",
            k_invalid_ends_with_underscore_input,
            k_invalid_ends_with_underscore_expected,
