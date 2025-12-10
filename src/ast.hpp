@@ -31,6 +31,7 @@ struct Range_Expr;
 struct Function_Definition;
 struct Block;
 struct Struct_Definition;
+struct Enum_Definition;
 struct Expr;
 struct Pattern;
 struct Let_Statement;
@@ -308,11 +309,12 @@ struct For_Statement : boost::spirit::x3::position_tagged {
   boost::spirit::x3::forward_ast<For_Expr> expr;
 };
 
-// Example: Can be function def, struct def, let binding, function call, return, break, continue, if, while, for, or
-// nested block
+// Example: Can be function def, struct def, enum def, let binding, function call, return, break, continue, if, while,
+// for, or nested block
 struct Statement : boost::spirit::x3::variant<
                        boost::spirit::x3::forward_ast<Function_Definition>,
                        boost::spirit::x3::forward_ast<Struct_Definition>,
+                       boost::spirit::x3::forward_ast<Enum_Definition>,
                        boost::spirit::x3::forward_ast<Let_Statement>,
                        Function_Call_Statement,
                        boost::spirit::x3::forward_ast<Expression_Statement>,
@@ -327,6 +329,7 @@ struct Statement : boost::spirit::x3::variant<
   using Base_Type = boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Function_Definition>,
       boost::spirit::x3::forward_ast<Struct_Definition>,
+      boost::spirit::x3::forward_ast<Enum_Definition>,
       boost::spirit::x3::forward_ast<Let_Statement>,
       Function_Call_Statement,
       boost::spirit::x3::forward_ast<Expression_Statement>,
@@ -512,6 +515,51 @@ struct Struct_Definition : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Struct_Definition";
   std::string name;
   std::vector<Struct_Field> fields;
+};
+
+// ============================================================================
+// Enum Types
+// ============================================================================
+
+// Unit variant: Red, None, False
+struct Unit_Variant : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Unit_Variant";
+  std::string name;  // Variant name (must be Camel_Snake_Case)
+};
+
+// Tuple variant: Some(T), Rgb(I32, I32, I32)
+struct Tuple_Variant : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Tuple_Variant";
+  std::string name;                     // Variant name (must be Camel_Snake_Case)
+  std::vector<Type_Name> tuple_fields;  // Positional field types
+};
+
+// Struct variant: Point { x: I32, y: I32 }
+struct Struct_Variant : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Struct_Variant";
+  std::string name;                         // Variant name (must be Camel_Snake_Case)
+  std::vector<Struct_Field> struct_fields;  // Named fields
+};
+
+// Example: Some(value), None, Red, Rgb(255, 0, 0), Point { x, y }
+// Represents a single variant in an enum definition
+// Uses boost::variant for type safety and consistency with rest of AST
+struct Enum_Variant : boost::spirit::x3::variant<Unit_Variant, Tuple_Variant, Struct_Variant>,
+                      boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Enum_Variant";
+  using Base_Type = boost::spirit::x3::variant<Unit_Variant, Tuple_Variant, Struct_Variant>;
+  using Base_Type::Base_Type;
+  using Base_Type::operator=;
+};
+
+// Example: enum Option<T> { Some(T), None }
+// Example: enum Color { Red, Green, Blue, Rgb(I32, I32, I32) }
+// Example: enum Result<T, E> { Ok(T), Err(E) }
+struct Enum_Definition : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Enum_Definition";
+  std::string name;                        // Enum name (must be Camel_Snake_Case)
+  std::vector<Type_Name> type_parameters;  // Generic parameters: <T>, <T, E>
+  std::vector<Enum_Variant> variants;      // List of variants
 };
 
 // ============================================================================
@@ -886,6 +934,31 @@ inline Struct_Definition make_struct_definition(std::string&& a_name, std::vecto
   return Struct_Definition{{}, std::move(a_name), std::move(a_fields)};
 }
 
+// Enum helpers
+inline Enum_Variant make_enum_variant(std::string&& a_name) {
+  return Enum_Variant{Unit_Variant{{}, std::move(a_name)}};
+}
+
+inline Enum_Variant make_enum_variant(std::string&& a_name, std::vector<Type_Name>&& a_tuple_fields) {
+  return Enum_Variant{Tuple_Variant{{}, std::move(a_name), std::move(a_tuple_fields)}};
+}
+
+inline Enum_Variant make_enum_variant(std::string&& a_name, std::vector<Struct_Field>&& a_struct_fields) {
+  return Enum_Variant{Struct_Variant{{}, std::move(a_name), std::move(a_struct_fields)}};
+}
+
+inline Enum_Definition make_enum_definition(
+    std::string&& a_name,
+    std::vector<Type_Name>&& a_type_parameters,
+    std::vector<Enum_Variant>&& a_variants
+) {
+  return Enum_Definition{{}, std::move(a_name), std::move(a_type_parameters), std::move(a_variants)};
+}
+
+inline Enum_Definition make_enum_definition(std::string&& a_name, std::vector<Enum_Variant>&& a_variants) {
+  return make_enum_definition(std::move(a_name), {}, std::move(a_variants));
+}
+
 // Module helpers
 inline Module make_module(std::vector<Statement>&& a_statements) {
   return Module{{}, std::move(a_statements)};
@@ -910,6 +983,8 @@ void to_json(nlohmann::json& a_json, Match_Arm const& a_arm);
 void to_json(nlohmann::json& a_json, Match_Expr const& a_match);
 void to_json(nlohmann::json& a_json, Function_Definition const& a_def);
 void to_json(nlohmann::json& a_json, Struct_Definition const& a_def);
+void to_json(nlohmann::json& a_json, Enum_Variant const& a_variant);
+void to_json(nlohmann::json& a_json, Enum_Definition const& a_def);
 void to_json(nlohmann::json& a_json, Block const& a_block);
 
 // Type_Name serialization (Type_Name must be declared before Type_Name_Segment due to recursion)
@@ -1484,6 +1559,82 @@ inline void to_json(nlohmann::json& a_json, Struct_Definition const& a_def) {
   }
   obj["fields"] = fields;
   a_json[Struct_Definition::k_name] = obj;
+}
+
+// Enum serialization - individual variant types
+inline void to_json(nlohmann::json& a_json, Unit_Variant const& a_variant) {
+  nlohmann::json obj;
+  obj["name"] = a_variant.name;
+  obj["kind"] = "unit";
+  a_json[Unit_Variant::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Tuple_Variant const& a_variant) {
+  nlohmann::json obj;
+  obj["name"] = a_variant.name;
+  obj["kind"] = "tuple";
+  nlohmann::json fields = nlohmann::json::array();
+  for (auto const& type : a_variant.tuple_fields) {
+    nlohmann::json type_json;
+    to_json(type_json, type);
+    fields.push_back(type_json);
+  }
+  obj["fields"] = fields;
+  a_json[Tuple_Variant::k_name] = obj;
+}
+
+inline void to_json(nlohmann::json& a_json, Struct_Variant const& a_variant) {
+  nlohmann::json obj;
+  obj["name"] = a_variant.name;
+  obj["kind"] = "struct";
+  nlohmann::json fields = nlohmann::json::array();
+  for (auto const& field : a_variant.struct_fields) {
+    nlohmann::json field_json;
+    to_json(field_json, field);
+    fields.push_back(field_json);
+  }
+  obj["fields"] = fields;
+  a_json[Struct_Variant::k_name] = obj;
+}
+
+// Enum_Variant serialization using visitor
+inline void to_json(nlohmann::json& a_json, Enum_Variant const& a_variant) {
+  boost::apply_visitor(
+      [&a_json](auto const& variant) {
+        nlohmann::json obj;
+        to_json(obj, variant);
+        // Extract the inner object from the wrapper
+        a_json[Enum_Variant::k_name] = obj.begin().value();
+      },
+      a_variant
+  );
+}
+
+inline void to_json(nlohmann::json& a_json, Enum_Definition const& a_def) {
+  nlohmann::json obj;
+  obj["name"] = a_def.name;
+
+  // Type parameters (optional)
+  if (!a_def.type_parameters.empty()) {
+    nlohmann::json type_params = nlohmann::json::array();
+    for (auto const& param : a_def.type_parameters) {
+      nlohmann::json param_json;
+      to_json(param_json, param);
+      type_params.push_back(param_json);
+    }
+    obj["type_parameters"] = type_params;
+  }
+
+  // Variants
+  nlohmann::json variants = nlohmann::json::array();
+  for (auto const& variant : a_def.variants) {
+    nlohmann::json variant_json;
+    to_json(variant_json, variant);
+    variants.push_back(variant_json);
+  }
+  obj["variants"] = variants;
+
+  a_json[Enum_Definition::k_name] = obj;
 }
 
 // Module serialization

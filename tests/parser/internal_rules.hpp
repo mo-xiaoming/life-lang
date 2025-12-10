@@ -23,6 +23,7 @@ PARSE_FN_DECL(Module, module);
 // Complete declarations
 PARSE_FN_DECL(Function_Definition, function_definition);
 PARSE_FN_DECL(Struct_Definition, struct_definition);
+PARSE_FN_DECL(Enum_Definition, enum_definition);
 
 // Statement-level constructs
 PARSE_FN_DECL(Statement, statement);

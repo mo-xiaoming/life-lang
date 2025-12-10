@@ -108,6 +108,32 @@ inline std::string type_name(std::string_view a_name) {
   );
 }
 
+// Type name with two segments (convenience overload for qualified names)
+inline std::string type_name(std::string_view a_seg1, std::string_view a_seg2) {
+  return fmt::format(
+      R"({{
+    "Type_Name": {{
+      "segments": [
+        {{
+          "Type_Name_Segment": {{
+            "value": "{}",
+            "template_parameters": []
+          }}
+        }},
+        {{
+          "Type_Name_Segment": {{
+            "value": "{}",
+            "template_parameters": []
+          }}
+        }}
+      ]
+    }}
+  }})",
+      a_seg1,
+      a_seg2
+  );
+}
+
 // Type name with multiple path segments (no templates)
 inline std::string type_name_path(std::vector<std::string_view> const& a_segments) {
   std::string segments_json;
