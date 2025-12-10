@@ -271,7 +271,7 @@ inline auto const k_generic_single_param_expected = fmt::format(
     R"({{
   "Enum_Definition": {{
     "name": "Option",
-    "type_parameters": [
+    "type_params": [
       {}
     ],
     "variants": [
@@ -303,7 +303,7 @@ inline auto const k_generic_multiple_params_expected = fmt::format(
     R"({{
   "Enum_Definition": {{
     "name": "Result",
-    "type_parameters": [
+    "type_params": [
       {},
       {}
     ],
@@ -341,8 +341,8 @@ constexpr auto k_nested_types_input = "enum Tree<T> { Leaf(T), Node(Tree<T>, Tre
 inline auto const k_nested_types_expected = R"({
   "Enum_Definition": {
     "name": "Tree",
-    "type_parameters": [
-      {"Type_Name": {"segments": [{"Type_Name_Segment": {"template_parameters": [], "value": "T"}}]}}
+    "type_params": [
+      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
     ],
     "variants": [
       {
@@ -350,7 +350,7 @@ inline auto const k_nested_types_expected = R"({
           "name": "Leaf",
           "kind": "tuple",
           "fields": [
-            {"Type_Name": {"segments": [{"Type_Name_Segment": {"template_parameters": [], "value": "T"}}]}}
+            {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
           ]
         }
       },
@@ -364,8 +364,8 @@ inline auto const k_nested_types_expected = R"({
                 "segments": [
                   {
                     "Type_Name_Segment": {
-                      "template_parameters": [
-                        {"Type_Name": {"segments": [{"Type_Name_Segment": {"template_parameters": [], "value": "T"}}]}}
+                      "type_params": [
+                        {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
                       ],
                       "value": "Tree"
                     }
@@ -378,8 +378,8 @@ inline auto const k_nested_types_expected = R"({
                 "segments": [
                   {
                     "Type_Name_Segment": {
-                      "template_parameters": [
-                        {"Type_Name": {"segments": [{"Type_Name_Segment": {"template_parameters": [], "value": "T"}}]}}
+                      "type_params": [
+                        {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
                       ],
                       "value": "Tree"
                     }

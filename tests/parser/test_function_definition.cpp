@@ -102,26 +102,26 @@ inline auto const k_hello_world_expected = R"({
                     {
                       "Type_Name_Segment": {
                         "value": "Std",
-                        "template_parameters": []
+                        "type_params": []
                       }
                     },
                     {
                       "Type_Name_Segment": {
                         "value": "Array",
-                        "template_parameters": [
+                        "type_params": [
                           {
                             "Type_Name": {
                               "segments": [
                                 {
                                   "Type_Name_Segment": {
                                     "value": "Std",
-                                    "template_parameters": []
+                                    "type_params": []
                                   }
                                 },
                                 {
                                   "Type_Name_Segment": {
                                     "value": "String",
-                                    "template_parameters": []
+                                    "type_params": []
                                   }
                                 }
                               ]
@@ -142,7 +142,7 @@ inline auto const k_hello_world_expected = R"({
               {
                 "Type_Name_Segment": {
                   "value": "I32",
-                  "template_parameters": []
+                  "type_params": []
                 }
               }
             ]
@@ -163,13 +163,13 @@ inline auto const k_hello_world_expected = R"({
                         {
                           "Variable_Name_Segment": {
                             "value": "Std",
-                            "template_parameters": []
+                            "type_params": []
                           }
                         },
                         {
                           "Variable_Name_Segment": {
                             "value": "print",
-                            "template_parameters": []
+                            "type_params": []
                           }
                         }
                       ]

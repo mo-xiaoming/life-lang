@@ -34,7 +34,7 @@ inline auto const k_field_assignment_expected = R"({
             "segments": [
               {
                 "Variable_Name_Segment": {
-                  "template_parameters": [],
+                  "type_params": [],
                   "value": "point"
                 }
               }
@@ -66,7 +66,7 @@ inline auto const k_nested_field_assignment_expected = R"({
                 "segments": [
                   {
                     "Variable_Name_Segment": {
-                      "template_parameters": [],
+                      "type_params": [],
                       "value": "obj"
                     }
                   }
@@ -97,7 +97,7 @@ inline auto const k_chained_assignment_expected = R"({
         "segments": [
           {
             "Variable_Name_Segment": {
-              "template_parameters": [],
+              "type_params": [],
               "value": "x"
             }
           }
@@ -111,7 +111,7 @@ inline auto const k_chained_assignment_expected = R"({
             "segments": [
               {
                 "Variable_Name_Segment": {
-                  "template_parameters": [],
+                  "type_params": [],
                   "value": "y"
                 }
               }
@@ -138,7 +138,7 @@ inline auto const k_assignment_with_call_expected = R"({
         "segments": [
           {
             "Variable_Name_Segment": {
-              "template_parameters": [],
+              "type_params": [],
               "value": "result"
             }
           }
@@ -152,7 +152,7 @@ inline auto const k_assignment_with_call_expected = R"({
             "segments": [
               {
                 "Variable_Name_Segment": {
-                  "template_parameters": [],
+                  "type_params": [],
                   "value": "calculate"
                 }
               }
@@ -175,7 +175,7 @@ inline auto const k_assignment_with_string_expected = R"({
         "segments": [
           {
             "Variable_Name_Segment": {
-              "template_parameters": [],
+              "type_params": [],
               "value": "name"
             }
           }
@@ -200,7 +200,7 @@ inline auto const k_assignment_precedence_expected = R"({
         "segments": [
           {
             "Variable_Name_Segment": {
-              "template_parameters": [],
+              "type_params": [],
               "value": "x"
             }
           }
@@ -214,7 +214,7 @@ inline auto const k_assignment_precedence_expected = R"({
             "segments": [
               {
                 "Variable_Name_Segment": {
-                  "template_parameters": [],
+                  "type_params": [],
                   "value": "y"
                 }
               }
@@ -227,7 +227,7 @@ inline auto const k_assignment_precedence_expected = R"({
             "segments": [
               {
                 "Variable_Name_Segment": {
-                  "template_parameters": [],
+                  "type_params": [],
                   "value": "z"
                 }
               }
@@ -249,7 +249,7 @@ inline auto const k_assignment_with_comparison_expected = R"({
         "segments": [
           {
             "Variable_Name_Segment": {
-              "template_parameters": [],
+              "type_params": [],
               "value": "flag"
             }
           }
@@ -263,7 +263,7 @@ inline auto const k_assignment_with_comparison_expected = R"({
             "segments": [
               {
                 "Variable_Name_Segment": {
-                  "template_parameters": [],
+                  "type_params": [],
                   "value": "x"
                 }
               }
@@ -291,7 +291,7 @@ inline auto const k_assignment_self_reference_expected = R"({
         "segments": [
           {
             "Variable_Name_Segment": {
-              "template_parameters": [],
+              "type_params": [],
               "value": "count"
             }
           }
@@ -305,7 +305,7 @@ inline auto const k_assignment_self_reference_expected = R"({
             "segments": [
               {
                 "Variable_Name_Segment": {
-                  "template_parameters": [],
+                  "type_params": [],
                   "value": "count"
                 }
               }

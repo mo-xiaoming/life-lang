@@ -75,7 +75,7 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
               "type_name": {
                 "Type_Name": {
                   "segments": [
-                    {"Type_Name_Segment": {"template_parameters": [], "value": "Point"}}
+                    {"Type_Name_Segment": {"type_params": [], "value": "Point"}}
                   ]
                 }
               },
@@ -92,7 +92,7 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
     "iterator": {
       "Variable_Name": {
         "segments": [
-          {"Variable_Name_Segment": {"template_parameters": [], "value": "data"}}
+          {"Variable_Name_Segment": {"type_params": [], "value": "data"}}
         ]
       }
     },
@@ -106,7 +106,7 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
                   "name": {
                     "Variable_Name": {
                       "segments": [
-                        {"Variable_Name_Segment": {"template_parameters": [], "value": "use"}}
+                        {"Variable_Name_Segment": {"type_params": [], "value": "use"}}
                       ]
                     }
                   },
@@ -114,21 +114,21 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
                     {
                       "Variable_Name": {
                         "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "px"}}
+                          {"Variable_Name_Segment": {"type_params": [], "value": "px"}}
                         ]
                       }
                     },
                     {
                       "Variable_Name": {
                         "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "py"}}
+                          {"Variable_Name_Segment": {"type_params": [], "value": "py"}}
                         ]
                       }
                     },
                     {
                       "Variable_Name": {
                         "segments": [
-                          {"Variable_Name_Segment": {"template_parameters": [], "value": "z"}}
+                          {"Variable_Name_Segment": {"type_params": [], "value": "z"}}
                         ]
                       }
                     }

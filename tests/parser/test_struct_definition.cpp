@@ -60,8 +60,8 @@ inline auto const k_template_types_expected = R"(
               "segments": [
                 {
                   "Type_Name_Segment": {
-                    "template_parameters": [
-                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"template_parameters": [], "value": "I32"}}]}}
+                    "type_params": [
+                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "I32"}}]}}
                     ],
                     "value": "Vec"
                   }
@@ -79,8 +79,8 @@ inline auto const k_template_types_expected = R"(
               "segments": [
                 {
                   "Type_Name_Segment": {
-                    "template_parameters": [
-                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"template_parameters": [], "value": "String"}}]}}
+                    "type_params": [
+                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "String"}}]}}
                     ],
                     "value": "Array"
                   }
@@ -111,15 +111,15 @@ inline auto const k_complex_nested_expected = R"(
               "segments": [
                 {
                   "Type_Name_Segment": {
-                    "template_parameters": [
-                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"template_parameters": [], "value": "String"}}]}},
+                    "type_params": [
+                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "String"}}]}},
                       {
                         "Type_Name": {
                           "segments": [
                             {
                               "Type_Name_Segment": {
-                                "template_parameters": [
-                                  {"Type_Name": {"segments": [{"Type_Name_Segment": {"template_parameters": [], "value": "I32"}}]}}
+                                "type_params": [
+                                  {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "I32"}}]}}
                                 ],
                                 "value": "Vec"
                               }
@@ -199,6 +199,142 @@ constexpr auto k_lowercase_name_accepted_input = "struct point { x: I32 }";
 inline auto const k_lowercase_name_accepted_expected =
     test_json::struct_definition("point", {test_json::struct_field("x", test_json::type_name("I32"))});
 
+// Generic structs with type parameters
+constexpr auto k_generic_single_param_should_succeed = true;
+constexpr auto k_generic_single_param_input = "struct Box<T> { value: T }";
+inline auto const k_generic_single_param_expected = R"(
+{
+  "Struct_Definition": {
+    "fields": [
+      {
+        "Struct_Field": {
+          "name": "value",
+          "type": {
+            "Type_Name": {
+              "segments": [
+                {"Type_Name_Segment": {"type_params": [], "value": "T"}}
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "name": "Box",
+    "type_params": [
+      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
+    ]
+  }
+}
+)";
+
+constexpr auto k_generic_two_params_should_succeed = true;
+constexpr auto k_generic_two_params_input = "struct Pair<T, U> { first: T, second: U }";
+inline auto const k_generic_two_params_expected = R"(
+{
+  "Struct_Definition": {
+    "fields": [
+      {
+        "Struct_Field": {
+          "name": "first",
+          "type": {
+            "Type_Name": {
+              "segments": [
+                {"Type_Name_Segment": {"type_params": [], "value": "T"}}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "Struct_Field": {
+          "name": "second",
+          "type": {
+            "Type_Name": {
+              "segments": [
+                {"Type_Name_Segment": {"type_params": [], "value": "U"}}
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "name": "Pair",
+    "type_params": [
+      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}},
+      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "U"}}]}}
+    ]
+  }
+}
+)";
+
+constexpr auto k_generic_map_should_succeed = true;
+constexpr auto k_generic_map_input = "struct Map<K, V> { keys: Vec<K>, values: Vec<V> }";
+inline auto const k_generic_map_expected = R"(
+{
+  "Struct_Definition": {
+    "fields": [
+      {
+        "Struct_Field": {
+          "name": "keys",
+          "type": {
+            "Type_Name": {
+              "segments": [
+                {
+                  "Type_Name_Segment": {
+                    "type_params": [
+                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "K"}}]}}
+                    ],
+                    "value": "Vec"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "Struct_Field": {
+          "name": "values",
+          "type": {
+            "Type_Name": {
+              "segments": [
+                {
+                  "Type_Name_Segment": {
+                    "type_params": [
+                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "V"}}]}}
+                    ],
+                    "value": "Vec"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "name": "Map",
+    "type_params": [
+      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "K"}}]}},
+      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "V"}}]}}
+    ]
+  }
+}
+)";
+
+constexpr auto k_generic_empty_should_succeed = true;
+constexpr auto k_generic_empty_input = "struct Empty<T> {}";
+inline auto const k_generic_empty_expected = R"(
+{
+  "Struct_Definition": {
+    "fields": [],
+    "name": "Empty",
+    "type_params": [
+      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
+    ]
+  }
+}
+)";
+
 // Invalid cases
 constexpr auto k_invalid_no_name_should_succeed = false;
 constexpr auto k_invalid_no_name_input = "struct { x: I32 }";
@@ -251,6 +387,16 @@ TEST_CASE("Parse Struct_Definition", "[parser]") {
            k_lowercase_name_accepted_input,
            k_lowercase_name_accepted_expected,
            k_lowercase_name_accepted_should_succeed},
+          {"generic single param",
+           k_generic_single_param_input,
+           k_generic_single_param_expected,
+           k_generic_single_param_should_succeed},
+          {"generic two params",
+           k_generic_two_params_input,
+           k_generic_two_params_expected,
+           k_generic_two_params_should_succeed},
+          {"generic map", k_generic_map_input, k_generic_map_expected, k_generic_map_should_succeed},
+          {"generic empty", k_generic_empty_input, k_generic_empty_expected, k_generic_empty_should_succeed},
           {"invalid - no name", k_invalid_no_name_input, k_invalid_no_name_expected, k_invalid_no_name_should_succeed},
           {"invalid - no braces",
            k_invalid_no_braces_input,

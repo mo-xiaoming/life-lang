@@ -40,13 +40,13 @@ inline auto const k_two_statements_expected = fmt::format(
                     {{
                       "Variable_Name_Segment": {{
                         "value": "hello",
-                        "template_parameters": []
+                        "type_params": []
                       }}
                     }},
                     {{
                       "Variable_Name_Segment": {{
                         "value": "a",
-                        "template_parameters": []
+                        "type_params": []
                       }}
                     }}
                   ]
