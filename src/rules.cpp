@@ -160,7 +160,10 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_segment_rule), Iterator_Type, Cont
 // Parse full qualified name: dot-separated qualified name segments
 // Any segment can have type parameters, not just the last one!
 // This allows names like "Container<T>.Iterator<Forward>" where intermediate segments have type parameters.
+// Unit type "()" is special-cased first: matches '(' ')' with optional whitespace between them
+// This is safe because empty tuple patterns require at least one element (pattern % ',') so won't match empty parens
 // Examples:
+//   "()" or "( )" or "(  )"                            - unit type (void/no return value)
 //   "Int"                                              - simple qualified name
 //   "Std.String"                                       - multi-segment qualified name
 //   "Std.Collections.Array<T>"                         - qualified with type parameter on last segment
@@ -171,6 +174,7 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_segment_rule), Iterator_Type, Cont
 //   "Network.Protocol<Http.Request, Http.Response>"    - deeply nested qualified type parameters
 //   "IO.Result<Data.Error, Parser.AST>"                - multiple qualified params
 auto const k_type_name_rule_def =
+    ((lit('(') >> lit(')'))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_type_name("()"); })]) |
     (k_type_name_segment_rule %
      (lit('.') >>
       !lit('.')))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_type_name(std::move(x3::_attr(a_ctx))); })];
@@ -570,6 +574,15 @@ auto const k_struct_literal_rule_def = (k_struct_literal_type >> '{' > -k_field_
 BOOST_SPIRIT_DEFINE(k_struct_literal_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_literal_rule), Iterator_Type, Context_Type)
 
+// === Unit Literal Rule ===
+// Parse unit literal: () - represents "no value" expression
+// Used in return statements for functions with unit return type
+x3::rule<struct unit_literal_tag, ast::Expr> const k_unit_literal_rule = "unit literal";
+auto const k_unit_literal_rule_def =
+    (lit('(') >> lit(')'))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_expr(ast::make_unit_literal()); })];
+BOOST_SPIRIT_DEFINE(k_unit_literal_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_unit_literal_rule), Iterator_Type, Context_Type)
+
 // Primary expressions (before postfix operations)
 // Note: Function calls are included here - they parse "name(args)" as a complete unit
 // Postfix operations then apply to the result: foo(x).bar or foo(x).baz()
@@ -578,10 +591,11 @@ x3::rule<struct primary_expr_tag, ast::Expr> const k_primary_expr = "primary exp
 // Ordering rationale:
 // 1. struct_literal first: Requires Camel_Snake_Case + '{', most specific pattern
 // 2. function_call second: Requires name + '(', specific delimiter
-// 3. variable_name later: More general
+// 3. unit_literal before variable_name: () is more specific than variable patterns
+// 4. variable_name later: More general
 // This prevents "if x {}" ambiguity: x{} won't match struct_literal (x is lowercase)
-auto const k_primary_expr_def = k_struct_literal_rule | k_function_call_expr_rule | k_string_rule | k_char_rule |
-                                k_variable_name_rule | k_float_rule | k_integer_rule;
+auto const k_primary_expr_def = k_struct_literal_rule | k_function_call_expr_rule | k_unit_literal_rule |
+                                k_string_rule | k_char_rule | k_variable_name_rule | k_float_rule | k_integer_rule;
 BOOST_SPIRIT_DEFINE(k_primary_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_primary_expr), Iterator_Type, Context_Type)
 

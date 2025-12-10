@@ -103,6 +103,12 @@ struct Char : boost::spirit::x3::position_tagged {
   std::string value;
 };
 
+// Unit literal: () - represents "no value" or empty tuple
+// Used in return statements for functions with unit return type: return ();
+struct Unit_Literal : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Unit_Literal";
+};
+
 // ============================================================================
 // Struct Literal Types (for initialization)
 // ============================================================================
@@ -203,6 +209,7 @@ struct Expr : boost::spirit::x3::variant<
                   boost::spirit::x3::forward_ast<Range_Expr>,
                   boost::spirit::x3::forward_ast<Assignment_Expr>,
                   Struct_Literal,
+                  Unit_Literal,
                   String,
                   Integer,
                   Float,
@@ -221,6 +228,7 @@ struct Expr : boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Range_Expr>,
       boost::spirit::x3::forward_ast<Assignment_Expr>,
       Struct_Literal,
+      Unit_Literal,
       String,
       Integer,
       Float,
@@ -690,6 +698,10 @@ inline Float make_float(std::string a_value, boost::optional<std::string> a_suff
   return Float{{}, std::move(a_value), std::move(a_suffix)};
 }
 
+inline Unit_Literal make_unit_literal() noexcept {
+  return Unit_Literal{{}};
+}
+
 inline Char make_char(std::string&& a_value) {
   return Char{{}, std::move(a_value)};
 }
@@ -751,6 +763,9 @@ inline Expr make_expr(Range_Expr&& a_range) {
 }
 inline Expr make_expr(Struct_Literal&& a_literal) {
   return Expr{std::move(a_literal)};
+}
+inline Expr make_expr(Unit_Literal&& a_unit) {
+  return Expr{std::move(a_unit)};
 }
 
 inline Function_Call_Expr make_function_call_expr(Variable_Name&& a_name, std::vector<Expr>&& a_parameters) {
@@ -1114,6 +1129,10 @@ inline void to_json(nlohmann::json& a_json, Float const& a_float) {
 
 inline void to_json(nlohmann::json& a_json, Char const& a_char) {
   a_json[Char::k_name] = {{"value", a_char.value}};
+}
+
+inline void to_json(nlohmann::json& a_json, Unit_Literal const& /*a_unit*/) {
+  a_json[Unit_Literal::k_name] = nlohmann::json::object();
 }
 
 // Struct literal serialization

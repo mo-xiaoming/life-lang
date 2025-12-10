@@ -22,6 +22,7 @@ constexpr auto k_with_parameters_input = "fn hello(a: Int, b: Double): Int {}";
 inline auto const k_with_parameters_expected = test_json::function_definition(
     test_json::function_declaration(
         "hello",
+        {},
         {test_json::function_parameter("a", type_name("Int")), test_json::function_parameter("b", type_name("Double"))},
         type_name("Int")
     ),
