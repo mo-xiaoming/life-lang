@@ -32,6 +32,7 @@ struct Function_Definition;
 struct Block;
 struct Struct_Definition;
 struct Enum_Definition;
+struct Impl_Block;
 struct Expr;
 struct Pattern;
 struct Let_Statement;
@@ -315,6 +316,7 @@ struct Statement : boost::spirit::x3::variant<
                        boost::spirit::x3::forward_ast<Function_Definition>,
                        boost::spirit::x3::forward_ast<Struct_Definition>,
                        boost::spirit::x3::forward_ast<Enum_Definition>,
+                       boost::spirit::x3::forward_ast<Impl_Block>,
                        boost::spirit::x3::forward_ast<Let_Statement>,
                        Function_Call_Statement,
                        boost::spirit::x3::forward_ast<Expression_Statement>,
@@ -330,6 +332,7 @@ struct Statement : boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Function_Definition>,
       boost::spirit::x3::forward_ast<Struct_Definition>,
       boost::spirit::x3::forward_ast<Enum_Definition>,
+      boost::spirit::x3::forward_ast<Impl_Block>,
       boost::spirit::x3::forward_ast<Let_Statement>,
       Function_Call_Statement,
       boost::spirit::x3::forward_ast<Expression_Statement>,
@@ -488,6 +491,7 @@ struct Function_Parameter : boost::spirit::x3::position_tagged {
 struct Function_Declaration : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Function_Declaration";
   std::string name;
+  std::vector<Type_Name> type_params;  // Generic parameters: <T>, <T, U>
   std::vector<Function_Parameter> parameters;
   Type_Name return_type;
 };
@@ -562,6 +566,19 @@ struct Enum_Definition : boost::spirit::x3::position_tagged {
   std::string name;                    // Enum name (must be Camel_Snake_Case)
   std::vector<Type_Name> type_params;  // Generic parameters: <T>, <T, E>
   std::vector<Enum_Variant> variants;  // List of variants
+};
+
+// ============================================================================
+// Impl Blocks
+// ============================================================================
+
+// Example: impl Point { fn distance(self): F64 { ... } }
+// Example: impl<T> Array<T> { fn len(self): I32 { ... } }
+struct Impl_Block : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Impl_Block";
+  Type_Name type_name;                       // Type being implemented (e.g., Point, Array<T>)
+  std::vector<Type_Name> type_params;        // Generic parameters: <T>, <K, V>
+  std::vector<Function_Definition> methods;  // Methods in the impl block
 };
 
 // ============================================================================
@@ -917,10 +934,17 @@ inline Function_Parameter make_function_parameter(bool a_is_mut, std::string&& a
 
 inline Function_Declaration make_function_declaration(
     std::string&& a_name,
+    std::vector<Type_Name>&& a_type_params,
     std::vector<Function_Parameter>&& a_parameters,
     Type_Name&& a_return_type
 ) {
-  return Function_Declaration{{}, std::move(a_name), std::move(a_parameters), std::move(a_return_type)};
+  return Function_Declaration{
+      {},
+      std::move(a_name),
+      std::move(a_type_params),
+      std::move(a_parameters),
+      std::move(a_return_type)
+  };
 }
 
 inline Function_Definition make_function_definition(Function_Declaration&& a_decl, Block&& a_body) {
@@ -969,6 +993,19 @@ inline Enum_Definition make_enum_definition(std::string&& a_name, std::vector<En
   return make_enum_definition(std::move(a_name), {}, std::move(a_variants));
 }
 
+// Impl block helpers
+inline Impl_Block make_impl_block(
+    Type_Name&& a_type_name,
+    std::vector<Type_Name>&& a_type_params,
+    std::vector<Function_Definition>&& a_methods
+) {
+  return Impl_Block{{}, std::move(a_type_name), std::move(a_type_params), std::move(a_methods)};
+}
+
+inline Impl_Block make_impl_block(Type_Name&& a_type_name, std::vector<Function_Definition>&& a_methods) {
+  return make_impl_block(std::move(a_type_name), {}, std::move(a_methods));
+}
+
 // Module helpers
 inline Module make_module(std::vector<Statement>&& a_statements) {
   return Module{{}, std::move(a_statements)};
@@ -995,6 +1032,7 @@ void to_json(nlohmann::json& a_json, Function_Definition const& a_def);
 void to_json(nlohmann::json& a_json, Struct_Definition const& a_def);
 void to_json(nlohmann::json& a_json, Enum_Variant const& a_variant);
 void to_json(nlohmann::json& a_json, Enum_Definition const& a_def);
+void to_json(nlohmann::json& a_json, Impl_Block const& a_impl);
 void to_json(nlohmann::json& a_json, Block const& a_block);
 
 // Type_Name serialization (Type_Name must be declared before Type_Name_Segment due to recursion)
@@ -1524,6 +1562,13 @@ inline void to_json(nlohmann::json& a_json, Function_Parameter const& a_param) {
 inline void to_json(nlohmann::json& a_json, Function_Declaration const& a_decl) {
   nlohmann::json obj;
   obj["name"] = a_decl.name;
+  nlohmann::json type_params = nlohmann::json::array();
+  for (auto const& tp : a_decl.type_params) {
+    nlohmann::json tp_json;
+    to_json(tp_json, tp);
+    type_params.push_back(tp_json);
+  }
+  obj["type_params"] = type_params;
   nlohmann::json params = nlohmann::json::array();
   for (auto const& param : a_decl.parameters) {
     nlohmann::json param_json;
@@ -1657,6 +1702,38 @@ inline void to_json(nlohmann::json& a_json, Enum_Definition const& a_def) {
   obj["variants"] = variants;
 
   a_json[Enum_Definition::k_name] = obj;
+}
+
+// Impl block serialization
+inline void to_json(nlohmann::json& a_json, Impl_Block const& a_impl) {
+  nlohmann::json obj;
+
+  // Type name
+  nlohmann::json type_name_json;
+  to_json(type_name_json, a_impl.type_name);
+  obj["type_name"] = type_name_json;
+
+  // Type parameters (optional)
+  if (!a_impl.type_params.empty()) {
+    nlohmann::json type_params = nlohmann::json::array();
+    for (auto const& param : a_impl.type_params) {
+      nlohmann::json param_json;
+      to_json(param_json, param);
+      type_params.push_back(param_json);
+    }
+    obj["type_params"] = type_params;
+  }
+
+  // Methods
+  nlohmann::json methods = nlohmann::json::array();
+  for (auto const& method : a_impl.methods) {
+    nlohmann::json method_json;
+    to_json(method_json, method);
+    methods.push_back(method_json);
+  }
+  obj["methods"] = methods;
+
+  a_json[Impl_Block::k_name] = obj;
 }
 
 // Module serialization

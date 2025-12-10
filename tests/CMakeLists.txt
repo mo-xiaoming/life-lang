@@ -23,6 +23,7 @@ target_sources(tests
         parser/test_for_expr.cpp
         parser/test_function_definition.cpp
         parser/test_if_expr.cpp
+        parser/test_impl_block.cpp
         parser/test_integer.cpp
         parser/test_internal_parse_errors.cpp
         parser/test_keywords.cpp
