@@ -16,6 +16,7 @@ target_sources(tests
         parser/test_comment.cpp
         parser/test_continue_statement.cpp
         parser/test_diagnostics.cpp
+        parser/test_enum_definition.cpp
         parser/test_expr.cpp
         parser/test_field_access.cpp
         parser/test_float.cpp

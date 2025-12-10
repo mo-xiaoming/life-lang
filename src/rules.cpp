@@ -57,7 +57,7 @@ auto const k_skipper = x3::ascii::space | k_comment;
 
 struct Keyword_Symbols : x3::symbols<> {
   Keyword_Symbols() {
-    add("fn")("let")("return")("struct")("self")("mut")("if")("else")("while")("for")("in")("match")("break")(
+    add("fn")("let")("return")("struct")("enum")("self")("mut")("if")("else")("while")("for")("in")("match")("break")(
         "continue"
     );
   }
@@ -68,6 +68,7 @@ auto const k_kw_fn = lexeme[lit("fn") >> !(alnum | '_')];
 auto const k_kw_let = lexeme[lit("let") >> !(alnum | '_')];
 auto const k_kw_return = lexeme[lit("return") >> !(alnum | '_')];
 auto const k_kw_struct = lexeme[lit("struct") >> !(alnum | '_')];
+auto const k_kw_enum = lexeme[lit("enum") >> !(alnum | '_')];
 auto const k_kw_self = lexeme[lit("self") >> !(alnum | '_')];
 auto const k_kw_mut = lexeme[lit("mut") >> !(alnum | '_')];
 auto const k_kw_if = lexeme[lit("if") >> !(alnum | '_')];
@@ -1263,13 +1264,85 @@ auto const k_struct_definition_rule_def =
 BOOST_SPIRIT_DEFINE(k_struct_definition_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_definition_rule), Iterator_Type, Context_Type)
 
+// === Enum Rules ===
+// Enums define sum types (algebraic data types) with multiple variants
+// Examples:
+//   enum Option<T> { Some(T), None }
+//   enum Color { Red, Green, Blue }
+//   enum Result<T, E> { Ok(T), Err(E) }
+//   enum Message { Quit, Move { x: I32, y: I32 }, Write(String) }
+
+// Parse enum variant name: any identifier (naming convention checked at semantic analysis)
+x3::rule<struct enum_variant_name_tag, std::string> const k_enum_variant_name = "enum variant name";
+auto const k_enum_variant_name_def = k_segment_name;
+BOOST_SPIRIT_DEFINE(k_enum_variant_name)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_variant_name), Iterator_Type, Context_Type)
+
+// Parse enum variant: unit, tuple, or struct variant
+// Unit variant:   Red, None
+// Tuple variant:  Some(T), Rgb(I32, I32, I32)
+// Struct variant: Move { x: I32, y: I32 }, Empty { }
+struct Enum_Variant_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Enum_Variant_Tag, ast::Enum_Variant> const k_enum_variant_rule = "enum variant";
+auto const k_enum_variant_rule_def =
+    // Struct variant: Name { fields } - requires at least one field
+    (k_enum_variant_name >> '{' >> k_struct_fields >> '}')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) =
+          ast::make_enum_variant(std::move(boost::fusion::at_c<0>(attr)), std::move(boost::fusion::at_c<1>(attr)));
+    })] |
+    // Tuple variant: Name(types) - requires at least one type
+    (k_enum_variant_name >> '(' >> (k_type_name_rule % ',') >> -lit(',') >> ')')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) =
+          ast::make_enum_variant(std::move(boost::fusion::at_c<0>(attr)), std::move(boost::fusion::at_c<1>(attr)));
+    })] |
+    // Unit variant: just name
+    k_enum_variant_name[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_enum_variant(std::move(x3::_attr(a_ctx))); })];
+
+BOOST_SPIRIT_DEFINE(k_enum_variant_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_variant_rule), Iterator_Type, Context_Type)
+
+// Parse enum variants: comma-separated list with optional trailing comma
+x3::rule<struct enum_variants_tag, std::vector<ast::Enum_Variant>> const k_enum_variants = "enum variants";
+auto const k_enum_variants_def = (k_enum_variant_rule % ',') >> -lit(',');
+BOOST_SPIRIT_DEFINE(k_enum_variants)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_variants), Iterator_Type, Context_Type)
+
+// Parse enum name: any identifier (naming convention checked at semantic analysis)
+x3::rule<struct enum_name_tag, std::string> const k_enum_name = "enum name";
+auto const k_enum_name_def = k_segment_name;
+BOOST_SPIRIT_DEFINE(k_enum_name)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_name), Iterator_Type, Context_Type)
+
+// Parse enum definition: "enum Name<T> { variants }"
+// Examples:
+//   enum Option<T> { Some(T), None }
+//   enum Color { Red, Green, Blue }
+//   enum Result<T, E> { Ok(T), Err(E) }
+//   enum Empty { }  // Empty enums allowed (semantic error, not parse error)
+struct Enum_Definition_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Enum_Definition_Tag, ast::Enum_Definition> const k_enum_definition_rule = "enum definition";
+auto const k_enum_definition_rule_def =
+    (k_kw_enum > k_enum_name > -k_template_params > '{' > -k_enum_variants > '}')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) = ast::make_enum_definition(
+          std::move(boost::fusion::at_c<0>(attr)),
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{}),
+          boost::fusion::at_c<2>(attr).value_or(std::vector<ast::Enum_Variant>{})
+      );
+    })];
+BOOST_SPIRIT_DEFINE(k_enum_definition_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_definition_rule), Iterator_Type, Context_Type)
+
 // Parse statement: variant of different statement types
 // Order matters: try function definition first (longest match), then let, then others
 // expression_statement must come last as it matches most broadly
-auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule | k_let_statement_rule |
-                                  k_function_call_statement_rule | k_if_statement_rule | k_while_statement_rule |
-                                  k_for_statement_rule | k_block_rule | k_return_statement_rule |
-                                  k_break_statement_rule | k_continue_statement_rule | k_expression_statement_rule;
+auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule | k_enum_definition_rule |
+                                  k_let_statement_rule | k_function_call_statement_rule | k_if_statement_rule |
+                                  k_while_statement_rule | k_for_statement_rule | k_block_rule |
+                                  k_return_statement_rule | k_break_statement_rule | k_continue_statement_rule |
+                                  k_expression_statement_rule;
 BOOST_SPIRIT_DEFINE(k_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_statement_rule), Iterator_Type, Context_Type)
 
@@ -1428,6 +1501,7 @@ parser::Parse_Result<Ast> parse_with_rule(
 PARSE_FN_IMPL(Module, module)                            // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Function_Definition, function_definition)  // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Struct_Definition, struct_definition)      // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Enum_Definition, enum_definition)          // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Statement, statement)                      // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Block, block)                              // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Expr, expr)                                // NOLINT(misc-use-internal-linkage)
