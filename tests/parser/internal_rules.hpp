@@ -24,6 +24,7 @@ PARSE_FN_DECL(Module, module);
 PARSE_FN_DECL(Function_Definition, function_definition);
 PARSE_FN_DECL(Struct_Definition, struct_definition);
 PARSE_FN_DECL(Enum_Definition, enum_definition);
+PARSE_FN_DECL(Impl_Block, impl_block);
 
 // Statement-level constructs
 PARSE_FN_DECL(Statement, statement);

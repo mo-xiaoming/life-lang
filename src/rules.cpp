@@ -57,8 +57,8 @@ auto const k_skipper = x3::ascii::space | k_comment;
 
 struct Keyword_Symbols : x3::symbols<> {
   Keyword_Symbols() {
-    add("fn")("let")("return")("struct")("enum")("self")("mut")("if")("else")("while")("for")("in")("match")("break")(
-        "continue"
+    add("fn")("let")("return")("struct")("enum")("impl")("self")("mut")("if")("else")("while")("for")("in")("match")(
+        "break")("continue"
     );
   }
 } const k_keywords;
@@ -69,6 +69,7 @@ auto const k_kw_let = lexeme[lit("let") >> !(alnum | '_')];
 auto const k_kw_return = lexeme[lit("return") >> !(alnum | '_')];
 auto const k_kw_struct = lexeme[lit("struct") >> !(alnum | '_')];
 auto const k_kw_enum = lexeme[lit("enum") >> !(alnum | '_')];
+auto const k_kw_impl = lexeme[lit("impl") >> !(alnum | '_')];
 auto const k_kw_self = lexeme[lit("self") >> !(alnum | '_')];
 auto const k_kw_mut = lexeme[lit("mut") >> !(alnum | '_')];
 auto const k_kw_if = lexeme[lit("if") >> !(alnum | '_')];
@@ -444,18 +445,20 @@ auto const k_func_return_type_def = k_type_name_rule;
 BOOST_SPIRIT_DEFINE(k_func_return_type)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_func_return_type), Iterator_Type, Context_Type)
 
-// Parse function declaration: "fn name(params): ReturnType"
+// Parse function declaration: "fn name<T>(params): ReturnType"
 // Examples:
 //   fn main(): I32
 //   fn add(a: Int, b: Int): Int
 //   fn process(data: Array<String>): Result<(), Error>
+//   fn map<T, U>(items: Array<T>): Array<U>
 auto const k_function_declaration_rule_def =
-    (k_kw_fn > k_func_name > '(' > -k_func_params > ')' > ':' > k_func_return_type)[([](auto& a_ctx) {
+    (k_kw_fn > k_func_name > -k_type_params > '(' > -k_func_params > ')' > ':' > k_func_return_type)[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
       x3::_val(a_ctx) = ast::make_function_declaration(
           std::move(boost::fusion::at_c<0>(attr)),
-          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Function_Parameter>{}),
-          std::move(boost::fusion::at_c<2>(attr))
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{}),
+          boost::fusion::at_c<2>(attr).value_or(std::vector<ast::Function_Parameter>{}),
+          std::move(boost::fusion::at_c<3>(attr))
       );
     })];
 BOOST_SPIRIT_DEFINE(k_function_declaration_rule)
@@ -1337,12 +1340,43 @@ auto const k_enum_definition_rule_def =
 BOOST_SPIRIT_DEFINE(k_enum_definition_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_definition_rule), Iterator_Type, Context_Type)
 
+// === Impl Block Rules ===
+// Impl blocks group method implementations for a type
+// Examples:
+//   impl Point { fn distance(self): F64 { ... } }
+//   impl<T> Array<T> { fn len(self): I32 { ... } }
+
+// Parse impl block methods: zero or more function definitions
+x3::rule<struct impl_methods_tag, std::vector<ast::Function_Definition>> const k_impl_methods = "impl methods";
+auto const k_impl_methods_def = *k_function_definition_rule;
+BOOST_SPIRIT_DEFINE(k_impl_methods)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_impl_methods), Iterator_Type, Context_Type)
+
+// Parse impl block: "impl [<T>] Type { methods }"
+// Examples:
+//   impl Point { fn distance(self): F64 { ... } }
+//   impl<T> Array<T> { fn len(self): I32 { ... } fn get(self, idx: I32): Option<T> { ... } }
+//   impl<K, V> Map<K, V> { fn insert(self, key: K, value: V): Bool { ... } }
+struct Impl_Block_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Impl_Block_Tag, ast::Impl_Block> const k_impl_block_rule = "impl block";
+auto const k_impl_block_rule_def =
+    (k_kw_impl > -k_type_params > k_type_name_rule > '{' > k_impl_methods > '}')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) = ast::make_impl_block(
+          std::move(boost::fusion::at_c<1>(attr)),
+          boost::fusion::at_c<0>(attr).value_or(std::vector<ast::Type_Name>{}),
+          std::move(boost::fusion::at_c<2>(attr))
+      );
+    })];
+BOOST_SPIRIT_DEFINE(k_impl_block_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_impl_block_rule), Iterator_Type, Context_Type)
+
 // Parse statement: variant of different statement types
 // Order matters: try function definition first (longest match), then let, then others
 // expression_statement must come last as it matches most broadly
 auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule | k_enum_definition_rule |
-                                  k_let_statement_rule | k_function_call_statement_rule | k_if_statement_rule |
-                                  k_while_statement_rule | k_for_statement_rule | k_block_rule |
+                                  k_impl_block_rule | k_let_statement_rule | k_function_call_statement_rule |
+                                  k_if_statement_rule | k_while_statement_rule | k_for_statement_rule | k_block_rule |
                                   k_return_statement_rule | k_break_statement_rule | k_continue_statement_rule |
                                   k_expression_statement_rule;
 BOOST_SPIRIT_DEFINE(k_statement_rule)
@@ -1504,6 +1538,7 @@ PARSE_FN_IMPL(Module, module)                            // NOLINT(misc-use-inte
 PARSE_FN_IMPL(Function_Definition, function_definition)  // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Struct_Definition, struct_definition)      // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Enum_Definition, enum_definition)          // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Impl_Block, impl_block)                    // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Statement, statement)                      // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Block, block)                              // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Expr, expr)                                // NOLINT(misc-use-internal-linkage)

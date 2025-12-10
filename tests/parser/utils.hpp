@@ -383,9 +383,18 @@ inline std::string function_parameter(std::string_view a_name, std::string_view 
 // Function declaration
 inline std::string function_declaration(
     std::string_view a_name,
+    std::vector<std::string> const& a_type_params,
     std::vector<std::string> const& a_params,
     std::string_view a_return_type
 ) {
+  std::string type_params = "[";
+  for (size_t i = 0; i < a_type_params.size(); ++i) {
+    if (i > 0) {
+      type_params += ",";
+    }
+    type_params += a_type_params[i];
+  }
+  type_params += "]";
   std::string params = "[";
   for (size_t i = 0; i < a_params.size(); ++i) {
     if (i > 0) {
@@ -395,10 +404,11 @@ inline std::string function_declaration(
   }
   params += "]";
   return fmt::format(
-      R"({{"Function_Declaration":{{"name":"{}","parameters":{},"returnType":{}}}}})",
+      R"({{"Function_Declaration":{{"name":"{}","parameters":{},"returnType":{},"type_params":{}}}}})",
       a_name,
       params,
-      a_return_type
+      a_return_type,
+      type_params
   );
 }
 
