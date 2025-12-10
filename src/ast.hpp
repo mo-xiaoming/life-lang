@@ -46,11 +46,11 @@ struct Type_Name : boost::spirit::x3::position_tagged {
   std::vector<Type_Name_Segment> segments;
 };
 
-// Example: Map<String, I32> where "Map" is value, template_parameters = [String, I32]
+// Example: Map<String, I32> where "Map" is value, type_params = [String, I32]
 struct Type_Name_Segment : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Type_Name_Segment";
   std::string value;
-  std::vector<Type_Name> template_parameters;
+  std::vector<Type_Name> type_params;
 };
 
 // ============================================================================
@@ -63,11 +63,11 @@ struct Variable_Name : boost::spirit::x3::position_tagged {
   std::vector<Variable_Name_Segment> segments;
 };
 
-// Example: println<T> where "println" is value, template_parameters = [T]
+// Example: println<T> where "println" is value, type_params = [T]
 struct Variable_Name_Segment : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Variable_Name_Segment";
   std::string value;
-  std::vector<Type_Name> template_parameters;
+  std::vector<Type_Name> type_params;
 };
 
 // ============================================================================
@@ -511,9 +511,11 @@ struct Struct_Field : boost::spirit::x3::position_tagged {
 };
 
 // Example: struct Point { x: I32, y: I32, metadata: Option<String> }
+// Example: struct Box<T> { value: T }
 struct Struct_Definition : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Struct_Definition";
   std::string name;
+  std::vector<Type_Name> type_params;  // Generic parameters: <T>, <K, V>
   std::vector<Struct_Field> fields;
 };
 
@@ -557,9 +559,9 @@ struct Enum_Variant : boost::spirit::x3::variant<Unit_Variant, Tuple_Variant, St
 // Example: enum Result<T, E> { Ok(T), Err(E) }
 struct Enum_Definition : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Enum_Definition";
-  std::string name;                        // Enum name (must be Camel_Snake_Case)
-  std::vector<Type_Name> type_parameters;  // Generic parameters: <T>, <T, E>
-  std::vector<Enum_Variant> variants;      // List of variants
+  std::string name;                    // Enum name (must be Camel_Snake_Case)
+  std::vector<Type_Name> type_params;  // Generic parameters: <T>, <T, E>
+  std::vector<Enum_Variant> variants;  // List of variants
 };
 
 // ============================================================================
@@ -577,8 +579,8 @@ struct Module : boost::spirit::x3::position_tagged {
 // ============================================================================
 
 // Type_Name helpers
-inline Type_Name_Segment make_type_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_template_parameters) {
-  return Type_Name_Segment{{}, std::move(a_value), std::move(a_template_parameters)};
+inline Type_Name_Segment make_type_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_type_parameters) {
+  return Type_Name_Segment{{}, std::move(a_value), std::move(a_type_parameters)};
 }
 
 inline Type_Name_Segment make_type_name_segment(std::string&& a_value) {
@@ -621,8 +623,8 @@ inline Type_Name make_type_name(Args&&... a_args) {
 
 // Variable_Name helpers
 inline Variable_Name_Segment
-make_variable_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_template_parameters) {
-  return Variable_Name_Segment{{}, std::move(a_value), std::move(a_template_parameters)};
+make_variable_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_type_parameters) {
+  return Variable_Name_Segment{{}, std::move(a_value), std::move(a_type_parameters)};
 }
 
 inline Variable_Name_Segment make_variable_name_segment(std::string&& a_value) {
@@ -930,8 +932,16 @@ inline Struct_Field make_struct_field(std::string&& a_name, Type_Name&& a_type) 
   return Struct_Field{{}, std::move(a_name), std::move(a_type)};
 }
 
+inline Struct_Definition make_struct_definition(
+    std::string&& a_name,
+    std::vector<Type_Name>&& a_type_parameters,
+    std::vector<Struct_Field>&& a_fields
+) {
+  return Struct_Definition{{}, std::move(a_name), std::move(a_type_parameters), std::move(a_fields)};
+}
+
 inline Struct_Definition make_struct_definition(std::string&& a_name, std::vector<Struct_Field>&& a_fields) {
-  return Struct_Definition{{}, std::move(a_name), std::move(a_fields)};
+  return make_struct_definition(std::move(a_name), {}, std::move(a_fields));
 }
 
 // Enum helpers
@@ -994,12 +1004,12 @@ inline void to_json(nlohmann::json& a_json, Type_Name_Segment const& a_segment) 
   nlohmann::json obj;
   obj["value"] = a_segment.value;
   nlohmann::json template_params = nlohmann::json::array();
-  for (auto const& type : a_segment.template_parameters) {
+  for (auto const& type : a_segment.type_params) {
     nlohmann::json type_json;
     to_json(type_json, type);
     template_params.push_back(type_json);
   }
-  obj["template_parameters"] = template_params;
+  obj["type_params"] = template_params;
   a_json[Type_Name_Segment::k_name] = obj;
 }
 
@@ -1020,12 +1030,12 @@ inline void to_json(nlohmann::json& a_json, Variable_Name_Segment const& a_segme
   nlohmann::json obj;
   obj["value"] = a_segment.value;
   nlohmann::json template_params = nlohmann::json::array();
-  for (auto const& type : a_segment.template_parameters) {
+  for (auto const& type : a_segment.type_params) {
     nlohmann::json type_json;
     to_json(type_json, type);
     template_params.push_back(type_json);
   }
-  obj["template_parameters"] = template_params;
+  obj["type_params"] = template_params;
   a_json[Variable_Name_Segment::k_name] = obj;
 }
 
@@ -1551,6 +1561,18 @@ inline void to_json(nlohmann::json& a_json, Struct_Field const& a_field) {
 inline void to_json(nlohmann::json& a_json, Struct_Definition const& a_def) {
   nlohmann::json obj;
   obj["name"] = a_def.name;
+
+  // Type parameters (optional)
+  if (!a_def.type_params.empty()) {
+    nlohmann::json type_params = nlohmann::json::array();
+    for (auto const& param : a_def.type_params) {
+      nlohmann::json param_json;
+      to_json(param_json, param);
+      type_params.push_back(param_json);
+    }
+    obj["type_params"] = type_params;
+  }
+
   nlohmann::json fields = nlohmann::json::array();
   for (auto const& field : a_def.fields) {
     nlohmann::json field_json;
@@ -1615,14 +1637,14 @@ inline void to_json(nlohmann::json& a_json, Enum_Definition const& a_def) {
   obj["name"] = a_def.name;
 
   // Type parameters (optional)
-  if (!a_def.type_parameters.empty()) {
+  if (!a_def.type_params.empty()) {
     nlohmann::json type_params = nlohmann::json::array();
-    for (auto const& param : a_def.type_parameters) {
+    for (auto const& param : a_def.type_params) {
       nlohmann::json param_json;
       to_json(param_json, param);
       type_params.push_back(param_json);
     }
-    obj["type_parameters"] = type_params;
+    obj["type_params"] = type_params;
   }
 
   // Variants

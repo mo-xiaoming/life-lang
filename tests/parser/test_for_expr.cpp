@@ -228,7 +228,7 @@ inline auto const k_with_spaces_expected = R"({
                       "segments": [
                         {
                           "Variable_Name_Segment": {
-                            "template_parameters": [],
+                            "type_params": [],
                             "value": "work"
                           }
                         }

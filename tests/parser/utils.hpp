@@ -66,7 +66,7 @@ inline std::string var_name(std::string_view a_name) {
         {{
           "Variable_Name_Segment": {{
             "value": "{}",
-            "template_parameters": []
+            "type_params": []
           }}
         }}
       ]
@@ -83,8 +83,7 @@ inline std::string var_name_path(std::vector<std::string_view> const& a_segments
     if (i > 0) {
       segments_json += ",";
     }
-    segments_json +=
-        fmt::format(R"({{"Variable_Name_Segment":{{"value":"{}","template_parameters":[]}}}})", a_segments[i]);
+    segments_json += fmt::format(R"({{"Variable_Name_Segment":{{"value":"{}","type_params":[]}}}})", a_segments[i]);
   }
   return fmt::format(R"({{"Variable_Name":{{"segments":[{}]}}}})", segments_json);
 }
@@ -98,7 +97,7 @@ inline std::string type_name(std::string_view a_name) {
         {{
           "Type_Name_Segment": {{
             "value": "{}",
-            "template_parameters": []
+            "type_params": []
           }}
         }}
       ]
@@ -117,13 +116,13 @@ inline std::string type_name(std::string_view a_seg1, std::string_view a_seg2) {
         {{
           "Type_Name_Segment": {{
             "value": "{}",
-            "template_parameters": []
+            "type_params": []
           }}
         }},
         {{
           "Type_Name_Segment": {{
             "value": "{}",
-            "template_parameters": []
+            "type_params": []
           }}
         }}
       ]
@@ -141,7 +140,7 @@ inline std::string type_name_path(std::vector<std::string_view> const& a_segment
     if (i > 0) {
       segments_json += ",";
     }
-    segments_json += fmt::format(R"({{"Type_Name_Segment":{{"value":"{}","template_parameters":[]}}}})", a_segments[i]);
+    segments_json += fmt::format(R"({{"Type_Name_Segment":{{"value":"{}","type_params":[]}}}})", a_segments[i]);
   }
   return fmt::format(R"({{"Type_Name":{{"segments":[{}]}}}})", segments_json);
 }

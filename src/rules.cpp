@@ -123,30 +123,30 @@ struct Type_Name_Segment_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Type_Name_Tag, ast::Type_Name> const k_type_name_rule = "type name";
 x3::rule<Type_Name_Segment_Tag, ast::Type_Name_Segment> const k_type_name_segment_rule = "type name segment";
 
-// Parse template parameters: angle-bracketed comma-separated qualified names
-// Each parameter can itself be a full qualified name with templates
+// Parse type parameters: angle-bracketed comma-separated qualified names
+// Each parameter can itself be a full qualified name with type parameters
 // Examples:
 //   "<Int>"                                      - simple type
 //   "<Key, Value>"                               - multiple simple types
-//   "<Array<Int>>"                               - nested template
+//   "<Array<Int>>"                               - nested type parameter
 //   "<Data.Model.User, Config.Settings>"         - qualified names as params
 //   "<Std.String, IO.Error>"                     - multiple qualified params
 //   "<Parser<Token.Type>, Result<AST.Node, E>>"  - complex nested with qualified names
-x3::rule<struct template_params_tag, std::vector<ast::Type_Name>> const k_template_params = "template parameters";
-auto const k_template_params_def = lit('<') >> (k_type_name_rule % ',') >> lit('>');
-BOOST_SPIRIT_DEFINE(k_template_params)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_template_params), Iterator_Type, Context_Type)
+x3::rule<struct type_params_tag, std::vector<ast::Type_Name>> const k_type_params = "type parameters";
+auto const k_type_params_def = lit('<') >> (k_type_name_rule % ',') >> lit('>');
+BOOST_SPIRIT_DEFINE(k_type_params)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_type_params), Iterator_Type, Context_Type)
 
-// Parse qualified name segment: name with optional template parameters
-// A segment can have template parameters that are full qualified names (including multi-segment)
+// Parse qualified name segment: name with optional type parameters
+// A segment can have type parameters that are full qualified names (including multi-segment)
 // Examples:
 //   "Array"                                  - simple name
-//   "Array<Int>"                             - simple template
-//   "Map<String, Int>"                       - multi-param template
-//   "Table<Data.Model.User>"                 - template with qualified name
-//   "Result<IO.Error, Data.Value>"           - template with multiple qualified names
-//   "Container<Int>"                         - templated segment (can be followed by more segments)
-auto const k_type_name_segment_rule_def = (k_segment_name >> -k_template_params)[([](auto& a_ctx) {
+//   "Array<Int>"                             - simple type parameter
+//   "Map<String, Int>"                       - multi-param type parameter
+//   "Table<Data.Model.User>"                 - type parameter with qualified name
+//   "Result<IO.Error, Data.Value>"           - type parameter with multiple qualified names
+//   "Container<Int>"                         - segment with type parameters (can be followed by more segments)
+auto const k_type_name_segment_rule_def = (k_segment_name >> -k_type_params)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   x3::_val(a_ctx) = ast::make_type_name_segment(
       std::move(boost::fusion::at_c<0>(attr)),
@@ -157,17 +157,17 @@ BOOST_SPIRIT_DEFINE(k_type_name_segment_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_segment_rule), Iterator_Type, Context_Type)
 
 // Parse full qualified name: dot-separated qualified name segments
-// Any segment can have template parameters, not just the last one!
-// This allows names like "Container<T>.Iterator<Forward>" where intermediate segments are templated.
+// Any segment can have type parameters, not just the last one!
+// This allows names like "Container<T>.Iterator<Forward>" where intermediate segments have type parameters.
 // Examples:
 //   "Int"                                              - simple qualified name
 //   "Std.String"                                       - multi-segment qualified name
-//   "Std.Collections.Array<T>"                         - qualified with template on last segment
-//   "Std.Collections.Map<Key.Type, Value>"             - qualified segment with qualified template param
-//   "Container<Int>.Iterator<Forward>"                 - multiple segments with templates
-//   "Db.Table<User>.Column<Name>.Validator"            - templates in middle segments
-//   "Parser<Token>.Result<AST>.Error<String>"          - multiple templated segments in chain
-//   "Network.Protocol<Http.Request, Http.Response>"    - deeply nested qualified templates
+//   "Std.Collections.Array<T>"                         - qualified with type parameter on last segment
+//   "Std.Collections.Map<Key.Type, Value>"             - qualified segment with qualified type param
+//   "Container<Int>.Iterator<Forward>"                 - multiple segments with type parameters
+//   "Db.Table<User>.Column<Name>.Validator"            - type parameters in middle segments
+//   "Parser<Token>.Result<AST>.Error<String>"          - multiple segments with type parameters in chain
+//   "Network.Protocol<Http.Request, Http.Response>"    - deeply nested qualified type parameters
 //   "IO.Result<Data.Error, Parser.AST>"                - multiple qualified params
 auto const k_type_name_rule_def =
     (k_type_name_segment_rule %
@@ -190,9 +190,9 @@ x3::rule<Variable_Name_Tag, ast::Variable_Name> const k_variable_name_rule = "va
 x3::rule<Variable_Name_Segment_Tag, ast::Variable_Name_Segment> const k_variable_name_segment_rule =
     "variable name segment";
 
-// Parse variable name segment with optional template parameters
+// Parse variable name segment with optional type parameters
 // Examples: "foo", "map<Int, String>", "Vec<T>"
-auto const k_variable_name_segment_rule_def = (k_segment_name >> -k_template_params)[([](auto& a_ctx) {
+auto const k_variable_name_segment_rule_def = (k_segment_name >> -k_type_params)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   x3::_val(a_ctx) = ast::make_variable_name_segment(
       std::move(boost::fusion::at_c<0>(attr)),
@@ -1248,17 +1248,19 @@ auto const k_struct_name_def = k_segment_name;
 BOOST_SPIRIT_DEFINE(k_struct_name)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_name), Iterator_Type, Context_Type)
 
-// Parse struct definition: "struct Name { fields }"
+// Parse struct definition: "struct Name<T> { fields }"
 // Examples:
 //   struct Point { x: I32, y: I32 }
 //   struct Empty { }
-//   struct Complex { field1: Type1, field2: Type2, field3: Type3 }
+//   struct Box<T> { value: T }
+//   struct Map<K, V> { keys: Vec<K>, values: Vec<V> }
 auto const k_struct_definition_rule_def =
-    (k_kw_struct > k_struct_name > '{' > -k_struct_fields > '}')[([](auto& a_ctx) {
+    (k_kw_struct > k_struct_name > -k_type_params > '{' > -k_struct_fields > '}')[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
       x3::_val(a_ctx) = ast::make_struct_definition(
           std::move(boost::fusion::at_c<0>(attr)),
-          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Struct_Field>{})
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{}),
+          boost::fusion::at_c<2>(attr).value_or(std::vector<ast::Struct_Field>{})
       );
     })];
 BOOST_SPIRIT_DEFINE(k_struct_definition_rule)
@@ -1324,7 +1326,7 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_name), Iterator_Type, Context_Type)
 struct Enum_Definition_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Enum_Definition_Tag, ast::Enum_Definition> const k_enum_definition_rule = "enum definition";
 auto const k_enum_definition_rule_def =
-    (k_kw_enum > k_enum_name > -k_template_params > '{' > -k_enum_variants > '}')[([](auto& a_ctx) {
+    (k_kw_enum > k_enum_name > -k_type_params > '{' > -k_enum_variants > '}')[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
       x3::_val(a_ctx) = ast::make_enum_definition(
           std::move(boost::fusion::at_c<0>(attr)),
