@@ -89,7 +89,8 @@ auto const k_reserved = lexeme[k_keywords >> !(alnum | '_')];
 // Naming convention enforcement is deferred to semantic analysis phase:
 //   - Variables/functions should be snake_case
 //   - Types/modules should be Camel_Snake_Case
-// Note: 'self' is a reserved keyword but allowed as identifier for UFCS (parameter/variable name)
+// Note: 'self' is reserved for impl block methods but parser allows it as parameter name
+//   Semantic validation (future) will enforce 'self' only used in impl block methods
 // Examples: "Vec", "Array", "foo", "MyType123", "IO", "my_var", "HTTP_Server", "self"
 x3::rule<struct segment_name_tag, std::string> const k_segment_name = "segment name";
 auto const k_segment_name_def = raw[lexeme[alpha >> *(alnum | '_')]] - (k_reserved - k_kw_self);
@@ -417,15 +418,24 @@ auto const k_param_type_def = k_type_name_rule;
 BOOST_SPIRIT_DEFINE(k_param_type)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_param_type), Iterator_Type, Context_Type)
 
-// Parse function parameter: "name: Type" or "mut name: Type"
-// Example: "x: Int", "mut self: Point", "callback: Fn<String, Bool>"
+// Parse function parameter: "name: Type" or "mut name: Type" or "self" (type optional for self)
+// Examples: "x: Int", "mut self: Point", "callback: Fn<String, Bool>", "self", "mut self"
 auto const k_function_parameter_rule_def =
-    ((x3::matches[k_kw_mut] >> k_param_name) > ':' > k_param_type)[([](auto& a_ctx) {
+    (x3::matches[k_kw_mut] >> k_param_name >> -(':' > k_param_type))[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
+      auto const& is_mut = boost::fusion::at_c<0>(attr);
+      auto& name = boost::fusion::at_c<1>(attr);
+      auto& opt_type = boost::fusion::at_c<2>(attr);
+
+      std::optional<ast::Type_Name> type;
+      if (opt_type) {
+        type = std::move(*opt_type);
+      }
+
       x3::_val(a_ctx) = ast::make_function_parameter(
-          boost::fusion::at_c<0>(attr),             // is_mut: bool
-          std::move(boost::fusion::at_c<1>(attr)),  // name: string
-          std::move(boost::fusion::at_c<2>(attr))   // type: Type_Name
+          is_mut,           // is_mut: bool
+          std::move(name),  // name: string
+          std::move(type)   // type: optional<Type_Name>
       );
     })];
 BOOST_SPIRIT_DEFINE(k_function_parameter_rule)
@@ -1359,6 +1369,7 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_definition_rule), Iterator_Type, Contex
 // Examples:
 //   impl Point { fn distance(self): F64 { ... } }
 //   impl<T> Array<T> { fn len(self): I32 { ... } }
+// Note: self parameter type is optional in impl blocks (inferred from impl type)
 
 // Parse impl block methods: zero or more function definitions
 x3::rule<struct impl_methods_tag, std::vector<ast::Function_Definition>> const k_impl_methods = "impl methods";
@@ -1371,6 +1382,7 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_impl_methods), Iterator_Type, Context_Type)
 //   impl Point { fn distance(self): F64 { ... } }
 //   impl<T> Array<T> { fn len(self): I32 { ... } fn get(self, idx: I32): Option<T> { ... } }
 //   impl<K, V> Map<K, V> { fn insert(self, key: K, value: V): Bool { ... } }
+// Note: self parameter type is optional (can be just 'self' or 'self: Type')
 struct Impl_Block_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Impl_Block_Tag, ast::Impl_Block> const k_impl_block_rule = "impl block";
 auto const k_impl_block_rule_def =

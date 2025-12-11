@@ -18,13 +18,18 @@ Use `dev` preset for fast iteration (clang-tidy disabled), `debug` for strict ch
   - Access: `point.x`, `obj.field.nested` (chained field access)
 
 ### Functions and Methods
-- **Keywords**: `fn` for functions, `self` reserved keyword for UFCS parameter
-- **UFCS Supported**: Functions with `self` parameter can be used like methods
-  - Define: `fn distance(self: Point): I32 { return 42; }`
-  - Call syntax: `obj.method()` desugars to `method(obj)` (semantic analysis phase, not parser)
-  - `self` allowed as parameter/variable name despite being a keyword
+- **Keywords**: `fn` for functions, `self` reserved keyword for impl block methods
+- **Methods**: Defined only inside `impl Type` blocks
+  - Define: `impl Point { fn distance(self): F64 { return 0.0; } }` (type optional)
+  - Alternative: `impl Point { fn distance(self: Point): F64 { return 0.0; } }` (explicit type)
+  - Call syntax: `point.distance()` (dot notation for methods)
+  - `self` parameter type is optional in impl blocks (inferred from impl type)
+  - `self` parameter allowed only in impl block methods (enforced in semantic analysis)
+- **Free functions**: Regular functions without `self` parameter
+  - Define: `fn make_point(x: I32, y: I32): Point { return Point { x: x, y: y }; }`
+  - Call syntax: `make_point(1, 2)` (function call syntax)
 - **Mutation**: `mut self` for methods that modify receiver (future feature)
-- **No implicit `this`**: Explicit `self` parameter required
+- **No implicit `this`**: Explicit `self` parameter required in method signatures
 
 ### Values and Scoping
 - **No special "constant" concept**: Everything is immutable by default (value semantics)

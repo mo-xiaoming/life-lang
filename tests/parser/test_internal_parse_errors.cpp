@@ -66,8 +66,9 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
     std::string const actual = output.str();
 
     // Spirit X3's message extracted, formatted by our diagnostic engine
+    // Type is now optional, so parser expects ')' after parameter name
     std::string const expected =
-        "<input>:1:1: error: Failed to parse function definition: Expecting: ':' here:\n"
+        "<input>:1:1: error: Failed to parse function definition: Expecting: ')' here:\n"
         "    fn test(param Type) {}\n"
         "    ^\n";
 
@@ -75,7 +76,7 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
   }
 
   SECTION("Shows line with error and caret") {
-    std::string const input = "fn func(x Int) {}";  // Missing ':'
+    std::string const input = "fn func(x Int) {}";  // Missing ':' (or type after 'x' without colon)
     auto begin = input.cbegin();
     auto const end = input.cend();
 
@@ -88,8 +89,9 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
     std::string const actual = output.str();
 
     // Shows source line with caret (Spirit X3's formatting suppressed)
+    // Note: Since type is optional after parameter name, parser expects ')' when it sees 'Int'
     std::string const expected =
-        "<input>:1:1: error: Failed to parse function definition: Expecting: ':' here:\n"
+        "<input>:1:1: error: Failed to parse function definition: Expecting: ')' here:\n"
         "    fn func(x Int) {}\n"
         "    ^\n";
 
