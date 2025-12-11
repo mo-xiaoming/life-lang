@@ -20,15 +20,15 @@ inline auto const k_simple_inclusive_expected =
     test_json::range_expr(test_json::integer(0), test_json::integer(10), true);
 
 // Variable range (exclusive)
-constexpr auto k_variable_range_should_succeed = true;
-constexpr auto k_variable_range_input = "start..end";
-inline auto const k_variable_range_expected =
+constexpr auto k_var_range_should_succeed = true;
+constexpr auto k_var_range_input = "start..end";
+inline auto const k_var_range_expected =
     test_json::range_expr(test_json::var_name("start"), test_json::var_name("end"), false);
 
 // Variable range (inclusive)
-constexpr auto k_variable_range_inclusive_should_succeed = true;
-constexpr auto k_variable_range_inclusive_input = "start..=end";
-inline auto const k_variable_range_inclusive_expected = fmt::format(
+constexpr auto k_var_range_inclusive_should_succeed = true;
+constexpr auto k_var_range_inclusive_input = "start..=end";
+inline auto const k_var_range_inclusive_expected = fmt::format(
     R"({{
   "Range_Expr": {{
     "start": {},
@@ -48,10 +48,10 @@ inline auto const k_arithmetic_range_expected = R"({
     "start": {
       "Binary_Expr": {
         "lhs": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "x"
                 }
@@ -70,10 +70,10 @@ inline auto const k_arithmetic_range_expected = R"({
     "end": {
       "Binary_Expr": {
         "lhs": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "y"
                 }
@@ -198,11 +198,11 @@ TEST_CASE("Parse Range_Expr", "[parser]") {
            k_simple_inclusive_input,
            k_simple_inclusive_expected,
            k_simple_inclusive_should_succeed},
-          {"variable range", k_variable_range_input, k_variable_range_expected, k_variable_range_should_succeed},
+          {"variable range", k_var_range_input, k_var_range_expected, k_var_range_should_succeed},
           {"variable range inclusive",
-           k_variable_range_inclusive_input,
-           k_variable_range_inclusive_expected,
-           k_variable_range_inclusive_should_succeed},
+           k_var_range_inclusive_input,
+           k_var_range_inclusive_expected,
+           k_var_range_inclusive_should_succeed},
           {"arithmetic range",
            k_arithmetic_range_input,
            k_arithmetic_range_expected,

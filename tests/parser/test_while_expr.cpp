@@ -62,21 +62,21 @@ inline auto const k_placeholder_remove_me = fmt::format(
       "Block": {{
         "statements": [
           {{
-            "Function_Call_Statement": {{
+            "Func_Call_Statement": {{
               "expr": {{
-                "Function_Call_Expr": {{
+                "Func_Call_Expr": {{
                   "name": {},
-                  "parameters": []
+                  "params": []
                 }}
               }}
             }}
           }},
           {{
-            "Function_Call_Statement": {{
+            "Func_Call_Statement": {{
               "expr": {{
-                "Function_Call_Expr": {{
+                "Func_Call_Expr": {{
                   "name": {},
-                  "parameters": []
+                  "params": []
                 }}
               }}
             }}
@@ -98,9 +98,9 @@ inline auto const k_placeholder_remove_me = fmt::format(
 );
 
 // While with function call condition
-constexpr auto k_while_function_condition_should_succeed = true;
-constexpr auto k_while_function_condition_input = "while has_more() { process(); }";
-inline auto const k_while_function_condition_expected = test_json::while_expr(
+constexpr auto k_while_func_condition_should_succeed = true;
+constexpr auto k_while_func_condition_input = "while has_more() { process(); }";
+inline auto const k_while_func_condition_expected = test_json::while_expr(
     test_json::function_call(test_json::var_name("has_more"), {}),
     test_json::block({test_json::function_call_statement(test_json::function_call(test_json::var_name("process"), {}))})
 );
@@ -132,11 +132,11 @@ inline auto const k_nested_while_expected = fmt::format(
                     "Block": {{
                       "statements": [
                         {{
-                          "Function_Call_Statement": {{
+                          "Func_Call_Statement": {{
                             "expr": {{
-                              "Function_Call_Expr": {{
+                              "Func_Call_Expr": {{
                                 "name": {},
-                                "parameters": []
+                                "params": []
                               }}
                             }}
                           }}
@@ -195,11 +195,11 @@ inline auto const k_while_less_and_greater_expected = fmt::format(
       "Block": {{
         "statements": [
           {{
-            "Function_Call_Statement": {{
+            "Func_Call_Statement": {{
               "expr": {{
-                "Function_Call_Expr": {{
+                "Func_Call_Expr": {{
                   "name": {},
-                  "parameters": []
+                  "params": []
                 }}
               }}
             }}
@@ -254,9 +254,9 @@ TEST_CASE("Parse While_Expr", "[parser]") {
            k_while_multiple_statements_expected,
            k_while_multiple_statements_should_succeed},
           {"while with function condition",
-           k_while_function_condition_input,
-           k_while_function_condition_expected,
-           k_while_function_condition_should_succeed},
+           k_while_func_condition_input,
+           k_while_func_condition_expected,
+           k_while_func_condition_should_succeed},
           {"while with unary condition",
            k_while_unary_condition_input,
            k_while_unary_condition_expected,

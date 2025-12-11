@@ -30,9 +30,9 @@ inline auto const k_simple_range_inclusive_expected = test_json::for_expr(
 );
 
 // Variable range
-constexpr auto k_variable_range_should_succeed = true;
-constexpr auto k_variable_range_input = "for item in start..end { work(item); }";
-inline auto const k_variable_range_expected = test_json::for_expr(
+constexpr auto k_var_range_should_succeed = true;
+constexpr auto k_var_range_input = "for item in start..end { work(item); }";
+inline auto const k_var_range_expected = test_json::for_expr(
     test_json::simple_pattern("item"),
     test_json::range_expr(test_json::var_name("start"), test_json::var_name("end"), false),
     test_json::block({test_json::function_call_statement(
@@ -93,11 +93,11 @@ inline auto const k_nested_for_loops_expected = fmt::format(
                     "Block": {{
                       "statements": [
                         {{
-                          "Function_Call_Statement": {{
+                          "Func_Call_Statement": {{
                             "expr": {{
-                              "Function_Call_Expr": {{
+                              "Func_Call_Expr": {{
                                 "name": {},
-                                "parameters": [{}, {}]
+                                "params": [{}, {}]
                               }}
                             }}
                           }}
@@ -137,21 +137,21 @@ inline auto const k_multiple_statements_expected = fmt::format(
       "Block": {{
         "statements": [
           {{
-            "Function_Call_Statement": {{
+            "Func_Call_Statement": {{
               "expr": {{
-                "Function_Call_Expr": {{
+                "Func_Call_Expr": {{
                   "name": {},
-                  "parameters": [{}]
+                  "params": [{}]
                 }}
               }}
             }}
           }},
           {{
-            "Function_Call_Statement": {{
+            "Func_Call_Statement": {{
               "expr": {{
-                "Function_Call_Expr": {{
+                "Func_Call_Expr": {{
                   "name": {},
-                  "parameters": [{}]
+                  "params": [{}]
                 }}
               }}
             }}
@@ -168,27 +168,27 @@ inline auto const k_multiple_statements_expected = fmt::format(
 );
 
 // For with function call as iterator
-constexpr auto k_function_call_iterator_should_succeed = true;
-constexpr auto k_function_call_iterator_input = "for item in get_items() { process(item); }";
-inline auto const k_function_call_iterator_expected = fmt::format(
+constexpr auto k_func_call_iterator_should_succeed = true;
+constexpr auto k_func_call_iterator_input = "for item in get_items() { process(item); }";
+inline auto const k_func_call_iterator_expected = fmt::format(
     R"({{
   "For_Expr": {{
     "pattern": {{ "Simple_Pattern": {{ "name": "item" }} }},
     "iterator": {{
-      "Function_Call_Expr": {{
+      "Func_Call_Expr": {{
         "name": {},
-        "parameters": []
+        "params": []
       }}
     }},
     "body": {{
       "Block": {{
         "statements": [
           {{
-            "Function_Call_Statement": {{
+            "Func_Call_Statement": {{
               "expr": {{
-                "Function_Call_Expr": {{
+                "Func_Call_Expr": {{
                   "name": {},
-                  "parameters": [{}]
+                  "params": [{}]
                 }}
               }}
             }}
@@ -220,14 +220,14 @@ inline auto const k_with_spaces_expected = R"({
       "Block": {
         "statements": [
           {
-            "Function_Call_Statement": {
+            "Func_Call_Statement": {
               "expr": {
-                "Function_Call_Expr": {
+                "Func_Call_Expr": {
                   "name": {
-                    "Variable_Name": {
+                    "Var_Name": {
                       "segments": [
                         {
-                          "Variable_Name_Segment": {
+                          "Var_Name_Segment": {
                             "type_params": [],
                             "value": "work"
                           }
@@ -235,7 +235,7 @@ inline auto const k_with_spaces_expected = R"({
                       ]
                     }
                   },
-                  "parameters": []
+                  "params": []
                 }
               }
             }
@@ -286,7 +286,7 @@ TEST_CASE("Parse For_Expr", "[parser]") {
            k_simple_range_inclusive_input,
            k_simple_range_inclusive_expected,
            k_simple_range_inclusive_should_succeed},
-          {"variable range", k_variable_range_input, k_variable_range_expected, k_variable_range_should_succeed},
+          {"variable range", k_var_range_input, k_var_range_expected, k_var_range_should_succeed},
           {"collection iteration",
            k_collection_iteration_input,
            k_collection_iteration_expected,
@@ -301,9 +301,9 @@ TEST_CASE("Parse For_Expr", "[parser]") {
            k_multiple_statements_expected,
            k_multiple_statements_should_succeed},
           {"function call iterator",
-           k_function_call_iterator_input,
-           k_function_call_iterator_expected,
-           k_function_call_iterator_should_succeed},
+           k_func_call_iterator_input,
+           k_func_call_iterator_expected,
+           k_func_call_iterator_should_succeed},
           {"with spaces", k_with_spaces_input, k_with_spaces_expected, k_with_spaces_should_succeed},
 
           // Invalid cases

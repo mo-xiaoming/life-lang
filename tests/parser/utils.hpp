@@ -5,7 +5,7 @@
 // All parser test files should follow this consistent pattern:
 //
 // 1. Use PARSE_TEST macro to generate test infrastructure:
-//    PARSE_TEST(Ast_Type, parser_function_name)
+//    PARSE_TEST(Ast_Type, parser_func_name)
 //
 // 2. Define constants in namespace{} with this ordering:
 //    constexpr auto k_test_name_should_succeed = true/false;  // FIRST
@@ -16,21 +16,21 @@
 //    {"test name", k_test_name_input, k_test_name_expected, k_test_name_should_succeed}
 //
 // EXAMPLE:
-//   PARSE_TEST(Function_Call_Statement, function_call_statement)
+//   PARSE_TEST(Func_Call_Statement, function_call_statement)
 //
 //   namespace {
 //   constexpr auto k_no_args_should_succeed = true;
 //   constexpr auto k_no_args_input = "foo();";
 //   inline auto const k_no_args_expected = R"({
-//     "Function_Call_Statement": {
+//     "Func_Call_Statement": {
 //       "expr": { ... }
 //     }
 //   })";
 //   }  // namespace
 //
-//   TEST_CASE("Parse Function_Call_Statement", "[parser]") {
+//   TEST_CASE("Parse Func_Call_Statement", "[parser]") {
 //     auto const params = GENERATE(
-//       Catch::Generators::values<Function_Call_Statement_Params>({
+//       Catch::Generators::values<Func_Call_Statement_Params>({
 //         {"no arguments", k_no_args_input, k_no_args_expected, k_no_args_should_succeed},
 //       })
 //     );
@@ -61,10 +61,10 @@ namespace test_json {
 inline std::string var_name(std::string_view a_name) {
   return fmt::format(
       R"({{
-    "Variable_Name": {{
+    "Var_Name": {{
       "segments": [
         {{
-          "Variable_Name_Segment": {{
+          "Var_Name_Segment": {{
             "value": "{}",
             "type_params": []
           }}
@@ -83,9 +83,9 @@ inline std::string var_name_path(std::vector<std::string_view> const& a_segments
     if (i > 0) {
       segments_json += ",";
     }
-    segments_json += fmt::format(R"({{"Variable_Name_Segment":{{"value":"{}","type_params":[]}}}})", a_segments[i]);
+    segments_json += fmt::format(R"({{"Var_Name_Segment":{{"value":"{}","type_params":[]}}}})", a_segments[i]);
   }
-  return fmt::format(R"({{"Variable_Name":{{"segments":[{}]}}}})", segments_json);
+  return fmt::format(R"({{"Var_Name":{{"segments":[{}]}}}})", segments_json);
 }
 
 // Type name with single segment (no templates)
@@ -143,6 +143,11 @@ inline std::string type_name_path(std::vector<std::string_view> const& a_segment
     segments_json += fmt::format(R"({{"Type_Name_Segment":{{"value":"{}","type_params":[]}}}})", a_segments[i]);
   }
   return fmt::format(R"({{"Type_Name":{{"segments":[{}]}}}})", segments_json);
+}
+
+// Type parameter (wraps a Type_Name in Type_Param for generic declarations)
+inline std::string type_param(std::string_view a_type_name_json) {
+  return fmt::format(R"({{"Type_Param":{{"name":{}}}}})", a_type_name_json);
 }
 
 // Integer literal
@@ -232,7 +237,7 @@ inline std::string function_call(std::string_view a_name, std::vector<std::strin
     params += a_args[i];
   }
   params += "]";
-  return fmt::format(R"({{"Function_Call_Expr":{{"name":{},"parameters":{}}}}})", a_name, params);
+  return fmt::format(R"({{"Func_Call_Expr":{{"name":{},"params":{}}}}})", a_name, params);
 }
 
 // Match expression
@@ -277,7 +282,7 @@ inline std::string return_statement(std::string_view a_expr) {
 
 // Function call statement
 inline std::string function_call_statement(std::string_view a_expr) {
-  return fmt::format(R"({{"Function_Call_Statement":{{"expr":{}}}}})", a_expr);
+  return fmt::format(R"({{"Func_Call_Statement":{{"expr":{}}}}})", a_expr);
 }
 
 // Assignment expression
@@ -358,7 +363,7 @@ inline std::string struct_field(std::string_view a_name, std::string_view a_type
 }
 
 // Struct definition
-inline std::string struct_definition(std::string_view a_name, std::vector<std::string> const& a_fields) {
+inline std::string struct_def(std::string_view a_name, std::vector<std::string> const& a_fields) {
   std::string fields = "[";
   for (size_t i = 0; i < a_fields.size(); ++i) {
     if (i > 0) {
@@ -367,13 +372,13 @@ inline std::string struct_definition(std::string_view a_name, std::vector<std::s
     fields += a_fields[i];
   }
   fields += "]";
-  return fmt::format(R"({{"Struct_Definition":{{"fields":{},"name":"{}"}}}})", fields, a_name);
+  return fmt::format(R"({{"Struct_Def":{{"fields":{},"name":"{}"}}}})", fields, a_name);
 }
 
 // Function parameter
 inline std::string function_parameter(std::string_view a_name, std::string_view a_type, bool a_is_mut = false) {
   return fmt::format(
-      R"({{"Function_Parameter":{{"is_mut":{},"name":"{}","type":{}}}}})",
+      R"({{"Func_Param":{{"is_mut":{},"name":"{}","type":{}}}}})",
       a_is_mut ? "true" : "false",
       a_name,
       a_type
@@ -381,7 +386,7 @@ inline std::string function_parameter(std::string_view a_name, std::string_view 
 }
 
 // Function declaration
-inline std::string function_declaration(
+inline std::string func_decl(
     std::string_view a_name,
     std::vector<std::string> const& a_type_params,
     std::vector<std::string> const& a_params,
@@ -404,7 +409,7 @@ inline std::string function_declaration(
   }
   params += "]";
   return fmt::format(
-      R"({{"Function_Declaration":{{"name":"{}","parameters":{},"returnType":{},"type_params":{}}}}})",
+      R"({{"Func_Decl":{{"name":"{}","params":{},"return_type":{},"type_params":{}}}}})",
       a_name,
       params,
       a_return_type,
@@ -413,8 +418,8 @@ inline std::string function_declaration(
 }
 
 // Function definition
-inline std::string function_definition(std::string_view a_declaration, std::string_view a_body) {
-  return fmt::format(R"({{"Function_Definition":{{"declaration":{},"body":{}}}}})", a_declaration, a_body);
+inline std::string func_def(std::string_view a_declaration, std::string_view a_body) {
+  return fmt::format(R"({{"Func_Def":{{"decl":{},"body":{}}}}})", a_declaration, a_body);
 }
 
 }  // namespace test_json

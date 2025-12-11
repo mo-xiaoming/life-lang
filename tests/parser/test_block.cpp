@@ -18,9 +18,9 @@ constexpr auto k_single_return_input = "{return hello;}";
 inline auto const k_single_return_expected =
     test_json::block({test_json::return_statement(test_json::var_name("hello"))});
 
-constexpr auto k_single_function_call_should_succeed = true;
-constexpr auto k_single_function_call_input = "{foo();}";
-inline auto const k_single_function_call_expected =
+constexpr auto k_single_func_call_should_succeed = true;
+constexpr auto k_single_func_call_input = "{foo();}";
+inline auto const k_single_func_call_expected =
     test_json::block({test_json::function_call_statement(test_json::function_call(test_json::var_name("foo"), {}))});
 
 // Multiple statements
@@ -31,20 +31,20 @@ inline auto const k_two_statements_expected = fmt::format(
   "Block": {{
     "statements": [
       {{
-        "Function_Call_Statement": {{
+        "Func_Call_Statement": {{
           "expr": {{
-            "Function_Call_Expr": {{
+            "Func_Call_Expr": {{
               "name": {{
-                "Variable_Name": {{
+                "Var_Name": {{
                   "segments": [
                     {{
-                      "Variable_Name_Segment": {{
+                      "Var_Name_Segment": {{
                         "value": "hello",
                         "type_params": []
                       }}
                     }},
                     {{
-                      "Variable_Name_Segment": {{
+                      "Var_Name_Segment": {{
                         "value": "a",
                         "type_params": []
                       }}
@@ -52,7 +52,7 @@ inline auto const k_two_statements_expected = fmt::format(
                   ]
                 }}
               }},
-              "parameters": []
+              "params": []
             }}
           }}
         }}
@@ -75,21 +75,21 @@ inline auto const k_multiple_statements_expected = fmt::format(
   "Block": {{
     "statements": [
       {{
-        "Function_Call_Statement": {{
+        "Func_Call_Statement": {{
           "expr": {{
-            "Function_Call_Expr": {{
+            "Func_Call_Expr": {{
               "name": {},
-              "parameters": []
+              "params": []
             }}
           }}
         }}
       }},
       {{
-        "Function_Call_Statement": {{
+        "Func_Call_Statement": {{
           "expr": {{
-            "Function_Call_Expr": {{
+            "Func_Call_Expr": {{
               "name": {},
-              "parameters": []
+              "params": []
             }}
           }}
         }}
@@ -118,11 +118,11 @@ inline auto const k_nested_block_expected = fmt::format(
   "Block": {{
     "statements": [
       {{
-        "Function_Call_Statement": {{
+        "Func_Call_Statement": {{
           "expr": {{
-            "Function_Call_Expr": {{
+            "Func_Call_Expr": {{
               "name": {},
-              "parameters": [
+              "params": [
                 {}
               ]
             }}
@@ -156,11 +156,11 @@ inline auto const k_with_spaces_expected = fmt::format(
   "Block": {{
     "statements": [
       {{
-        "Function_Call_Statement": {{
+        "Func_Call_Statement": {{
           "expr": {{
-            "Function_Call_Expr": {{
+            "Func_Call_Expr": {{
               "name": {},
-              "parameters": []
+              "params": []
             }}
           }}
         }}
@@ -212,9 +212,9 @@ TEST_CASE("Parse Block", "[parser]") {
           // Single statement blocks
           {"single return", k_single_return_input, k_single_return_expected, k_single_return_should_succeed},
           {"single function call",
-           k_single_function_call_input,
-           k_single_function_call_expected,
-           k_single_function_call_should_succeed},
+           k_single_func_call_input,
+           k_single_func_call_expected,
+           k_single_func_call_should_succeed},
 
           // Multiple statements
           {"two statements", k_two_statements_input, k_two_statements_expected, k_two_statements_should_succeed},

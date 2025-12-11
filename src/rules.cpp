@@ -57,8 +57,8 @@ auto const k_skipper = x3::ascii::space | k_comment;
 
 struct Keyword_Symbols : x3::symbols<> {
   Keyword_Symbols() {
-    add("fn")("let")("return")("struct")("enum")("impl")("self")("mut")("if")("else")("while")("for")("in")("match")(
-        "break")("continue"
+    add("fn")("let")("return")("struct")("enum")("impl")("trait")("self")("mut")("if")("else")("while")("for")("in")("match")(
+        "break")("continue")("where"
     );
   }
 } const k_keywords;
@@ -70,6 +70,7 @@ auto const k_kw_return = lexeme[lit("return") >> !(alnum | '_')];
 auto const k_kw_struct = lexeme[lit("struct") >> !(alnum | '_')];
 auto const k_kw_enum = lexeme[lit("enum") >> !(alnum | '_')];
 auto const k_kw_impl = lexeme[lit("impl") >> !(alnum | '_')];
+auto const k_kw_trait = lexeme[lit("trait") >> !(alnum | '_')];
 auto const k_kw_self = lexeme[lit("self") >> !(alnum | '_')];
 auto const k_kw_mut = lexeme[lit("mut") >> !(alnum | '_')];
 auto const k_kw_if = lexeme[lit("if") >> !(alnum | '_')];
@@ -80,6 +81,7 @@ auto const k_kw_in = lexeme[lit("in") >> !(alnum | '_')];
 auto const k_kw_match = lexeme[lit("match") >> !(alnum | '_')];
 auto const k_kw_break = lexeme[lit("break") >> !(alnum | '_')];
 auto const k_kw_continue = lexeme[lit("continue") >> !(alnum | '_')];
+auto const k_kw_where = lexeme[lit("where") >> !(alnum | '_')];
 
 // Reserved word rule: matches any registered keyword (for identifier validation)
 auto const k_reserved = lexeme[k_keywords >> !(alnum | '_')];
@@ -125,8 +127,9 @@ struct Type_Name_Segment_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Type_Name_Tag, ast::Type_Name> const k_type_name_rule = "type name";
 x3::rule<Type_Name_Segment_Tag, ast::Type_Name_Segment> const k_type_name_segment_rule = "type name segment";
 
-// Parse type parameters: angle-bracketed comma-separated qualified names
-// Each parameter can itself be a full qualified name with type parameters
+// Parse type arguments: angle-bracketed comma-separated type names (for type instantiation)
+// Used when applying types, e.g., Array<Int>, Map<String, Value>
+// These are NOT type parameter declarations, so no trait bounds
 // Examples:
 //   "<Int>"                                      - simple type
 //   "<Key, Value>"                               - multiple simple types
@@ -134,10 +137,101 @@ x3::rule<Type_Name_Segment_Tag, ast::Type_Name_Segment> const k_type_name_segmen
 //   "<Data.Model.User, Config.Settings>"         - qualified names as params
 //   "<Std.String, IO.Error>"                     - multiple qualified params
 //   "<Parser<Token.Type>, Result<AST.Node, E>>"  - complex nested with qualified names
-x3::rule<struct type_params_tag, std::vector<ast::Type_Name>> const k_type_params = "type parameters";
+x3::rule<struct type_params_tag, std::vector<ast::Type_Name>> const k_type_params = "type arguments";
 auto const k_type_params_def = lit('<') >> (k_type_name_rule % ',') >> lit('>');
 BOOST_SPIRIT_DEFINE(k_type_params)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_type_params), Iterator_Type, Context_Type)
+
+// Parse single trait bound (just the trait name, not the colon)
+// Examples:
+//   "Display"     - Display trait
+//   "Iterator"    - Iterator trait
+//   "Clone"       - Clone trait
+struct Trait_Bound_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Trait_Bound_Tag, ast::Trait_Bound> const k_trait_bound_rule = "trait bound";
+auto const k_trait_bound_rule_def =
+    k_type_name_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_trait_bound(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_trait_bound_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_trait_bound_rule), Iterator_Type, Context_Type)
+
+// Parse trait bounds list: colon followed by one or more trait names separated by +
+// Examples:
+//   ": Display"              - single bound
+//   ": Display + Clone"      - multiple bounds
+//   ": Eq + Ord + Hash"      - three bounds
+x3::rule<struct trait_bounds_tag, std::vector<ast::Trait_Bound>> const k_trait_bounds = "trait bounds";
+auto const k_trait_bounds_def = lit(':') >> (k_trait_bound_rule % '+');
+BOOST_SPIRIT_DEFINE(k_trait_bounds)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_trait_bounds), Iterator_Type, Context_Type)
+
+// Parse type parameter: name with optional trait bounds (multiple bounds supported via + operator)
+// Examples:
+//   "T"                      - type parameter without bounds
+//   "T: Display"             - single bound
+//   "T: Display + Clone"     - multiple bounds
+//   "U: Eq + Ord + Hash"     - three bounds
+//   "Key"                    - simple unbound parameter
+struct Type_Param_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Type_Param_Tag, ast::Type_Param> const k_type_param_rule = "type parameter";
+auto const k_type_param_rule_def = (k_type_name_rule >> -k_trait_bounds)[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  auto& boost_opt_bounds = boost::fusion::at_c<1>(attr);
+
+  // Convert boost::optional<vector> to vector (empty if no bounds)
+  std::vector<ast::Trait_Bound> bounds;
+  if (boost_opt_bounds) {
+    bounds = std::move(*boost_opt_bounds);
+  }
+
+  x3::_val(a_ctx) = ast::make_type_param(std::move(boost::fusion::at_c<0>(attr)), std::move(bounds));
+})];
+BOOST_SPIRIT_DEFINE(k_type_param_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_type_param_rule), Iterator_Type, Context_Type)
+
+// Parse type parameter declarations: angle-bracketed comma-separated type parameters with optional bounds
+// Used in generic declarations (functions, structs, enums, impls, traits)
+// Phase 2.3b: Multiple bounds with + operator supported
+// Examples:
+//   "<T>"                                - simple parameter (no bounds)
+//   "<T: Display>"                       - single bound
+//   "<T: Display + Clone>"               - multiple bounds
+//   "<T, U>"                             - multiple simple params (no bounds)
+//   "<T: Display, U: Clone>"             - multiple params with bounds
+//   "<T: Display + Clone, U: Eq + Ord>"  - multiple params with multiple bounds each
+x3::rule<struct type_param_decls_tag, std::vector<ast::Type_Param>> const k_type_param_decls =
+    "type parameter declarations";
+auto const k_type_param_decls_def = lit('<') >> (k_type_param_rule % ',') >> lit('>');
+BOOST_SPIRIT_DEFINE(k_type_param_decls)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_type_param_decls), Iterator_Type, Context_Type)
+
+// Parse where predicate: Type_Name : trait bounds
+// Examples:
+//   "T: Display"                    - single bound
+//   "T: Display + Clone"            - multiple bounds
+//   "Iterator: Clone + Eq"          - complex type with multiple bounds
+struct Where_Predicate_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Where_Predicate_Tag, ast::Where_Predicate> const k_where_predicate = "where predicate";
+auto const k_where_predicate_def = (k_type_name_rule >> k_trait_bounds)[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  x3::_val(a_ctx) =
+      ast::make_where_predicate(std::move(boost::fusion::at_c<0>(attr)), std::move(boost::fusion::at_c<1>(attr)));
+})];
+BOOST_SPIRIT_DEFINE(k_where_predicate)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_where_predicate), Iterator_Type, Context_Type)
+
+// Parse where clause: "where" keyword followed by comma-separated predicates
+// Examples:
+//   "where T: Display"                          - single predicate
+//   "where T: Display, U: Clone"                - multiple predicates
+//   "where T: Display + Clone, U: Eq + Ord"     - multiple predicates with multiple bounds
+struct Where_Clause_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Where_Clause_Tag, ast::Where_Clause> const k_where_clause = "where clause";
+auto const k_where_clause_def = (k_kw_where > (k_where_predicate % ','))[([](auto& a_ctx) {
+  // Use the synthesized attribute directly - it's the vector of predicates
+  x3::_val(a_ctx) = ast::make_where_clause(std::move(x3::_attr(a_ctx)));
+})];
+BOOST_SPIRIT_DEFINE(k_where_clause)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_where_clause), Iterator_Type, Context_Type)
 
 // Parse qualified name segment: name with optional type parameters
 // A segment can have type parameters that are full qualified names (including multi-segment)
@@ -190,44 +284,40 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_rule), Iterator_Type, Context_Type
 //   - Modules: Camel_Snake_Case
 
 // Forward declarations for mutually recursive rules
-struct Variable_Name_Tag : x3::annotate_on_success, Error_Handler {};
-struct Variable_Name_Segment_Tag : x3::annotate_on_success, Error_Handler {};
-x3::rule<Variable_Name_Tag, ast::Variable_Name> const k_variable_name_rule = "variable name";
-x3::rule<Variable_Name_Segment_Tag, ast::Variable_Name_Segment> const k_variable_name_segment_rule =
-    "variable name segment";
+struct Var_Name_Tag : x3::annotate_on_success, Error_Handler {};
+struct Var_Name_Segment_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Var_Name_Tag, ast::Var_Name> const k_var_name_rule = "variable name";
+x3::rule<Var_Name_Segment_Tag, ast::Var_Name_Segment> const k_var_name_segment_rule = "variable name segment";
 
 // Parse variable name segment with optional type parameters
 // Examples: "foo", "map<Int, String>", "Vec<T>"
-auto const k_variable_name_segment_rule_def = (k_segment_name >> -k_type_params)[([](auto& a_ctx) {
+auto const k_var_name_segment_rule_def = (k_segment_name >> -k_type_params)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
-  x3::_val(a_ctx) = ast::make_variable_name_segment(
+  x3::_val(a_ctx) = ast::make_var_name_segment(
       std::move(boost::fusion::at_c<0>(attr)),
       boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{})
   );
 })];
-BOOST_SPIRIT_DEFINE(k_variable_name_segment_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_variable_name_segment_rule), Iterator_Type, Context_Type)
+BOOST_SPIRIT_DEFINE(k_var_name_segment_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_var_name_segment_rule), Iterator_Type, Context_Type)
 
 // Parse variable name: single segment for variable references in expressions
 // Examples: "foo", "my_var", "x", "map<Int>"
 // Field access handles dotted expressions: "obj.field" → Field_Access_Expr
-auto const k_variable_name_rule_def = k_variable_name_segment_rule[([](auto& a_ctx) {
-  x3::_val(a_ctx) = ast::make_variable_name(std::move(x3::_attr(a_ctx)));
-})];
-BOOST_SPIRIT_DEFINE(k_variable_name_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_variable_name_rule), Iterator_Type, Context_Type)
+auto const k_var_name_rule_def =
+    k_var_name_segment_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_var_name(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_var_name_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_var_name_rule), Iterator_Type, Context_Type)
 
 // Parse qualified variable name: dotted path for function calls
 // Supports module-qualified function names with templates: "Std.print", "Vec<Int>.new"
 // Examples: "foo", "Std.print", "A.B.func<T, U>"
-x3::rule<struct qualified_variable_name_tag, ast::Variable_Name> const k_qualified_variable_name_rule =
-    "qualified variable name";
-auto const k_qualified_variable_name_rule_def =
-    (k_variable_name_segment_rule %
-     (lit('.') >>
-      !lit('.')))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_variable_name(std::move(x3::_attr(a_ctx))); })];
-BOOST_SPIRIT_DEFINE(k_qualified_variable_name_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_qualified_variable_name_rule), Iterator_Type, Context_Type)
+x3::rule<struct qualified_var_name_tag, ast::Var_Name> const k_qualified_var_name_rule = "qualified variable name";
+auto const k_qualified_var_name_rule_def =
+    (k_var_name_segment_rule %
+     (lit('.') >> !lit('.')))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_var_name(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_qualified_var_name_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_qualified_var_name_rule), Iterator_Type, Context_Type)
 
 // === String Literal Rules ===
 // String literals with escape sequences and UTF-8 support
@@ -400,11 +490,10 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_float_rule), Iterator_Type, Context_Type)
 //   Generic:     fn map(f: Fn<T, U>, arr: Array<T>): Array<U>
 
 // Forward declarations for function rules
-struct Function_Parameter_Tag : x3::annotate_on_success, Error_Handler {};
-struct Function_Declaration_Tag : x3::annotate_on_success, Error_Handler {};
-x3::rule<Function_Parameter_Tag, ast::Function_Parameter> const k_function_parameter_rule = "function parameter";
-x3::rule<Function_Declaration_Tag, ast::Function_Declaration> const k_function_declaration_rule =
-    "function declaration";
+struct Func_Param_Tag : x3::annotate_on_success, Error_Handler {};
+struct Func_Decl_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Func_Param_Tag, ast::Func_Param> const k_func_param_rule = "function parameter";
+x3::rule<Func_Decl_Tag, ast::Func_Decl> const k_func_decl_rule = "function declaration";
 
 // Parse parameter name: any identifier (naming convention checked at semantic analysis)
 x3::rule<struct param_name_tag, std::string> const k_param_name = "parameter name";
@@ -420,26 +509,25 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_param_type), Iterator_Type, Context_Type)
 
 // Parse function parameter: "name: Type" or "mut name: Type" or "self" (type optional for self)
 // Examples: "x: Int", "mut self: Point", "callback: Fn<String, Bool>", "self", "mut self"
-auto const k_function_parameter_rule_def =
-    (x3::matches[k_kw_mut] >> k_param_name >> -(':' > k_param_type))[([](auto& a_ctx) {
-      auto& attr = x3::_attr(a_ctx);
-      auto const& is_mut = boost::fusion::at_c<0>(attr);
-      auto& name = boost::fusion::at_c<1>(attr);
-      auto& opt_type = boost::fusion::at_c<2>(attr);
+auto const k_func_param_rule_def = (x3::matches[k_kw_mut] >> k_param_name >> -(':' > k_param_type))[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  auto const& is_mut = boost::fusion::at_c<0>(attr);
+  auto& name = boost::fusion::at_c<1>(attr);
+  auto& opt_type = boost::fusion::at_c<2>(attr);
 
-      std::optional<ast::Type_Name> type;
-      if (opt_type) {
-        type = std::move(*opt_type);
-      }
+  std::optional<ast::Type_Name> type;
+  if (opt_type) {
+    type = std::move(*opt_type);
+  }
 
-      x3::_val(a_ctx) = ast::make_function_parameter(
-          is_mut,           // is_mut: bool
-          std::move(name),  // name: string
-          std::move(type)   // type: optional<Type_Name>
-      );
-    })];
-BOOST_SPIRIT_DEFINE(k_function_parameter_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_function_parameter_rule), Iterator_Type, Context_Type)
+  x3::_val(a_ctx) = ast::make_func_param(
+      is_mut,           // is_mut: bool
+      std::move(name),  // name: string
+      std::move(type)   // type: optional<Type_Name>
+  );
+})];
+BOOST_SPIRIT_DEFINE(k_func_param_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_func_param_rule), Iterator_Type, Context_Type)
 
 // Parse function name: any identifier
 x3::rule<struct func_name_tag, std::string> const k_func_name = "function name";
@@ -448,8 +536,8 @@ BOOST_SPIRIT_DEFINE(k_func_name)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_func_name), Iterator_Type, Context_Type)
 
 // Parse function parameters list: comma-separated, optional
-x3::rule<struct func_params_tag, std::vector<ast::Function_Parameter>> const k_func_params = "function parameters";
-auto const k_func_params_def = k_function_parameter_rule % ',';
+x3::rule<struct func_params_tag, std::vector<ast::Func_Param>> const k_func_params = "function parameters";
+auto const k_func_params_def = k_func_param_rule % ',';
 BOOST_SPIRIT_DEFINE(k_func_params)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_func_params), Iterator_Type, Context_Type)
 
@@ -459,24 +547,32 @@ auto const k_func_return_type_def = k_type_name_rule;
 BOOST_SPIRIT_DEFINE(k_func_return_type)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_func_return_type), Iterator_Type, Context_Type)
 
-// Parse function declaration: "fn name<T>(params): ReturnType"
+// Parse function declaration: "fn name<T>(params): Return_Type"
 // Examples:
 //   fn main(): I32
 //   fn add(a: Int, b: Int): Int
 //   fn process(data: Array<String>): Result<(), Error>
 //   fn map<T, U>(items: Array<T>): Array<U>
-auto const k_function_declaration_rule_def =
-    (k_kw_fn > k_func_name > -k_type_params > '(' > -k_func_params > ')' > ':' > k_func_return_type)[([](auto& a_ctx) {
+auto const k_func_decl_rule_def =
+    (k_kw_fn > k_func_name > -k_type_param_decls > '(' > -k_func_params > ')' > ':' > k_func_return_type >
+     -k_where_clause)[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
-      x3::_val(a_ctx) = ast::make_function_declaration(
+      // Convert boost::optional to std::optional for where_clause
+      auto& boost_where = boost::fusion::at_c<4>(attr);
+      std::optional<ast::Where_Clause> where_clause;
+      if (boost_where.has_value()) {
+        where_clause = std::move(*boost_where);
+      }
+      x3::_val(a_ctx) = ast::make_func_decl(
           std::move(boost::fusion::at_c<0>(attr)),
-          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{}),
-          boost::fusion::at_c<2>(attr).value_or(std::vector<ast::Function_Parameter>{}),
-          std::move(boost::fusion::at_c<3>(attr))
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Param>{}),
+          boost::fusion::at_c<2>(attr).value_or(std::vector<ast::Func_Param>{}),
+          std::move(boost::fusion::at_c<3>(attr)),
+          std::move(where_clause)
       );
     })];
-BOOST_SPIRIT_DEFINE(k_function_declaration_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_function_declaration_rule), Iterator_Type, Context_Type)
+BOOST_SPIRIT_DEFINE(k_func_decl_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_func_decl_rule), Iterator_Type, Context_Type)
 
 // === Expression Rules ===
 // Expressions are values that can be computed or evaluated
@@ -487,21 +583,21 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_function_declaration_rule), Iterator_Type, C
 
 // Forward declarations for expression rules
 struct Expr_Tag : x3::annotate_on_success, Error_Handler {};
-struct Function_Call_Expr_Tag : x3::annotate_on_success, Error_Handler {};
+struct Func_Call_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct If_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct While_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct For_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 struct Range_Expr_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Expr_Tag, ast::Expr> const k_expr_rule = "expression";
-x3::rule<Function_Call_Expr_Tag, ast::Function_Call_Expr> const k_function_call_expr_rule = "function call expression";
+x3::rule<Func_Call_Expr_Tag, ast::Func_Call_Expr> const k_func_call_expr_rule = "function call expression";
 x3::rule<If_Expr_Tag, ast::If_Expr> const k_if_expr_rule = "if expression";
 x3::rule<While_Expr_Tag, ast::While_Expr> const k_while_expr_rule = "while expression";
 x3::rule<For_Expr_Tag, ast::For_Expr> const k_for_expr_rule = "for expression";
 x3::rule<Range_Expr_Tag, ast::Expr> const k_range_expr_rule = "range expression";
 
 // Parse function call name: qualified variable name (supports module paths)
-x3::rule<struct call_name_tag, ast::Variable_Name> const k_call_name = "function name";
-auto const k_call_name_def = k_qualified_variable_name_rule;
+x3::rule<struct call_name_tag, ast::Var_Name> const k_call_name = "function name";
+auto const k_call_name_def = k_qualified_var_name_rule;
 BOOST_SPIRIT_DEFINE(k_call_name)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_call_name), Iterator_Type, Context_Type)
 
@@ -516,15 +612,15 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_call_args), Iterator_Type, Context_Type)
 //   No args:     print()
 //   With args:   add(1, 2)
 //   Nested:      map(transform, filter(is_valid, data))
-auto const k_function_call_expr_rule_def = (k_call_name >> '(' > -k_call_args > ')')[([](auto& a_ctx) {
+auto const k_func_call_expr_rule_def = (k_call_name >> '(' > -k_call_args > ')')[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
-  x3::_val(a_ctx) = ast::make_function_call_expr(
+  x3::_val(a_ctx) = ast::make_func_call_expr(
       std::move(boost::fusion::at_c<0>(attr)),
       boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Expr>{})
   );
 })];
-BOOST_SPIRIT_DEFINE(k_function_call_expr_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_function_call_expr_rule), Iterator_Type, Context_Type)
+BOOST_SPIRIT_DEFINE(k_func_call_expr_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_func_call_expr_rule), Iterator_Type, Context_Type)
 
 // Parse struct literal: "TypeName { field: expr, field: expr }"
 // Examples:
@@ -600,12 +696,12 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_unit_literal_rule), Iterator_Type, Context_T
 x3::rule<struct primary_expr_tag, ast::Expr> const k_primary_expr = "primary expression";
 // Ordering rationale:
 // 1. struct_literal first: Requires Camel_Snake_Case + '{', most specific pattern
-// 2. function_call second: Requires name + '(', specific delimiter
+// 2. func_call second: Requires name + '(', specific delimiter
 // 3. unit_literal before variable_name: () is more specific than variable patterns
 // 4. variable_name later: More general
 // This prevents "if x {}" ambiguity: x{} won't match struct_literal (x is lowercase)
-auto const k_primary_expr_def = k_struct_literal_rule | k_function_call_expr_rule | k_unit_literal_rule |
-                                k_string_rule | k_char_rule | k_variable_name_rule | k_float_rule | k_integer_rule;
+auto const k_primary_expr_def = k_struct_literal_rule | k_func_call_expr_rule | k_unit_literal_rule | k_string_rule |
+                                k_char_rule | k_var_name_rule | k_float_rule | k_integer_rule;
 BOOST_SPIRIT_DEFINE(k_primary_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_primary_expr), Iterator_Type, Context_Type)
 
@@ -675,7 +771,7 @@ auto const k_postfix_expr_def = (k_primary_expr >> *k_postfix_op)[([](auto& a_ct
             // Method call: obj.method(args)
             // Create a variable name from method_name, then wrap in function call with obj as first arg
             // i.e. a().b(x, y).c(z) desugars to c(b(a(), x, y), z)
-            auto method_var_name = ast::make_variable_name(std::string(a_operation.method_name));
+            auto method_var_name = ast::make_var_name(std::string(a_operation.method_name));
 
             // Build argument list: [obj, ...args]
             std::vector<ast::Expr> all_args;
@@ -684,7 +780,7 @@ auto const k_postfix_expr_def = (k_primary_expr >> *k_postfix_op)[([](auto& a_ct
             all_args.insert(all_args.end(), a_operation.arguments.begin(), a_operation.arguments.end());
 
             // Create function call expression
-            expr = ast::make_expr(ast::make_function_call_expr(std::move(method_var_name), std::move(all_args)));
+            expr = ast::make_expr(ast::make_func_call_expr(std::move(method_var_name), std::move(all_args)));
           }
         },
         op
@@ -871,7 +967,7 @@ auto const k_return_statement_rule_def =
 BOOST_SPIRIT_DEFINE(k_return_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_return_statement_rule), Iterator_Type, Context_Type)
 
-// Parse break statement: "break;" or "break expr;" (Phase 2: expression-form loops)
+// Parse break statement: "break;" or "break expr;"
 // Examples: "break;", "break result;", "break calculate(x);"
 struct Break_Statement_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Break_Statement_Tag, ast::Break_Statement> const k_break_statement_rule = "break statement";
@@ -915,27 +1011,26 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_let_statement_rule), Iterator_Type, Context_
 
 // Parse function call statement: "call(args);"
 // Examples: "print(msg);", "process_data(items);"
-struct Function_Call_Statement_Tag : x3::annotate_on_success, Error_Handler {};
-x3::rule<Function_Call_Statement_Tag, ast::Function_Call_Statement> const k_function_call_statement_rule =
+struct Func_Call_Statement_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Func_Call_Statement_Tag, ast::Func_Call_Statement> const k_func_call_statement_rule =
     "function call statement";
-auto const k_function_call_statement_rule_def =
-    (k_function_call_expr_rule >
-     ';')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_function_call_statement(std::move(x3::_attr(a_ctx))); })];
-BOOST_SPIRIT_DEFINE(k_function_call_statement_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_function_call_statement_rule), Iterator_Type, Context_Type)
+auto const k_func_call_statement_rule_def =
+    (k_func_call_expr_rule >
+     ';')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_func_call_statement(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_func_call_statement_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_func_call_statement_rule), Iterator_Type, Context_Type)
 
 // Parse expression statement: any expression followed by semicolon
 // In practice, only assignments and function calls have side effects and should be used as statements
 // But we accept any expression for now - semantic analysis will warn about useless statements later
 // Examples: "x = 42;", "y = y + 1;", "obj.field = value;", "foo();"
-struct Expression_Statement_Tag : x3::annotate_on_success, Error_Handler {};
-x3::rule<Expression_Statement_Tag, ast::Expression_Statement> const k_expression_statement_rule =
-    "expression statement";
-auto const k_expression_statement_rule_def =
+struct Expr_Statement_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Expr_Statement_Tag, ast::Expr_Statement> const k_expr_statement_rule = "expression statement";
+auto const k_expr_statement_rule_def =
     (k_expr_rule >>
-     ';')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_expression_statement(std::move(x3::_attr(a_ctx))); })];
-BOOST_SPIRIT_DEFINE(k_expression_statement_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_expression_statement_rule), Iterator_Type, Context_Type)
+     ';')[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_expr_statement(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_expr_statement_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_expr_statement_rule), Iterator_Type, Context_Type)
 
 // Parse if statement: forward declared here, defined after k_if_expr_rule
 struct If_Statement_Tag : x3::annotate_on_success, Error_Handler {};
@@ -959,15 +1054,15 @@ x3::rule<For_Statement_Tag, ast::For_Statement> const k_for_statement_rule = "fo
 // Forward declarations for statement rules
 struct Statement_Tag : x3::annotate_on_success, Error_Handler {};
 struct Block_Tag : x3::annotate_on_success, Error_Handler {};
-struct Function_Definition_Tag : x3::annotate_on_success, Error_Handler {};
+struct Func_Def_Tag : x3::annotate_on_success, Error_Handler {};
 struct Struct_Field_Tag : x3::annotate_on_success, Error_Handler {};
-struct Struct_Definition_Tag : x3::annotate_on_success, Error_Handler {};
+struct Struct_Def_Tag : x3::annotate_on_success, Error_Handler {};
 struct Module_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Statement_Tag, ast::Statement> const k_statement_rule = "statement";
 x3::rule<Block_Tag, ast::Block> const k_block_rule = "code block";
-x3::rule<Function_Definition_Tag, ast::Function_Definition> const k_function_definition_rule = "function definition";
+x3::rule<Func_Def_Tag, ast::Func_Def> const k_func_def_rule = "function definition";
 x3::rule<Struct_Field_Tag, ast::Struct_Field> const k_struct_field_rule = "struct field";
-x3::rule<Struct_Definition_Tag, ast::Struct_Definition> const k_struct_definition_rule = "struct definition";
+x3::rule<Struct_Def_Tag, ast::Struct_Def> const k_struct_def_rule = "struct definition";
 x3::rule<Module_Tag, ast::Module> const k_module_rule = "module";
 
 // Parse block: "{ statements }"
@@ -1230,13 +1325,13 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_for_statement_rule), Iterator_Type, Context_
 
 // Parse function definition: declaration followed by body block
 // Example: fn main(): I32 { return 0; }
-auto const k_function_definition_rule_def = (k_function_declaration_rule > k_block_rule)[([](auto& a_ctx) {
+auto const k_func_def_rule_def = (k_func_decl_rule > k_block_rule)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
   x3::_val(a_ctx) =
-      ast::make_function_definition(std::move(boost::fusion::at_c<0>(attr)), std::move(boost::fusion::at_c<1>(attr)));
+      ast::make_func_def(std::move(boost::fusion::at_c<0>(attr)), std::move(boost::fusion::at_c<1>(attr)));
 })];
-BOOST_SPIRIT_DEFINE(k_function_definition_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_function_definition_rule), Iterator_Type, Context_Type)
+BOOST_SPIRIT_DEFINE(k_func_def_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_func_def_rule), Iterator_Type, Context_Type)
 
 // === Struct Rules ===
 // Structs define user-defined data types with named fields
@@ -1281,17 +1376,25 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_name), Iterator_Type, Context_Type)
 //   struct Empty { }
 //   struct Box<T> { value: T }
 //   struct Map<K, V> { keys: Vec<K>, values: Vec<V> }
-auto const k_struct_definition_rule_def =
-    (k_kw_struct > k_struct_name > -k_type_params > '{' > -k_struct_fields > '}')[([](auto& a_ctx) {
+auto const k_struct_def_rule_def =
+    (k_kw_struct > k_struct_name > -k_type_param_decls > -k_where_clause > '{' > -k_struct_fields >
+     '}')[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
-      x3::_val(a_ctx) = ast::make_struct_definition(
+      // Convert boost::optional to std::optional for where_clause
+      auto& boost_where = boost::fusion::at_c<2>(attr);
+      std::optional<ast::Where_Clause> where_clause;
+      if (boost_where.has_value()) {
+        where_clause = std::move(*boost_where);
+      }
+      x3::_val(a_ctx) = ast::make_struct_def(
           std::move(boost::fusion::at_c<0>(attr)),
-          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{}),
-          boost::fusion::at_c<2>(attr).value_or(std::vector<ast::Struct_Field>{})
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Param>{}),
+          boost::fusion::at_c<3>(attr).value_or(std::vector<ast::Struct_Field>{}),
+          std::move(where_clause)
       );
     })];
-BOOST_SPIRIT_DEFINE(k_struct_definition_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_definition_rule), Iterator_Type, Context_Type)
+BOOST_SPIRIT_DEFINE(k_struct_def_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_struct_def_rule), Iterator_Type, Context_Type)
 
 // === Enum Rules ===
 // Enums define sum types (algebraic data types) with multiple variants
@@ -1350,19 +1453,26 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_name), Iterator_Type, Context_Type)
 //   enum Color { Red, Green, Blue }
 //   enum Result<T, E> { Ok(T), Err(E) }
 //   enum Empty { }  // Empty enums allowed (semantic error, not parse error)
-struct Enum_Definition_Tag : x3::annotate_on_success, Error_Handler {};
-x3::rule<Enum_Definition_Tag, ast::Enum_Definition> const k_enum_definition_rule = "enum definition";
-auto const k_enum_definition_rule_def =
-    (k_kw_enum > k_enum_name > -k_type_params > '{' > -k_enum_variants > '}')[([](auto& a_ctx) {
+struct Enum_Def_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Enum_Def_Tag, ast::Enum_Def> const k_enum_def_rule = "enum definition";
+auto const k_enum_def_rule_def =
+    (k_kw_enum > k_enum_name > -k_type_param_decls > -k_where_clause > '{' > -k_enum_variants > '}')[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
-      x3::_val(a_ctx) = ast::make_enum_definition(
+      // Convert boost::optional to std::optional for where_clause
+      auto& boost_where = boost::fusion::at_c<2>(attr);
+      std::optional<ast::Where_Clause> where_clause;
+      if (boost_where.has_value()) {
+        where_clause = std::move(*boost_where);
+      }
+      x3::_val(a_ctx) = ast::make_enum_def(
           std::move(boost::fusion::at_c<0>(attr)),
-          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{}),
-          boost::fusion::at_c<2>(attr).value_or(std::vector<ast::Enum_Variant>{})
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Param>{}),
+          boost::fusion::at_c<3>(attr).value_or(std::vector<ast::Enum_Variant>{}),
+          std::move(where_clause)
       );
     })];
-BOOST_SPIRIT_DEFINE(k_enum_definition_rule)
-BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_definition_rule), Iterator_Type, Context_Type)
+BOOST_SPIRIT_DEFINE(k_enum_def_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_def_rule), Iterator_Type, Context_Type)
 
 // === Impl Block Rules ===
 // Impl blocks group method implementations for a type
@@ -1372,8 +1482,8 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_definition_rule), Iterator_Type, Contex
 // Note: self parameter type is optional in impl blocks (inferred from impl type)
 
 // Parse impl block methods: zero or more function definitions
-x3::rule<struct impl_methods_tag, std::vector<ast::Function_Definition>> const k_impl_methods = "impl methods";
-auto const k_impl_methods_def = *k_function_definition_rule;
+x3::rule<struct impl_methods_tag, std::vector<ast::Func_Def>> const k_impl_methods = "impl methods";
+auto const k_impl_methods_def = *k_func_def_rule;
 BOOST_SPIRIT_DEFINE(k_impl_methods)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_impl_methods), Iterator_Type, Context_Type)
 
@@ -1386,25 +1496,99 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_impl_methods), Iterator_Type, Context_Type)
 struct Impl_Block_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Impl_Block_Tag, ast::Impl_Block> const k_impl_block_rule = "impl block";
 auto const k_impl_block_rule_def =
-    (k_kw_impl > -k_type_params > k_type_name_rule > '{' > k_impl_methods > '}')[([](auto& a_ctx) {
+    (k_kw_impl > -k_type_param_decls > k_type_name_rule > -k_where_clause > '{' > k_impl_methods >
+     '}')[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
+      // Convert boost::optional to std::optional for where_clause
+      auto& boost_where = boost::fusion::at_c<2>(attr);
+      std::optional<ast::Where_Clause> where_clause;
+      if (boost_where.has_value()) {
+        where_clause = std::move(*boost_where);
+      }
       x3::_val(a_ctx) = ast::make_impl_block(
           std::move(boost::fusion::at_c<1>(attr)),
-          boost::fusion::at_c<0>(attr).value_or(std::vector<ast::Type_Name>{}),
-          std::move(boost::fusion::at_c<2>(attr))
+          boost::fusion::at_c<0>(attr).value_or(std::vector<ast::Type_Param>{}),
+          std::move(boost::fusion::at_c<3>(attr)),
+          std::move(where_clause)
       );
     })];
 BOOST_SPIRIT_DEFINE(k_impl_block_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_impl_block_rule), Iterator_Type, Context_Type)
 
+// Parse trait method signatures list (semicolon-terminated declarations)
+x3::rule<struct trait_methods_tag, std::vector<ast::Func_Decl>> const k_trait_methods = "trait methods";
+auto const k_trait_methods_def = *(k_func_decl_rule > ';');
+BOOST_SPIRIT_DEFINE(k_trait_methods)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_trait_methods), Iterator_Type, Context_Type)
+
+// Parse trait name: trait name must be Camel_Snake_Case (like a type)
+x3::rule<struct trait_name_tag, std::string> const k_trait_name = "trait name";
+auto const k_trait_name_def = k_camel_snake_case;
+BOOST_SPIRIT_DEFINE(k_trait_name)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_trait_name), Iterator_Type, Context_Type)
+
+// Parse trait definition: "trait Name<T> { method_decls }"
+// Examples:
+//   trait Display { fn to_string(self): String; }
+//   trait Iterator<T> { fn next(mut self): Option<T>; }
+//   trait Comparable { fn compare(self, other: Self): Ordering; }
+struct Trait_Def_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Trait_Def_Tag, ast::Trait_Def> const k_trait_def_rule = "trait definition";
+auto const k_trait_def_rule_def =
+    (k_kw_trait > k_trait_name > -k_type_param_decls > -k_where_clause > '{' > k_trait_methods > '}')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      // Convert boost::optional to std::optional for where_clause
+      auto& boost_where = boost::fusion::at_c<2>(attr);
+      std::optional<ast::Where_Clause> where_clause;
+      if (boost_where.has_value()) {
+        where_clause = std::move(*boost_where);
+      }
+      x3::_val(a_ctx) = ast::make_trait_def(
+          std::move(boost::fusion::at_c<0>(attr)),  // trait name
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Param>{}),
+          std::move(boost::fusion::at_c<3>(attr)),  // methods
+          std::move(where_clause)                   // where clause
+      );
+    })];
+BOOST_SPIRIT_DEFINE(k_trait_def_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_trait_def_rule), Iterator_Type, Context_Type)
+
+// Parse trait implementation: "impl Trait for Type { method_defs }"
+// Examples:
+//   impl Display for Point { fn to_string(self): String { ... } }
+//   impl<T> Iterator<T> for Array<T> { fn next(mut self): Option<T> { ... } }
+struct Trait_Impl_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Trait_Impl_Tag, ast::Trait_Impl> const k_trait_impl_rule = "trait implementation";
+auto const k_trait_impl_rule_def =
+    (k_kw_impl > -k_type_param_decls > k_type_name_rule > lit("for") > k_type_name_rule > -k_where_clause > '{' >
+     k_impl_methods > '}')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      // Convert boost::optional to std::optional for where_clause
+      auto& boost_where = boost::fusion::at_c<3>(attr);
+      std::optional<ast::Where_Clause> where_clause;
+      if (boost_where.has_value()) {
+        where_clause = std::move(*boost_where);
+      }
+      x3::_val(a_ctx) = ast::make_trait_impl(
+          std::move(boost::fusion::at_c<1>(attr)),  // trait name
+          std::move(boost::fusion::at_c<2>(attr)),  // type name
+          boost::fusion::at_c<0>(attr).value_or(std::vector<ast::Type_Param>{}),
+          std::move(boost::fusion::at_c<4>(attr)),  // methods
+          std::move(where_clause)                   // where clause
+      );
+    })];
+BOOST_SPIRIT_DEFINE(k_trait_impl_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_trait_impl_rule), Iterator_Type, Context_Type)
+
 // Parse statement: variant of different statement types
 // Order matters: try function definition first (longest match), then let, then others
+// trait_impl_rule must come before impl_block_rule (more specific due to 'for' keyword)
 // expression_statement must come last as it matches most broadly
-auto const k_statement_rule_def = k_function_definition_rule | k_struct_definition_rule | k_enum_definition_rule |
-                                  k_impl_block_rule | k_let_statement_rule | k_function_call_statement_rule |
-                                  k_if_statement_rule | k_while_statement_rule | k_for_statement_rule | k_block_rule |
-                                  k_return_statement_rule | k_break_statement_rule | k_continue_statement_rule |
-                                  k_expression_statement_rule;
+auto const k_statement_rule_def = k_func_def_rule | k_struct_def_rule | k_enum_def_rule | k_trait_def_rule |
+                                  k_trait_impl_rule | k_impl_block_rule | k_let_statement_rule |
+                                  k_func_call_statement_rule | k_if_statement_rule | k_while_statement_rule |
+                                  k_for_statement_rule | k_block_rule | k_return_statement_rule |
+                                  k_break_statement_rule | k_continue_statement_rule | k_expr_statement_rule;
 BOOST_SPIRIT_DEFINE(k_statement_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_statement_rule), Iterator_Type, Context_Type)
 
@@ -1560,19 +1744,21 @@ parser::Parse_Result<Ast> parse_with_rule(
   }
 
 // Exposed test API - semantic boundaries only
-PARSE_FN_IMPL(Module, module)                            // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Function_Definition, function_definition)  // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Struct_Definition, struct_definition)      // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Enum_Definition, enum_definition)          // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Impl_Block, impl_block)                    // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Statement, statement)                      // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Block, block)                              // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Expr, expr)                                // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Type_Name, type_name)                      // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Integer, integer)                          // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Float, float)                              // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(String, string)                            // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Char, char)                                // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Module, module)          // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Func_Def, func_def)      // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Struct_Def, struct_def)  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Enum_Def, enum_def)      // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Impl_Block, impl_block)  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Trait_Def, trait_def)    // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Trait_Impl, trait_impl)  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Statement, statement)    // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Block, block)            // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Expr, expr)              // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Type_Name, type_name)    // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Integer, integer)        // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Float, float)            // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(String, string)          // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Char, char)              // NOLINT(misc-use-internal-linkage)
 #undef PARSE_FN_IMPL
 
 }  // namespace life_lang::internal

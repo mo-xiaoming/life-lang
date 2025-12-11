@@ -18,8 +18,12 @@ namespace life_lang::ast {
 
 struct Type_Name_Segment;
 struct Type_Name;
-struct Variable_Name_Segment;
-struct Function_Call_Expr;
+struct Trait_Bound;
+struct Type_Param;
+struct Where_Predicate;
+struct Where_Clause;
+struct Var_Name_Segment;
+struct Func_Call_Expr;
 struct Field_Access_Expr;
 struct Assignment_Expr;
 struct Binary_Expr;
@@ -28,11 +32,13 @@ struct While_Expr;
 struct For_Expr;
 struct Match_Expr;
 struct Range_Expr;
-struct Function_Definition;
+struct Func_Def;
 struct Block;
-struct Struct_Definition;
-struct Enum_Definition;
+struct Struct_Def;
+struct Enum_Def;
 struct Impl_Block;
+struct Trait_Def;
+struct Trait_Impl;
 struct Expr;
 struct Pattern;
 struct Let_Statement;
@@ -55,18 +61,56 @@ struct Type_Name_Segment : boost::spirit::x3::position_tagged {
 };
 
 // ============================================================================
+// Trait Bounds (for generic constraints)
+// ============================================================================
+
+// Example: Display (in T: Display)
+struct Trait_Bound : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Trait_Bound";
+  Type_Name trait_name;  // The trait being required (e.g., Display, Iterator<T>)
+};
+
+// Type parameter with optional inline trait bounds (in angle brackets)
+// Inline bounds are limited to simple type parameters (T, U, Key, etc.)
+// Example: T (no bounds), T: Display (single bound), T: Display + Clone (multiple bounds)
+struct Type_Param : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Type_Param";
+  Type_Name name;                   // Parameter name (e.g., T, U, Item) - always a simple identifier
+  std::vector<Trait_Bound> bounds;  // Optional trait bounds (e.g., Display, Display + Clone)
+};
+
+// Where clause predicate: type constraint in where clause
+// Where predicates support more complex type expressions than inline bounds:
+// - Simple type parameters: T: Display
+// - Associated types (future): T::Item: Display, <T as Iterator>::Item: Clone
+// Example: T: Display + Clone (in "where T: Display + Clone")
+struct Where_Predicate : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Where_Predicate";
+  Type_Name type_name;              // Type being constrained (e.g., T, U::Item, <T as Iterator>::Item)
+  std::vector<Trait_Bound> bounds;  // Required trait bounds
+};
+
+// Where clause: collection of predicates
+// Where clauses enable complex constraints not expressible with inline bounds
+// Example: where T: Display, U: Clone, V: Eq + Ord
+struct Where_Clause : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Where_Clause";
+  std::vector<Where_Predicate> predicates;
+};
+
+// ============================================================================
 // Variable Name System (for variables and function names)
 // ============================================================================
 
 // Example: Std.IO.println (qualified function name) or my_var (simple variable)
-struct Variable_Name : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Variable_Name";
-  std::vector<Variable_Name_Segment> segments;
+struct Var_Name : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Var_Name";
+  std::vector<Var_Name_Segment> segments;
 };
 
 // Example: println<T> where "println" is value, type_params = [T]
-struct Variable_Name_Segment : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Variable_Name_Segment";
+struct Var_Name_Segment : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Var_Name_Segment";
   std::string value;
   std::vector<Type_Name> type_params;
 };
@@ -197,8 +241,8 @@ struct Range_Expr : boost::spirit::x3::position_tagged {
 
 // Example: foo.bar.baz() or Point { x: 1 + 2, y: calculate(z) } or x = 42
 struct Expr : boost::spirit::x3::variant<
-                  Variable_Name,
-                  boost::spirit::x3::forward_ast<Function_Call_Expr>,
+                  Var_Name,
+                  boost::spirit::x3::forward_ast<Func_Call_Expr>,
                   boost::spirit::x3::forward_ast<Field_Access_Expr>,
                   boost::spirit::x3::forward_ast<Binary_Expr>,
                   boost::spirit::x3::forward_ast<Unary_Expr>,
@@ -216,8 +260,8 @@ struct Expr : boost::spirit::x3::variant<
                   Char>,
               boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
-      Variable_Name,
-      boost::spirit::x3::forward_ast<Function_Call_Expr>,
+      Var_Name,
+      boost::spirit::x3::forward_ast<Func_Call_Expr>,
       boost::spirit::x3::forward_ast<Field_Access_Expr>,
       boost::spirit::x3::forward_ast<Binary_Expr>,
       boost::spirit::x3::forward_ast<Unary_Expr>,
@@ -238,10 +282,10 @@ struct Expr : boost::spirit::x3::variant<
 };
 
 // Example: Std.print("Value: ", x, y + 2)
-struct Function_Call_Expr : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Function_Call_Expr";
-  Variable_Name name;
-  std::vector<Expr> parameters;
+struct Func_Call_Expr : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Func_Call_Expr";
+  Var_Name name;
+  std::vector<Expr> params;
 };
 
 // Example: point.x or nested.obj.field (chained via recursive object field)
@@ -264,16 +308,16 @@ struct Assignment_Expr : boost::spirit::x3::position_tagged {
 // ============================================================================
 
 // Example: Std.print("Hello"); as a standalone statement (not an expression)
-struct Function_Call_Statement : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Function_Call_Statement";
-  Function_Call_Expr expr;
+struct Func_Call_Statement : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Func_Call_Statement";
+  Func_Call_Expr expr;
 };
 
 // Example: x = 42;, y = y + 1;, foo();
 // Statement form of any expression - evaluates expression and discards result
 // Useful for assignments, function calls, or other expressions with side effects
-struct Expression_Statement : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Expression_Statement";
+struct Expr_Statement : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Expr_Statement";
   boost::spirit::x3::forward_ast<Expr> expr;
 };
 
@@ -284,14 +328,14 @@ struct Return_Statement : boost::spirit::x3::position_tagged {
 };
 
 // Example: break; or break result_value;
-// Used to exit loops early, optionally returning a value (Phase 2)
+// Used to exit loops early, optionally returning a value
 struct Break_Statement : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Break_Statement";
   boost::optional<Expr> value;  // Optional: break can be used without value
 };
 
 // Example: continue;
-// Skips to next iteration of the loop (Phase 3)
+// Skips to next iteration of the loop
 struct Continue_Statement : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Continue_Statement";
 };
@@ -321,13 +365,15 @@ struct For_Statement : boost::spirit::x3::position_tagged {
 // Example: Can be function def, struct def, enum def, let binding, function call, return, break, continue, if, while,
 // for, or nested block
 struct Statement : boost::spirit::x3::variant<
-                       boost::spirit::x3::forward_ast<Function_Definition>,
-                       boost::spirit::x3::forward_ast<Struct_Definition>,
-                       boost::spirit::x3::forward_ast<Enum_Definition>,
+                       boost::spirit::x3::forward_ast<Func_Def>,
+                       boost::spirit::x3::forward_ast<Struct_Def>,
+                       boost::spirit::x3::forward_ast<Enum_Def>,
                        boost::spirit::x3::forward_ast<Impl_Block>,
+                       boost::spirit::x3::forward_ast<Trait_Def>,
+                       boost::spirit::x3::forward_ast<Trait_Impl>,
                        boost::spirit::x3::forward_ast<Let_Statement>,
-                       Function_Call_Statement,
-                       boost::spirit::x3::forward_ast<Expression_Statement>,
+                       Func_Call_Statement,
+                       boost::spirit::x3::forward_ast<Expr_Statement>,
                        Return_Statement,
                        Break_Statement,
                        Continue_Statement,
@@ -337,13 +383,15 @@ struct Statement : boost::spirit::x3::variant<
                        boost::spirit::x3::forward_ast<Block>>,
                    boost::spirit::x3::position_tagged {
   using Base_Type = boost::spirit::x3::variant<
-      boost::spirit::x3::forward_ast<Function_Definition>,
-      boost::spirit::x3::forward_ast<Struct_Definition>,
-      boost::spirit::x3::forward_ast<Enum_Definition>,
+      boost::spirit::x3::forward_ast<Func_Def>,
+      boost::spirit::x3::forward_ast<Struct_Def>,
+      boost::spirit::x3::forward_ast<Enum_Def>,
       boost::spirit::x3::forward_ast<Impl_Block>,
+      boost::spirit::x3::forward_ast<Trait_Def>,
+      boost::spirit::x3::forward_ast<Trait_Impl>,
       boost::spirit::x3::forward_ast<Let_Statement>,
-      Function_Call_Statement,
-      boost::spirit::x3::forward_ast<Expression_Statement>,
+      Func_Call_Statement,
+      boost::spirit::x3::forward_ast<Expr_Statement>,
       Return_Statement,
       Break_Statement,
       Continue_Statement,
@@ -488,26 +536,27 @@ struct Match_Expr : boost::spirit::x3::position_tagged {
 // ============================================================================
 
 // Example: items: Std.Array<T> or mut self: Point or self (type optional for self in impl blocks)
-struct Function_Parameter : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Function_Parameter";
+struct Func_Param : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Func_Param";
   bool is_mut;
   std::string name;
   std::optional<Type_Name> type;  // Optional for self parameter in impl blocks
 };
 
 // Example: fn process(data: Vec<I32>, callback: Fn<I32, Bool>): Result<String>
-struct Function_Declaration : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Function_Declaration";
+struct Func_Decl : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Func_Decl";
   std::string name;
-  std::vector<Type_Name> type_params;  // Generic parameters: <T>, <T, U>
-  std::vector<Function_Parameter> parameters;
+  std::vector<Type_Param> type_params;  // Generic parameters: <T>, <T: Display>, <T, U: Iterator<T>>
+  std::vector<Func_Param> func_params;
   Type_Name return_type;
+  std::optional<Where_Clause> where_clause;  // Optional where clause
 };
 
 // Example: fn main(args: Std.Array<String>): I32 { Std.print("Hi"); return 0; }
-struct Function_Definition : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Function_Definition";
-  Function_Declaration declaration;
+struct Func_Def : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Func_Def";
+  Func_Decl declaration;
   Block body;
 };
 
@@ -524,11 +573,12 @@ struct Struct_Field : boost::spirit::x3::position_tagged {
 
 // Example: struct Point { x: I32, y: I32, metadata: Option<String> }
 // Example: struct Box<T> { value: T }
-struct Struct_Definition : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Struct_Definition";
+struct Struct_Def : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Struct_Def";
   std::string name;
-  std::vector<Type_Name> type_params;  // Generic parameters: <T>, <K, V>
+  std::vector<Type_Param> type_params;  // Generic parameters: <T>, <T: Display>, <K, V: Eq>
   std::vector<Struct_Field> fields;
+  std::optional<Where_Clause> where_clause;  // Optional where clause
 };
 
 // ============================================================================
@@ -569,11 +619,12 @@ struct Enum_Variant : boost::spirit::x3::variant<Unit_Variant, Tuple_Variant, St
 // Example: enum Option<T> { Some(T), None }
 // Example: enum Color { Red, Green, Blue, Rgb(I32, I32, I32) }
 // Example: enum Result<T, E> { Ok(T), Err(E) }
-struct Enum_Definition : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Enum_Definition";
-  std::string name;                    // Enum name (must be Camel_Snake_Case)
-  std::vector<Type_Name> type_params;  // Generic parameters: <T>, <T, E>
-  std::vector<Enum_Variant> variants;  // List of variants
+struct Enum_Def : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Enum_Def";
+  std::string name;                          // Enum name (must be Camel_Snake_Case)
+  std::vector<Type_Param> type_params;       // Generic parameters: <T>, <T: Display>, <T, E>
+  std::vector<Enum_Variant> variants;        // List of variants
+  std::optional<Where_Clause> where_clause;  // Optional where clause
 };
 
 // ============================================================================
@@ -585,8 +636,34 @@ struct Enum_Definition : boost::spirit::x3::position_tagged {
 struct Impl_Block : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Impl_Block";
   Type_Name type_name;                       // Type being implemented (e.g., Point, Array<T>)
-  std::vector<Type_Name> type_params;        // Generic parameters: <T>, <K, V>
-  std::vector<Function_Definition> methods;  // Methods in the impl block
+  std::vector<Type_Param> type_params;       // Generic parameters: <T>, <T: Display>, <K, V>
+  std::vector<Func_Def> methods;             // Methods in the impl block
+  std::optional<Where_Clause> where_clause;  // Optional where clause
+};
+
+// ============================================================================
+// Trait Types
+// ============================================================================
+
+// Example: trait Display { fn to_string(self): String; }
+// Example: trait Iterator<T> { fn next(mut self): Option<T>; fn has_next(self): Bool; }
+struct Trait_Def : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Trait_Def";
+  std::string name;                          // Trait name (e.g., Display, Iterator)
+  std::vector<Type_Param> type_params;       // Generic parameters: <T>, <T: Display>, <K, V>
+  std::vector<Func_Decl> methods;            // Method signatures in the trait
+  std::optional<Where_Clause> where_clause;  // Optional where clause
+};
+
+// Example: impl Display for Point { fn to_string(self): String { ... } }
+// Example: impl<T> Iterator<T> for Array<T> where T: Display { ... }
+struct Trait_Impl : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Trait_Impl";
+  Type_Name trait_name;                      // Trait being implemented (e.g., Display, Iterator<T>)
+  Type_Name type_name;                       // Type implementing the trait (e.g., Point, Array<T>)
+  std::vector<Type_Param> type_params;       // Generic parameters: <T>, <T: Display>, <K, V>
+  std::vector<Func_Def> methods;             // Method implementations
+  std::optional<Where_Clause> where_clause;  // Optional where clause
 };
 
 // ============================================================================
@@ -603,9 +680,33 @@ struct Module : boost::spirit::x3::position_tagged {
 // Helper Functions for AST Construction
 // ============================================================================
 
+// Trait_Bound helpers
+inline Trait_Bound make_trait_bound(Type_Name&& a_trait_name) {
+  return Trait_Bound{{}, std::move(a_trait_name)};
+}
+
+// Type_Param helpers
+inline Type_Param make_type_param(Type_Name&& a_name, std::vector<Trait_Bound>&& a_bounds) {
+  return Type_Param{{}, std::move(a_name), std::move(a_bounds)};
+}
+
+inline Type_Param make_type_param(Type_Name&& a_name) {
+  return Type_Param{{}, std::move(a_name), {}};
+}
+
+// Where_Predicate helpers
+inline Where_Predicate make_where_predicate(Type_Name&& a_type_name, std::vector<Trait_Bound>&& a_bounds) {
+  return Where_Predicate{{}, std::move(a_type_name), std::move(a_bounds)};
+}
+
+// Where_Clause helpers
+inline Where_Clause make_where_clause(std::vector<Where_Predicate>&& a_predicates) {
+  return Where_Clause{{}, std::move(a_predicates)};
+}
+
 // Type_Name helpers
-inline Type_Name_Segment make_type_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_type_parameters) {
-  return Type_Name_Segment{{}, std::move(a_value), std::move(a_type_parameters)};
+inline Type_Name_Segment make_type_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_type_params) {
+  return Type_Name_Segment{{}, std::move(a_value), std::move(a_type_params)};
 }
 
 inline Type_Name_Segment make_type_name_segment(std::string&& a_value) {
@@ -646,42 +747,40 @@ inline Type_Name make_type_name(Args&&... a_args) {
   }
 }
 
-// Variable_Name helpers
-inline Variable_Name_Segment
-make_variable_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_type_parameters) {
-  return Variable_Name_Segment{{}, std::move(a_value), std::move(a_type_parameters)};
+// Var_Name helpers
+inline Var_Name_Segment make_var_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_type_params) {
+  return Var_Name_Segment{{}, std::move(a_value), std::move(a_type_params)};
 }
 
-inline Variable_Name_Segment make_variable_name_segment(std::string&& a_value) {
-  return make_variable_name_segment(std::move(a_value), {});
+inline Var_Name_Segment make_var_name_segment(std::string&& a_value) {
+  return make_var_name_segment(std::move(a_value), {});
 }
 
-inline Variable_Name make_variable_name(std::vector<Variable_Name_Segment>&& a_segments) {
-  return Variable_Name{{}, std::move(a_segments)};
+inline Var_Name make_var_name(std::vector<Var_Name_Segment>&& a_segments) {
+  return Var_Name{{}, std::move(a_segments)};
 }
 
 template <typename... Args>
   requires(
-      (std::same_as<std::remove_cvref_t<Args>, Variable_Name_Segment> || std::constructible_from<std::string, Args>) &&
-      ...
+      (std::same_as<std::remove_cvref_t<Args>, Var_Name_Segment> || std::constructible_from<std::string, Args>) && ...
   )
-inline Variable_Name make_variable_name(Args&&... a_args) {
+inline Var_Name make_var_name(Args&&... a_args) {
   if constexpr (sizeof...(a_args) == 0) {
-    return Variable_Name{{}, {}};
+    return Var_Name{{}, {}};
   } else {
-    std::vector<Variable_Name_Segment> segments;
+    std::vector<Var_Name_Segment> segments;
     segments.reserve(sizeof...(a_args));
     (
         [&] {
-          if constexpr (std::same_as<std::remove_cvref_t<Args>, Variable_Name_Segment>) {
+          if constexpr (std::same_as<std::remove_cvref_t<Args>, Var_Name_Segment>) {
             segments.push_back(std::forward<Args>(a_args));
           } else {
-            segments.push_back(make_variable_name_segment(std::string(std::forward<Args>(a_args))));
+            segments.push_back(make_var_name_segment(std::string(std::forward<Args>(a_args))));
           }
         }(),
         ...
     );
-    return Variable_Name{{}, std::move(segments)};
+    return Var_Name{{}, std::move(segments)};
   }
 }
 
@@ -716,7 +815,7 @@ inline Struct_Literal make_struct_literal(std::string&& a_type_name, std::vector
 }
 
 // Expression helpers
-inline Expr make_expr(Variable_Name&& a_name) {
+inline Expr make_expr(Var_Name&& a_name) {
   return Expr{std::move(a_name)};
 }
 inline Expr make_expr(String&& a_str) {
@@ -731,7 +830,7 @@ inline Expr make_expr(Float&& a_float) noexcept {
 inline Expr make_expr(Char&& a_char) {
   return Expr{std::move(a_char)};
 }
-inline Expr make_expr(Function_Call_Expr&& a_call) {
+inline Expr make_expr(Func_Call_Expr&& a_call) {
   return Expr{std::move(a_call)};
 }
 inline Expr make_expr(Field_Access_Expr&& a_access) {
@@ -764,12 +863,12 @@ inline Expr make_expr(Range_Expr&& a_range) {
 inline Expr make_expr(Struct_Literal&& a_literal) {
   return Expr{std::move(a_literal)};
 }
-inline Expr make_expr(Unit_Literal&& a_unit) {
-  return Expr{std::move(a_unit)};
+inline Expr make_expr(Unit_Literal const& a_unit) {
+  return Expr{a_unit};
 }
 
-inline Function_Call_Expr make_function_call_expr(Variable_Name&& a_name, std::vector<Expr>&& a_parameters) {
-  return Function_Call_Expr{{}, std::move(a_name), std::move(a_parameters)};
+inline Func_Call_Expr make_func_call_expr(Var_Name&& a_name, std::vector<Expr>&& a_params) {
+  return Func_Call_Expr{{}, std::move(a_name), std::move(a_params)};
 }
 
 inline Field_Access_Expr make_field_access_expr(Expr&& a_object, std::string&& a_field_name) {
@@ -869,12 +968,12 @@ inline Range_Expr make_range_expr(Expr&& a_start, Expr&& a_end, bool a_inclusive
 }
 
 // Statement helpers
-inline Function_Call_Statement make_function_call_statement(Function_Call_Expr&& a_expr) {
-  return Function_Call_Statement{{}, std::move(a_expr)};
+inline Func_Call_Statement make_func_call_statement(Func_Call_Expr&& a_expr) {
+  return Func_Call_Statement{{}, std::move(a_expr)};
 }
 
-inline Expression_Statement make_expression_statement(Expr&& a_expr) {
-  return Expression_Statement{{}, std::move(a_expr)};
+inline Expr_Statement make_expr_statement(Expr&& a_expr) {
+  return Expr_Statement{{}, std::move(a_expr)};
 }
 
 inline Return_Statement make_return_statement(Expr&& a_expr) {
@@ -906,10 +1005,10 @@ make_let_statement(bool a_is_mut, Pattern&& a_pattern, boost::optional<Type_Name
   return Let_Statement{{}, a_is_mut, std::move(a_pattern), std::move(a_type), std::move(a_value)};
 }
 
-inline Statement make_statement(Function_Call_Statement&& a_call) {
+inline Statement make_statement(Func_Call_Statement&& a_call) {
   return Statement{std::move(a_call)};
 }
-inline Statement make_statement(Expression_Statement&& a_expr) {
+inline Statement make_statement(Expr_Statement&& a_expr) {
   return Statement{std::move(a_expr)};
 }
 inline Statement make_statement(Return_Statement&& a_ret) {
@@ -921,11 +1020,17 @@ inline Statement make_statement(Let_Statement&& a_let) {
 inline Statement make_statement(Block&& a_block) {
   return Statement{std::move(a_block)};
 }
-inline Statement make_statement(Function_Definition&& a_def) {
+inline Statement make_statement(Func_Def&& a_def) {
   return Statement{std::move(a_def)};
 }
-inline Statement make_statement(Struct_Definition&& a_def) {
+inline Statement make_statement(Struct_Def&& a_def) {
   return Statement{std::move(a_def)};
+}
+inline Statement make_statement(Trait_Def&& a_def) {
+  return Statement{std::move(a_def)};
+}
+inline Statement make_statement(Trait_Impl&& a_impl) {
+  return Statement{std::move(a_impl)};
 }
 
 inline Block make_block(std::vector<Statement>&& a_statements) {
@@ -943,28 +1048,29 @@ inline Unary_Expr make_unary_expr(Unary_Op a_op, Expr&& a_operand) {
 }
 
 // Function helpers
-inline Function_Parameter
-make_function_parameter(bool a_is_mut, std::string&& a_name, std::optional<Type_Name>&& a_type) {
-  return Function_Parameter{{}, a_is_mut, std::move(a_name), std::move(a_type)};
+inline Func_Param make_func_param(bool a_is_mut, std::string&& a_name, std::optional<Type_Name>&& a_type) {
+  return Func_Param{{}, a_is_mut, std::move(a_name), std::move(a_type)};
 }
 
-inline Function_Declaration make_function_declaration(
+inline Func_Decl make_func_decl(
     std::string&& a_name,
-    std::vector<Type_Name>&& a_type_params,
-    std::vector<Function_Parameter>&& a_parameters,
-    Type_Name&& a_return_type
+    std::vector<Type_Param>&& a_type_params,
+    std::vector<Func_Param>&& a_params,
+    Type_Name&& a_return_type,
+    std::optional<Where_Clause>&& a_where_clause = std::nullopt
 ) {
-  return Function_Declaration{
+  return Func_Decl{
       {},
       std::move(a_name),
       std::move(a_type_params),
-      std::move(a_parameters),
-      std::move(a_return_type)
+      std::move(a_params),
+      std::move(a_return_type),
+      std::move(a_where_clause)
   };
 }
 
-inline Function_Definition make_function_definition(Function_Declaration&& a_decl, Block&& a_body) {
-  return Function_Definition{{}, std::move(a_decl), std::move(a_body)};
+inline Func_Def make_func_def(Func_Decl&& a_decl, Block&& a_body) {
+  return Func_Def{{}, std::move(a_decl), std::move(a_body)};
 }
 
 // Struct helpers
@@ -972,16 +1078,17 @@ inline Struct_Field make_struct_field(std::string&& a_name, Type_Name&& a_type) 
   return Struct_Field{{}, std::move(a_name), std::move(a_type)};
 }
 
-inline Struct_Definition make_struct_definition(
+inline Struct_Def make_struct_def(
     std::string&& a_name,
-    std::vector<Type_Name>&& a_type_parameters,
-    std::vector<Struct_Field>&& a_fields
+    std::vector<Type_Param>&& a_type_params,
+    std::vector<Struct_Field>&& a_fields,
+    std::optional<Where_Clause>&& a_where_clause = std::nullopt
 ) {
-  return Struct_Definition{{}, std::move(a_name), std::move(a_type_parameters), std::move(a_fields)};
+  return Struct_Def{{}, std::move(a_name), std::move(a_type_params), std::move(a_fields), std::move(a_where_clause)};
 }
 
-inline Struct_Definition make_struct_definition(std::string&& a_name, std::vector<Struct_Field>&& a_fields) {
-  return make_struct_definition(std::move(a_name), {}, std::move(a_fields));
+inline Struct_Def make_struct_def(std::string&& a_name, std::vector<Struct_Field>&& a_fields) {
+  return make_struct_def(std::move(a_name), {}, std::move(a_fields), std::nullopt);
 }
 
 // Enum helpers
@@ -997,29 +1104,73 @@ inline Enum_Variant make_enum_variant(std::string&& a_name, std::vector<Struct_F
   return Enum_Variant{Struct_Variant{{}, std::move(a_name), std::move(a_struct_fields)}};
 }
 
-inline Enum_Definition make_enum_definition(
+inline Enum_Def make_enum_def(
     std::string&& a_name,
-    std::vector<Type_Name>&& a_type_parameters,
-    std::vector<Enum_Variant>&& a_variants
+    std::vector<Type_Param>&& a_type_params,
+    std::vector<Enum_Variant>&& a_variants,
+    std::optional<Where_Clause>&& a_where_clause = std::nullopt
 ) {
-  return Enum_Definition{{}, std::move(a_name), std::move(a_type_parameters), std::move(a_variants)};
+  return Enum_Def{{}, std::move(a_name), std::move(a_type_params), std::move(a_variants), std::move(a_where_clause)};
 }
 
-inline Enum_Definition make_enum_definition(std::string&& a_name, std::vector<Enum_Variant>&& a_variants) {
-  return make_enum_definition(std::move(a_name), {}, std::move(a_variants));
+inline Enum_Def make_enum_def(std::string&& a_name, std::vector<Enum_Variant>&& a_variants) {
+  return make_enum_def(std::move(a_name), {}, std::move(a_variants), std::nullopt);
 }
 
 // Impl block helpers
 inline Impl_Block make_impl_block(
     Type_Name&& a_type_name,
-    std::vector<Type_Name>&& a_type_params,
-    std::vector<Function_Definition>&& a_methods
+    std::vector<Type_Param>&& a_type_params,
+    std::vector<Func_Def>&& a_methods,
+    std::optional<Where_Clause>&& a_where_clause = std::nullopt
 ) {
-  return Impl_Block{{}, std::move(a_type_name), std::move(a_type_params), std::move(a_methods)};
+  return Impl_Block{
+      {},
+      std::move(a_type_name),
+      std::move(a_type_params),
+      std::move(a_methods),
+      std::move(a_where_clause)
+  };
 }
 
-inline Impl_Block make_impl_block(Type_Name&& a_type_name, std::vector<Function_Definition>&& a_methods) {
-  return make_impl_block(std::move(a_type_name), {}, std::move(a_methods));
+inline Impl_Block make_impl_block(Type_Name&& a_type_name, std::vector<Func_Def>&& a_methods) {
+  return make_impl_block(std::move(a_type_name), {}, std::move(a_methods), std::nullopt);
+}
+
+// Trait helpers
+inline Trait_Def make_trait_def(
+    std::string&& a_name,
+    std::vector<Type_Param>&& a_type_params,
+    std::vector<Func_Decl>&& a_methods,
+    std::optional<Where_Clause>&& a_where_clause = std::nullopt
+) {
+  return Trait_Def{{}, std::move(a_name), std::move(a_type_params), std::move(a_methods), std::move(a_where_clause)};
+}
+
+inline Trait_Def make_trait_def(std::string&& a_name, std::vector<Func_Decl>&& a_methods) {
+  return make_trait_def(std::move(a_name), {}, std::move(a_methods), std::nullopt);
+}
+
+inline Trait_Impl make_trait_impl(
+    Type_Name&& a_trait_name,
+    Type_Name&& a_type_name,
+    std::vector<Type_Param>&& a_type_params,
+    std::vector<Func_Def>&& a_methods,
+    std::optional<Where_Clause>&& a_where_clause = std::nullopt
+) {
+  return Trait_Impl{
+      {},
+      std::move(a_trait_name),
+      std::move(a_type_name),
+      std::move(a_type_params),
+      std::move(a_methods),
+      std::move(a_where_clause)
+  };
+}
+
+inline Trait_Impl
+make_trait_impl(Type_Name&& a_trait_name, Type_Name&& a_type_name, std::vector<Func_Def>&& a_methods) {
+  return make_trait_impl(std::move(a_trait_name), std::move(a_type_name), {}, std::move(a_methods), std::nullopt);
 }
 
 // Module helpers
@@ -1033,26 +1184,89 @@ inline Module make_module(std::vector<Statement>&& a_statements) {
 
 // Forward declarations for recursive types
 void to_json(nlohmann::json& a_json, Type_Name_Segment const& a_segment);
-void to_json(nlohmann::json& a_json, Variable_Name_Segment const& a_segment);
+void to_json(nlohmann::json& a_json, Trait_Bound const& a_bound);
+void to_json(nlohmann::json& a_json, Type_Param const& a_param);
+void to_json(nlohmann::json& a_json, Where_Predicate const& a_predicate);
+void to_json(nlohmann::json& a_json, Where_Clause const& a_where_clause);
+void to_json(nlohmann::json& a_json, Var_Name_Segment const& a_segment);
 void to_json(nlohmann::json& a_json, Expr const& a_expr);
 void to_json(nlohmann::json& a_json, Binary_Expr const& a_expr);
 void to_json(nlohmann::json& a_json, Unary_Expr const& a_expr);
-void to_json(nlohmann::json& a_json, Function_Call_Expr const& a_call);
+void to_json(nlohmann::json& a_json, Func_Call_Expr const& a_call);
 void to_json(nlohmann::json& a_json, Field_Access_Expr const& a_access);
 void to_json(nlohmann::json& a_json, Assignment_Expr const& a_assignment);
 void to_json(nlohmann::json& a_json, Field_Initializer const& a_initializer);
 void to_json(nlohmann::json& a_json, Let_Statement const& a_let);
 void to_json(nlohmann::json& a_json, Match_Arm const& a_arm);
 void to_json(nlohmann::json& a_json, Match_Expr const& a_match);
-void to_json(nlohmann::json& a_json, Function_Definition const& a_def);
-void to_json(nlohmann::json& a_json, Struct_Definition const& a_def);
+void to_json(nlohmann::json& a_json, Func_Def const& a_def);
+void to_json(nlohmann::json& a_json, Struct_Def const& a_def);
 void to_json(nlohmann::json& a_json, Enum_Variant const& a_variant);
-void to_json(nlohmann::json& a_json, Enum_Definition const& a_def);
+void to_json(nlohmann::json& a_json, Enum_Def const& a_def);
 void to_json(nlohmann::json& a_json, Impl_Block const& a_impl);
+void to_json(nlohmann::json& a_json, Trait_Def const& a_trait);
+void to_json(nlohmann::json& a_json, Trait_Impl const& a_trait_impl);
 void to_json(nlohmann::json& a_json, Block const& a_block);
 
 // Type_Name serialization (Type_Name must be declared before Type_Name_Segment due to recursion)
 inline void to_json(nlohmann::json& a_json, Type_Name const& a_type);
+
+// Trait_Bound serialization
+inline void to_json(nlohmann::json& a_json, Trait_Bound const& a_bound) {
+  nlohmann::json obj;
+  nlohmann::json trait_name_json;
+  to_json(trait_name_json, a_bound.trait_name);
+  obj["trait_name"] = trait_name_json;
+  a_json[Trait_Bound::k_name] = obj;
+}
+
+// Type_Param serialization
+inline void to_json(nlohmann::json& a_json, Type_Param const& a_param) {
+  nlohmann::json obj;
+  nlohmann::json name_json;
+  to_json(name_json, a_param.name);
+  obj["name"] = name_json;
+  if (!a_param.bounds.empty()) {
+    nlohmann::json bounds_array = nlohmann::json::array();
+    for (auto const& bound : a_param.bounds) {
+      nlohmann::json bound_json;
+      to_json(bound_json, bound);
+      bounds_array.push_back(bound_json);
+    }
+    obj["bounds"] = bounds_array;
+  }
+  a_json[Type_Param::k_name] = obj;
+}
+
+// Where_Predicate serialization
+inline void to_json(nlohmann::json& a_json, Where_Predicate const& a_predicate) {
+  nlohmann::json obj;
+  nlohmann::json type_name_json;
+  to_json(type_name_json, a_predicate.type_name);
+  obj["type_name"] = type_name_json;
+
+  nlohmann::json bounds_array = nlohmann::json::array();
+  for (auto const& bound : a_predicate.bounds) {
+    nlohmann::json bound_json;
+    to_json(bound_json, bound);
+    bounds_array.push_back(bound_json);
+  }
+  obj["bounds"] = bounds_array;
+  a_json[Where_Predicate::k_name] = obj;
+}
+
+// Where_Clause serialization
+inline void to_json(nlohmann::json& a_json, Where_Clause const& a_where_clause) {
+  nlohmann::json obj;
+  nlohmann::json predicates_array = nlohmann::json::array();
+  for (auto const& predicate : a_where_clause.predicates) {
+    nlohmann::json predicate_json;
+    to_json(predicate_json, predicate);
+    predicates_array.push_back(predicate_json);
+  }
+  obj["predicates"] = predicates_array;
+  a_json[Where_Clause::k_name] = obj;
+}
 
 inline void to_json(nlohmann::json& a_json, Type_Name_Segment const& a_segment) {
   nlohmann::json obj;
@@ -1079,8 +1293,8 @@ inline void to_json(nlohmann::json& a_json, Type_Name const& a_type) {
   a_json[Type_Name::k_name] = obj;
 }
 
-// Variable_Name serialization
-inline void to_json(nlohmann::json& a_json, Variable_Name_Segment const& a_segment) {
+// Var_Name serialization
+inline void to_json(nlohmann::json& a_json, Var_Name_Segment const& a_segment) {
   nlohmann::json obj;
   obj["value"] = a_segment.value;
   nlohmann::json template_params = nlohmann::json::array();
@@ -1090,10 +1304,10 @@ inline void to_json(nlohmann::json& a_json, Variable_Name_Segment const& a_segme
     template_params.push_back(type_json);
   }
   obj["type_params"] = template_params;
-  a_json[Variable_Name_Segment::k_name] = obj;
+  a_json[Var_Name_Segment::k_name] = obj;
 }
 
-inline void to_json(nlohmann::json& a_json, Variable_Name const& a_name) {
+inline void to_json(nlohmann::json& a_json, Var_Name const& a_name) {
   nlohmann::json obj;
   nlohmann::json segments = nlohmann::json::array();
   for (auto const& segment : a_name.segments) {
@@ -1102,7 +1316,7 @@ inline void to_json(nlohmann::json& a_json, Variable_Name const& a_name) {
     segments.push_back(segment_json);
   }
   obj["segments"] = segments;
-  a_json[Variable_Name::k_name] = obj;
+  a_json[Var_Name::k_name] = obj;
 }
 
 // Literal serialization
@@ -1148,7 +1362,7 @@ inline void to_json(nlohmann::json& a_json, Field_Initializer const& a_initializ
 
 inline void to_json(nlohmann::json& a_json, Struct_Literal const& a_literal) {
   nlohmann::json obj;
-  obj["typeName"] = a_literal.type_name;
+  obj["type_name"] = a_literal.type_name;
   nlohmann::json fields = nlohmann::json::array();
   for (auto const& field : a_literal.fields) {
     nlohmann::json field_json;
@@ -1248,19 +1462,19 @@ inline void to_json(nlohmann::json& a_json, Unary_Expr const& a_expr) {
 }
 
 // Expression serialization (implementations after all parts are declared)
-inline void to_json(nlohmann::json& a_json, Function_Call_Expr const& a_call) {
+inline void to_json(nlohmann::json& a_json, Func_Call_Expr const& a_call) {
   nlohmann::json obj;
   nlohmann::json name_json;
   to_json(name_json, a_call.name);
   obj["name"] = name_json;
   nlohmann::json params = nlohmann::json::array();
-  for (auto const& param : a_call.parameters) {
+  for (auto const& param : a_call.params) {
     nlohmann::json param_json;
     to_json(param_json, param);
     params.push_back(param_json);
   }
-  obj["parameters"] = params;
-  a_json[Function_Call_Expr::k_name] = obj;
+  obj["params"] = params;
+  a_json[Func_Call_Expr::k_name] = obj;
 }
 
 inline void to_json(nlohmann::json& a_json, Field_Access_Expr const& a_access) {
@@ -1469,20 +1683,20 @@ inline void to_json(nlohmann::json& a_json, Expr const& a_expr) {
 }
 
 // Statement serialization
-inline void to_json(nlohmann::json& a_json, Function_Call_Statement const& a_call) {
+inline void to_json(nlohmann::json& a_json, Func_Call_Statement const& a_call) {
   nlohmann::json obj;
   nlohmann::json expr_json;
   to_json(expr_json, a_call.expr);
   obj["expr"] = expr_json;
-  a_json[Function_Call_Statement::k_name] = obj;
+  a_json[Func_Call_Statement::k_name] = obj;
 }
 
-inline void to_json(nlohmann::json& a_json, Expression_Statement const& a_stmt) {
+inline void to_json(nlohmann::json& a_json, Expr_Statement const& a_stmt) {
   nlohmann::json obj;
   nlohmann::json expr_json;
   to_json(expr_json, a_stmt.expr.get());
   obj["expr"] = expr_json;
-  a_json[Expression_Statement::k_name] = obj;
+  a_json[Expr_Statement::k_name] = obj;
 }
 
 inline void to_json(nlohmann::json& a_json, Return_Statement const& a_ret) {
@@ -1569,7 +1783,7 @@ inline void to_json(nlohmann::json& a_json, Block const& a_block) {
 }
 
 // Function serialization
-inline void to_json(nlohmann::json& a_json, Function_Parameter const& a_param) {
+inline void to_json(nlohmann::json& a_json, Func_Param const& a_param) {
   nlohmann::json obj;
   obj["is_mut"] = a_param.is_mut;
   obj["name"] = a_param.name;
@@ -1578,10 +1792,10 @@ inline void to_json(nlohmann::json& a_json, Function_Parameter const& a_param) {
     to_json(type_json, *a_param.type);
     obj["type"] = type_json;
   }
-  a_json[Function_Parameter::k_name] = obj;
+  a_json[Func_Param::k_name] = obj;
 }
 
-inline void to_json(nlohmann::json& a_json, Function_Declaration const& a_decl) {
+inline void to_json(nlohmann::json& a_json, Func_Decl const& a_decl) {
   nlohmann::json obj;
   obj["name"] = a_decl.name;
   nlohmann::json type_params = nlohmann::json::array();
@@ -1592,27 +1806,32 @@ inline void to_json(nlohmann::json& a_json, Function_Declaration const& a_decl) 
   }
   obj["type_params"] = type_params;
   nlohmann::json params = nlohmann::json::array();
-  for (auto const& param : a_decl.parameters) {
+  for (auto const& param : a_decl.func_params) {
     nlohmann::json param_json;
     to_json(param_json, param);
     params.push_back(param_json);
   }
-  obj["parameters"] = params;
+  obj["params"] = params;
   nlohmann::json return_type_json;
   to_json(return_type_json, a_decl.return_type);
-  obj["returnType"] = return_type_json;
-  a_json[Function_Declaration::k_name] = obj;
+  obj["return_type"] = return_type_json;
+  if (a_decl.where_clause.has_value()) {
+    nlohmann::json where_clause_json;
+    to_json(where_clause_json, *a_decl.where_clause);
+    obj["where_clause"] = where_clause_json;
+  }
+  a_json[Func_Decl::k_name] = obj;
 }
 
-inline void to_json(nlohmann::json& a_json, Function_Definition const& a_def) {
+inline void to_json(nlohmann::json& a_json, Func_Def const& a_def) {
   nlohmann::json obj;
   nlohmann::json decl_json;
   to_json(decl_json, a_def.declaration);
-  obj["declaration"] = decl_json;
+  obj["decl"] = decl_json;
   nlohmann::json body_json;
   to_json(body_json, a_def.body);
   obj["body"] = body_json;
-  a_json[Function_Definition::k_name] = obj;
+  a_json[Func_Def::k_name] = obj;
 }
 
 // Struct serialization
@@ -1625,7 +1844,7 @@ inline void to_json(nlohmann::json& a_json, Struct_Field const& a_field) {
   a_json[Struct_Field::k_name] = obj;
 }
 
-inline void to_json(nlohmann::json& a_json, Struct_Definition const& a_def) {
+inline void to_json(nlohmann::json& a_json, Struct_Def const& a_def) {
   nlohmann::json obj;
   obj["name"] = a_def.name;
 
@@ -1647,7 +1866,12 @@ inline void to_json(nlohmann::json& a_json, Struct_Definition const& a_def) {
     fields.push_back(field_json);
   }
   obj["fields"] = fields;
-  a_json[Struct_Definition::k_name] = obj;
+  if (a_def.where_clause.has_value()) {
+    nlohmann::json where_clause_json;
+    to_json(where_clause_json, *a_def.where_clause);
+    obj["where_clause"] = where_clause_json;
+  }
+  a_json[Struct_Def::k_name] = obj;
 }
 
 // Enum serialization - individual variant types
@@ -1689,9 +1913,9 @@ inline void to_json(nlohmann::json& a_json, Struct_Variant const& a_variant) {
 // Enum_Variant serialization using visitor
 inline void to_json(nlohmann::json& a_json, Enum_Variant const& a_variant) {
   boost::apply_visitor(
-      [&a_json](auto const& variant) {
+      [&a_json](auto const& a_v) {
         nlohmann::json obj;
-        to_json(obj, variant);
+        to_json(obj, a_v);
         // Extract the inner object from the wrapper
         a_json[Enum_Variant::k_name] = obj.begin().value();
       },
@@ -1699,7 +1923,7 @@ inline void to_json(nlohmann::json& a_json, Enum_Variant const& a_variant) {
   );
 }
 
-inline void to_json(nlohmann::json& a_json, Enum_Definition const& a_def) {
+inline void to_json(nlohmann::json& a_json, Enum_Def const& a_def) {
   nlohmann::json obj;
   obj["name"] = a_def.name;
 
@@ -1723,7 +1947,13 @@ inline void to_json(nlohmann::json& a_json, Enum_Definition const& a_def) {
   }
   obj["variants"] = variants;
 
-  a_json[Enum_Definition::k_name] = obj;
+  if (a_def.where_clause.has_value()) {
+    nlohmann::json where_clause_json;
+    to_json(where_clause_json, *a_def.where_clause);
+    obj["where_clause"] = where_clause_json;
+  }
+
+  a_json[Enum_Def::k_name] = obj;
 }
 
 // Impl block serialization
@@ -1755,7 +1985,91 @@ inline void to_json(nlohmann::json& a_json, Impl_Block const& a_impl) {
   }
   obj["methods"] = methods;
 
+  if (a_impl.where_clause.has_value()) {
+    nlohmann::json where_clause_json;
+    to_json(where_clause_json, *a_impl.where_clause);
+    obj["where_clause"] = where_clause_json;
+  }
+
   a_json[Impl_Block::k_name] = obj;
+}
+
+// Trait definition serialization
+inline void to_json(nlohmann::json& a_json, Trait_Def const& a_trait) {
+  nlohmann::json obj;
+
+  obj["name"] = a_trait.name;
+
+  // Type parameters (optional)
+  if (!a_trait.type_params.empty()) {
+    nlohmann::json type_params = nlohmann::json::array();
+    for (auto const& param : a_trait.type_params) {
+      nlohmann::json param_json;
+      to_json(param_json, param);
+      type_params.push_back(param_json);
+    }
+    obj["type_params"] = type_params;
+  }
+
+  // Method signatures
+  nlohmann::json methods = nlohmann::json::array();
+  for (auto const& method : a_trait.methods) {
+    nlohmann::json method_json;
+    to_json(method_json, method);
+    methods.push_back(method_json);
+  }
+  obj["methods"] = methods;
+
+  if (a_trait.where_clause.has_value()) {
+    nlohmann::json where_clause_json;
+    to_json(where_clause_json, *a_trait.where_clause);
+    obj["where_clause"] = where_clause_json;
+  }
+
+  a_json[Trait_Def::k_name] = obj;
+}
+
+// Trait implementation serialization
+inline void to_json(nlohmann::json& a_json, Trait_Impl const& a_trait_impl) {
+  nlohmann::json obj;
+
+  // Trait name
+  nlohmann::json trait_name_json;
+  to_json(trait_name_json, a_trait_impl.trait_name);
+  obj["trait_name"] = trait_name_json;
+
+  // Type name
+  nlohmann::json type_name_json;
+  to_json(type_name_json, a_trait_impl.type_name);
+  obj["type_name"] = type_name_json;
+
+  // Type parameters (optional)
+  if (!a_trait_impl.type_params.empty()) {
+    nlohmann::json type_params = nlohmann::json::array();
+    for (auto const& param : a_trait_impl.type_params) {
+      nlohmann::json param_json;
+      to_json(param_json, param);
+      type_params.push_back(param_json);
+    }
+    obj["type_params"] = type_params;
+  }
+
+  // Method implementations
+  nlohmann::json methods = nlohmann::json::array();
+  for (auto const& method : a_trait_impl.methods) {
+    nlohmann::json method_json;
+    to_json(method_json, method);
+    methods.push_back(method_json);
+  }
+  obj["methods"] = methods;
+
+  if (a_trait_impl.where_clause.has_value()) {
+    nlohmann::json where_clause_json;
+    to_json(where_clause_json, *a_trait_impl.where_clause);
+    obj["where_clause"] = where_clause_json;
+  }
+
+  a_json[Trait_Impl::k_name] = obj;
 }
 
 // Module serialization
