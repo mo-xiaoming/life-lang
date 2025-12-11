@@ -13,7 +13,7 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
     auto begin = input.cbegin();
     auto const end = input.cend();
 
-    auto result = life_lang::internal::parse_function_definition(begin, end);
+    auto result = life_lang::internal::parse_func_def(begin, end);
 
     REQUIRE_FALSE(result);
 
@@ -57,7 +57,7 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
     auto begin = input.cbegin();
     auto const end = input.cend();
 
-    auto result = life_lang::internal::parse_function_definition(begin, end);
+    auto result = life_lang::internal::parse_func_def(begin, end);
 
     REQUIRE_FALSE(result);
 
@@ -80,7 +80,7 @@ TEST_CASE("Spirit X3 internal error messages included", "[parser][diagnostics]")
     auto begin = input.cbegin();
     auto const end = input.cend();
 
-    auto result = life_lang::internal::parse_function_definition(begin, end);
+    auto result = life_lang::internal::parse_func_def(begin, end);
 
     REQUIRE_FALSE(result);
 
@@ -107,7 +107,7 @@ TEST_CASE("Example clang-style error output", "[parser][diagnostics][.]") {
     auto begin = input.cbegin();
     auto const end = input.cend();
 
-    auto result = life_lang::internal::parse_function_definition(begin, end);
+    auto result = life_lang::internal::parse_func_def(begin, end);
 
     REQUIRE_FALSE(result);
 

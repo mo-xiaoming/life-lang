@@ -19,9 +19,9 @@ constexpr auto k_break_with_integer_input = "break 42;";
 inline auto const k_break_with_integer_expected = test_json::break_statement(test_json::integer(42));
 
 // Break with variable
-constexpr auto k_break_with_variable_should_succeed = true;
-constexpr auto k_break_with_variable_input = "break result;";
-inline auto const k_break_with_variable_expected = test_json::break_statement(test_json::var_name("result"));
+constexpr auto k_break_with_var_should_succeed = true;
+constexpr auto k_break_with_var_input = "break result;";
+inline auto const k_break_with_var_expected = test_json::break_statement(test_json::var_name("result"));
 
 // Break with expression
 constexpr auto k_break_with_expression_should_succeed = true;
@@ -31,10 +31,10 @@ inline auto const k_break_with_expression_expected = R"({
     "value": {
       "Binary_Expr": {
         "lhs": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "x"
                 }
@@ -54,15 +54,15 @@ inline auto const k_break_with_expression_expected = R"({
 })";
 
 // Break with function call
-constexpr auto k_break_with_function_call_should_succeed = true;
-constexpr auto k_break_with_function_call_input = "break calculate();";
-inline auto const k_break_with_function_call_expected = fmt::format(
+constexpr auto k_break_with_func_call_should_succeed = true;
+constexpr auto k_break_with_func_call_input = "break calculate();";
+inline auto const k_break_with_func_call_expected = fmt::format(
     R"({{
   "Break_Statement": {{
     "value": {{
-      "Function_Call_Expr": {{
+      "Func_Call_Expr": {{
         "name": {},
-        "parameters": []
+        "params": []
       }}
     }}
   }}
@@ -105,8 +105,8 @@ constexpr auto k_missing_semicolon_input = "break";
 // This is expected behavior for statement parsing
 
 // Break is a keyword, can't use as variable name
-constexpr auto k_break_as_variable_should_succeed = false;
-constexpr auto k_break_as_variable_input = "break = 5;";
+constexpr auto k_break_as_var_should_succeed = false;
+constexpr auto k_break_as_var_input = "break = 5;";
 
 }  // namespace
 
@@ -119,18 +119,15 @@ TEST_CASE("Parse Break_Statement", "[parser]") {
            k_break_with_integer_input,
            k_break_with_integer_expected,
            k_break_with_integer_should_succeed},
-          {"break with variable",
-           k_break_with_variable_input,
-           k_break_with_variable_expected,
-           k_break_with_variable_should_succeed},
+          {"break with variable", k_break_with_var_input, k_break_with_var_expected, k_break_with_var_should_succeed},
           {"break with expression",
            k_break_with_expression_input,
            k_break_with_expression_expected,
            k_break_with_expression_should_succeed},
           {"break with function call",
-           k_break_with_function_call_input,
-           k_break_with_function_call_expected,
-           k_break_with_function_call_should_succeed},
+           k_break_with_func_call_input,
+           k_break_with_func_call_expected,
+           k_break_with_func_call_should_succeed},
           {"break with string",
            k_break_with_string_input,
            k_break_with_string_expected,
@@ -142,7 +139,7 @@ TEST_CASE("Parse Break_Statement", "[parser]") {
 
           // Invalid cases
           {"invalid - missing semicolon", k_missing_semicolon_input, "", k_missing_semicolon_should_succeed},
-          {"invalid - break as variable", k_break_as_variable_input, "", k_break_as_variable_should_succeed},
+          {"invalid - break as variable", k_break_as_var_input, "", k_break_as_var_should_succeed},
       })
   );
   DYNAMIC_SECTION(params.name) {

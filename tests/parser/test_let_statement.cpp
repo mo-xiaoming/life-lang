@@ -41,9 +41,9 @@ inline auto const k_let_mut_with_type_expected = test_json::let_statement(
 );
 
 // Let with variable initializer
-constexpr auto k_let_with_variable_should_succeed = true;
-constexpr auto k_let_with_variable_input = "let y = x;";
-inline auto const k_let_with_variable_expected = fmt::format(
+constexpr auto k_let_with_var_should_succeed = true;
+constexpr auto k_let_with_var_input = "let y = x;";
+inline auto const k_let_with_var_expected = fmt::format(
     R"({{
   "Let_Statement": {{
     "is_mut": false,
@@ -68,9 +68,9 @@ inline auto const k_let_with_expression_expected = test_json::let_statement(
 );
 
 // Let with function call initializer
-constexpr auto k_let_with_function_call_should_succeed = true;
-constexpr auto k_let_with_function_call_input = "let value = calculate();";
-inline auto const k_let_with_function_call_expected = test_json::let_statement(
+constexpr auto k_let_with_func_call_should_succeed = true;
+constexpr auto k_let_with_func_call_input = "let value = calculate();";
+inline auto const k_let_with_func_call_expected = test_json::let_statement(
     test_json::simple_pattern("value"),
     test_json::function_call(test_json::var_name("calculate"), {})
 );
@@ -133,18 +133,15 @@ TEST_CASE("Parse Let_Statement", "[parser]") {
            k_let_mut_with_type_input,
            k_let_mut_with_type_expected,
            k_let_mut_with_type_should_succeed},
-          {"let with variable",
-           k_let_with_variable_input,
-           k_let_with_variable_expected,
-           k_let_with_variable_should_succeed},
+          {"let with variable", k_let_with_var_input, k_let_with_var_expected, k_let_with_var_should_succeed},
           {"let with expression",
            k_let_with_expression_input,
            k_let_with_expression_expected,
            k_let_with_expression_should_succeed},
           {"let with function call",
-           k_let_with_function_call_input,
-           k_let_with_function_call_expected,
-           k_let_with_function_call_should_succeed},
+           k_let_with_func_call_input,
+           k_let_with_func_call_expected,
+           k_let_with_func_call_should_succeed},
           {"let with tuple pattern",
            k_let_with_tuple_pattern_input,
            k_let_with_tuple_pattern_expected,

@@ -10,8 +10,8 @@ namespace {
 // Function with unit return type
 constexpr auto k_unit_return_should_succeed = true;
 constexpr auto k_unit_return_input = "fn test(): () { return (); }";
-inline auto const k_unit_return_expected = test_json::function_definition(
-    test_json::function_declaration("test", {}, {}, test_json::type_name("()")),
+inline auto const k_unit_return_expected = test_json::func_def(
+    test_json::func_decl("test", {}, {}, test_json::type_name("()")),
     test_json::block({test_json::return_statement(R"({"Unit_Literal": {}})")})
 );
 

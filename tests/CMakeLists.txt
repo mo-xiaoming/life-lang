@@ -16,12 +16,12 @@ target_sources(tests
         parser/test_comment.cpp
         parser/test_continue_statement.cpp
         parser/test_diagnostics.cpp
-        parser/test_enum_definition.cpp
+        parser/test_enum_def.cpp
         parser/test_expr.cpp
         parser/test_field_access.cpp
         parser/test_float.cpp
         parser/test_for_expr.cpp
-        parser/test_function_definition.cpp
+        parser/test_func_def.cpp
         parser/test_if_expr.cpp
         parser/test_impl_block.cpp
         parser/test_integer.cpp
@@ -32,10 +32,15 @@ target_sources(tests
         parser/test_method_chaining.cpp
         parser/test_range_expr.cpp
         parser/test_string.cpp
-        parser/test_struct_definition.cpp
+        parser/test_struct_def.cpp
+        parser/test_trait_bounds.cpp
+        parser/test_trait_bounds_in_declarations.cpp
+        parser/test_trait_def.cpp
+        parser/test_trait_impl.cpp
         parser/test_tuple_pattern.cpp
         parser/test_unary_expr.cpp
         parser/test_unit_type.cpp
+        parser/test_where_clause.cpp
         parser/test_while_expr.cpp
         
         # Integration tests - test complete parse_module workflows

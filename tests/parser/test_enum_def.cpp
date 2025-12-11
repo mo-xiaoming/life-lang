@@ -1,9 +1,9 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
 
-using life_lang::ast::Enum_Definition;
+using life_lang::ast::Enum_Def;
 
-PARSE_TEST(Enum_Definition, enum_definition)
+PARSE_TEST(Enum_Def, enum_def)
 
 namespace {
 // Unit variants
@@ -11,7 +11,7 @@ constexpr auto k_unit_single_should_succeed = true;
 constexpr auto k_unit_single_input = "enum Color { Red }";
 inline auto const k_unit_single_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Color",
     "variants": [
       {{
@@ -29,7 +29,7 @@ constexpr auto k_unit_multiple_should_succeed = true;
 constexpr auto k_unit_multiple_input = "enum Color { Red, Green, Blue }";
 inline auto const k_unit_multiple_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Color",
     "variants": [
       {{
@@ -59,7 +59,7 @@ constexpr auto k_unit_trailing_comma_should_succeed = true;
 constexpr auto k_unit_trailing_comma_input = "enum Status { Idle, Running, }";
 inline auto const k_unit_trailing_comma_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Status",
     "variants": [
       {{
@@ -84,7 +84,7 @@ constexpr auto k_tuple_single_field_should_succeed = true;
 constexpr auto k_tuple_single_field_input = "enum Option { Some(I32) }";
 inline auto const k_tuple_single_field_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Option",
     "variants": [
       {{
@@ -106,7 +106,7 @@ constexpr auto k_tuple_multiple_fields_should_succeed = true;
 constexpr auto k_tuple_multiple_fields_input = "enum Color { Rgb(I32, I32, I32) }";
 inline auto const k_tuple_multiple_fields_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Color",
     "variants": [
       {{
@@ -132,7 +132,7 @@ constexpr auto k_tuple_trailing_comma_should_succeed = true;
 constexpr auto k_tuple_trailing_comma_input = "enum Data { Point(I32, I32,) }";
 inline auto const k_tuple_trailing_comma_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Data",
     "variants": [
       {{
@@ -156,7 +156,7 @@ constexpr auto k_struct_single_field_should_succeed = true;
 constexpr auto k_struct_single_field_input = "enum Message { Write { text: String } }";
 inline auto const k_struct_single_field_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Message",
     "variants": [
       {{
@@ -183,7 +183,7 @@ constexpr auto k_struct_multiple_fields_should_succeed = true;
 constexpr auto k_struct_multiple_fields_input = "enum Message { Move { x: I32, y: I32 } }";
 inline auto const k_struct_multiple_fields_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Message",
     "variants": [
       {{
@@ -218,7 +218,7 @@ constexpr auto k_mixed_variants_should_succeed = true;
 constexpr auto k_mixed_variants_input = "enum Message { Quit, Move { x: I32, y: I32 }, Write(String) }";
 inline auto const k_mixed_variants_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Message",
     "variants": [
       {{
@@ -269,7 +269,7 @@ constexpr auto k_generic_single_param_should_succeed = true;
 constexpr auto k_generic_single_param_input = "enum Option<T> { Some(T), None }";
 inline auto const k_generic_single_param_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Option",
     "type_params": [
       {}
@@ -293,7 +293,7 @@ inline auto const k_generic_single_param_expected = fmt::format(
     ]
   }}
 }})",
-    test_json::type_name("T"),
+    test_json::type_param(test_json::type_name("T")),
     test_json::type_name("T")
 );
 
@@ -301,7 +301,7 @@ constexpr auto k_generic_multiple_params_should_succeed = true;
 constexpr auto k_generic_multiple_params_input = "enum Result<T, E> { Ok(T), Err(E) }";
 inline auto const k_generic_multiple_params_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Result",
     "type_params": [
       {},
@@ -329,8 +329,8 @@ inline auto const k_generic_multiple_params_expected = fmt::format(
     ]
   }}
 }})",
-    test_json::type_name("T"),
-    test_json::type_name("E"),
+    test_json::type_param(test_json::type_name("T")),
+    test_json::type_param(test_json::type_name("E")),
     test_json::type_name("T"),
     test_json::type_name("E")
 );
@@ -339,10 +339,10 @@ inline auto const k_generic_multiple_params_expected = fmt::format(
 constexpr auto k_nested_types_should_succeed = true;
 constexpr auto k_nested_types_input = "enum Tree<T> { Leaf(T), Node(Tree<T>, Tree<T>) }";
 inline auto const k_nested_types_expected = R"({
-  "Enum_Definition": {
+  "Enum_Def": {
     "name": "Tree",
     "type_params": [
-      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
+      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
     ],
     "variants": [
       {
@@ -399,7 +399,7 @@ constexpr auto k_qualified_types_should_succeed = true;
 constexpr auto k_qualified_types_input = "enum Value { Int(Std.I32), Str(Std.String) }";
 inline auto const k_qualified_types_expected = fmt::format(
     R"({{
-  "Enum_Definition": {{
+  "Enum_Def": {{
     "name": "Value",
     "variants": [
       {{
@@ -431,7 +431,7 @@ inline auto const k_qualified_types_expected = fmt::format(
 constexpr auto k_empty_variants_should_succeed = true;
 constexpr auto k_empty_variants_input = "enum Empty { }";
 inline auto const k_empty_variants_expected = R"({
-  "Enum_Definition": {
+  "Enum_Def": {
     "name": "Empty",
     "variants": []
   }
@@ -447,9 +447,9 @@ inline auto const k_missing_name_expected = "";
 
 }  // namespace
 
-TEST_CASE("Parse Enum_Definition", "[parser]") {
+TEST_CASE("Parse Enum_Def", "[parser]") {
   auto const params = GENERATE(
-      Catch::Generators::values<Enum_Definition_Params>({
+      Catch::Generators::values<Enum_Def_Params>({
           {"unit single", k_unit_single_input, k_unit_single_expected, k_unit_single_should_succeed},
           {"unit multiple", k_unit_multiple_input, k_unit_multiple_expected, k_unit_multiple_should_succeed},
           {"unit trailing comma",

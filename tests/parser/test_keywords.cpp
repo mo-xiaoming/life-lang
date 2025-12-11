@@ -9,7 +9,7 @@ TEST_CASE("Keyword Boundary Validation", "[parser][keywords]") {
     std::string name;
     std::string input;
     bool should_succeed;
-    bool is_return_stmt;  // true = Return_Statement, false = Function_Definition
+    bool is_return_stmt;  // true = Return_Statement, false = Func_Def
   };
 
   auto const test = GENERATE(
@@ -40,7 +40,7 @@ TEST_CASE("Keyword Boundary Validation", "[parser][keywords]") {
       auto const got = life_lang::internal::parse_statement(begin, end);
       CHECK(test.should_succeed == bool(got));
     } else {
-      auto const got = life_lang::internal::parse_function_definition(begin, end);
+      auto const got = life_lang::internal::parse_func_def(begin, end);
       CHECK(test.should_succeed == bool(got));
     }
   }
@@ -49,7 +49,7 @@ TEST_CASE("Keyword Boundary Validation", "[parser][keywords]") {
 // Test that variable_names cannot be keywords
 // Note: This test has custom validation logic (checking segment name),
 // so it doesn't use PARSE_TEST which compares full AST structure.
-TEST_CASE("Variable_Name vs Keyword Distinction", "[parser][keywords]") {
+TEST_CASE("Var_Name vs Keyword Distinction", "[parser][keywords]") {
   struct Test_Case {
     std::string name;
     std::string input;

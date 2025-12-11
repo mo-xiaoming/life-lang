@@ -39,7 +39,7 @@ inline auto const k_basic_single_method_expected = R"(
     },
     "methods": [
       {
-        "Function_Definition": {
+        "Func_Def": {
           "body": {
             "Block": {
               "statements": [
@@ -55,12 +55,12 @@ inline auto const k_basic_single_method_expected = R"(
               ]
             }
           },
-          "declaration": {
-            "Function_Declaration": {
+          "decl": {
+            "Func_Decl": {
               "name": "distance",
-              "parameters": [
+              "params": [
                 {
-                  "Function_Parameter": {
+                  "Func_Param": {
                     "is_mut": false,
                     "name": "self",
                     "type": {
@@ -73,7 +73,7 @@ inline auto const k_basic_single_method_expected = R"(
                   }
                 }
               ],
-              "returnType": {
+              "return_type": {
                 "Type_Name": {
                   "segments": [
                     {"Type_Name_Segment": {"type_params": [], "value": "F64"}}
@@ -105,7 +105,7 @@ inline auto const k_optional_self_type_expected = R"(
     },
     "methods": [
       {
-        "Function_Definition": {
+        "Func_Def": {
           "body": {
             "Block": {
               "statements": [
@@ -121,18 +121,18 @@ inline auto const k_optional_self_type_expected = R"(
               ]
             }
           },
-          "declaration": {
-            "Function_Declaration": {
+          "decl": {
+            "Func_Decl": {
               "name": "distance",
-              "parameters": [
+              "params": [
                 {
-                  "Function_Parameter": {
+                  "Func_Param": {
                     "is_mut": false,
                     "name": "self"
                   }
                 }
               ],
-              "returnType": {
+              "return_type": {
                 "Type_Name": {
                   "segments": [
                     {"Type_Name_Segment": {"type_params": [], "value": "F64"}}
@@ -170,11 +170,11 @@ inline auto const k_generic_single_param_expected = R"(
       }
     },
     "type_params": [
-      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
+      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
     ],
     "methods": [
       {
-        "Function_Definition": {
+        "Func_Def": {
           "body": {
             "Block": {
               "statements": [
@@ -190,12 +190,12 @@ inline auto const k_generic_single_param_expected = R"(
               ]
             }
           },
-          "declaration": {
-            "Function_Declaration": {
+          "decl": {
+            "Func_Decl": {
               "name": "len",
-              "parameters": [
+              "params": [
                 {
-                  "Function_Parameter": {
+                  "Func_Param": {
                     "is_mut": false,
                     "name": "self",
                     "type": {
@@ -215,7 +215,7 @@ inline auto const k_generic_single_param_expected = R"(
                   }
                 }
               ],
-              "returnType": {
+              "return_type": {
                 "Type_Name": {
                   "segments": [
                     {"Type_Name_Segment": {"type_params": [], "value": "I32"}}

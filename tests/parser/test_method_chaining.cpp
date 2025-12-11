@@ -37,9 +37,9 @@ inline auto const k_field_on_call_result_expected =
 
 // Path-based function call: obj.field.method() parses as qualified function name
 // This is a function call where the name is a dotted path (qualified name)
-constexpr auto k_path_function_call_should_succeed = true;
-constexpr auto k_path_function_call_input = "obj.field.method()";
-inline auto const k_path_function_call_expected =
+constexpr auto k_path_func_call_should_succeed = true;
+constexpr auto k_path_func_call_input = "obj.field.method()";
+inline auto const k_path_func_call_expected =
     test_json::function_call(test_json::var_name_path({"obj", "field", "method"}), {});
 
 // Mixed: field access on method result: foo().bar.baz
@@ -86,9 +86,9 @@ TEST_CASE("Parse Method Chaining", "[parser]") {
            k_field_on_call_result_expected,
            k_field_on_call_result_should_succeed},
           {"path-based function call",
-           k_path_function_call_input,
-           k_path_function_call_expected,
-           k_path_function_call_should_succeed},
+           k_path_func_call_input,
+           k_path_func_call_expected,
+           k_path_func_call_should_succeed},
           {"field on method result",
            k_field_on_method_result_input,
            k_field_on_method_result_expected,

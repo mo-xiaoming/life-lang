@@ -21,10 +21,12 @@ namespace life_lang::internal {
 PARSE_FN_DECL(Module, module);
 
 // Complete declarations
-PARSE_FN_DECL(Function_Definition, function_definition);
-PARSE_FN_DECL(Struct_Definition, struct_definition);
-PARSE_FN_DECL(Enum_Definition, enum_definition);
+PARSE_FN_DECL(Func_Def, func_def);
+PARSE_FN_DECL(Struct_Def, struct_def);
+PARSE_FN_DECL(Enum_Def, enum_def);
 PARSE_FN_DECL(Impl_Block, impl_block);
+PARSE_FN_DECL(Trait_Def, trait_def);
+PARSE_FN_DECL(Trait_Impl, trait_impl);
 
 // Statement-level constructs
 PARSE_FN_DECL(Statement, statement);

@@ -1,26 +1,24 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
 
-using life_lang::ast::Function_Definition;
+using life_lang::ast::Func_Def;
 using test_json::type_name;
 using test_json::var_name;
 
-PARSE_TEST(Function_Definition, function_definition)
+PARSE_TEST(Func_Def, func_def)
 
 namespace {
 // Simple function definitions
 constexpr auto k_empty_body_should_succeed = true;
 constexpr auto k_empty_body_input = "fn hello(): Int {}";
-inline auto const k_empty_body_expected = test_json::function_definition(
-    test_json::function_declaration("hello", {}, {}, type_name("Int")),
-    test_json::block({})
-);
+inline auto const k_empty_body_expected =
+    test_json::func_def(test_json::func_decl("hello", {}, {}, type_name("Int")), test_json::block({}));
 
 // Functions with parameters
 constexpr auto k_with_parameters_should_succeed = true;
 constexpr auto k_with_parameters_input = "fn hello(a: Int, b: Double): Int {}";
-inline auto const k_with_parameters_expected = test_json::function_definition(
-    test_json::function_declaration(
+inline auto const k_with_parameters_expected = test_json::func_def(
+    test_json::func_decl(
         "hello",
         {},
         {test_json::function_parameter("a", type_name("Int")), test_json::function_parameter("b", type_name("Double"))},
@@ -32,15 +30,15 @@ inline auto const k_with_parameters_expected = test_json::function_definition(
 // Functions with statements
 constexpr auto k_with_return_should_succeed = true;
 constexpr auto k_with_return_input = "fn hello(): Int {return world;}";
-inline auto const k_with_return_expected = test_json::function_definition(
-    test_json::function_declaration("hello", {}, {}, type_name("Int")),
+inline auto const k_with_return_expected = test_json::func_def(
+    test_json::func_decl("hello", {}, {}, type_name("Int")),
     test_json::block({test_json::return_statement(var_name("world"))})
 );
 
 constexpr auto k_with_statements_should_succeed = true;
 constexpr auto k_with_statements_input = "fn hello(): Int {foo(); return 0;}";
-inline auto const k_with_statements_expected = test_json::function_definition(
-    test_json::function_declaration("hello", {}, {}, type_name("Int")),
+inline auto const k_with_statements_expected = test_json::func_def(
+    test_json::func_decl("hello", {}, {}, type_name("Int")),
     test_json::block(
         {test_json::function_call_statement(test_json::function_call(var_name("foo"), {})),
          test_json::return_statement(test_json::integer("0"))}
@@ -55,31 +53,26 @@ constexpr auto k_nested_block_input = R"(fn hello(a: Int): Int {
         return world;
     }
 })";
-inline auto const k_nested_block_expected = test_json::function_definition(
-    test_json::function_declaration(
-        "hello",
-        {},
-        {test_json::function_parameter("a", type_name("Int"))},
-        type_name("Int")
-    ),
+inline auto const k_nested_block_expected = test_json::func_def(
+    test_json::func_decl("hello", {}, {test_json::function_parameter("a", type_name("Int"))}, type_name("Int")),
     test_json::block(
         {test_json::function_call_statement(test_json::function_call(var_name("hello"), {})),
          test_json::block({test_json::return_statement(var_name("world"))})}
     )
 );
 
-constexpr auto k_nested_function_should_succeed = true;
-constexpr auto k_nested_function_input = R"(fn hello(): Int {
+constexpr auto k_nested_func_should_succeed = true;
+constexpr auto k_nested_func_input = R"(fn hello(): Int {
     fn world(): Int {
         return 0;
     }
     return world();
 })";
-inline auto const k_nested_function_expected = test_json::function_definition(
-    test_json::function_declaration("hello", {}, {}, type_name("Int")),
+inline auto const k_nested_func_expected = test_json::func_def(
+    test_json::func_decl("hello", {}, {}, type_name("Int")),
     test_json::block(
-        {test_json::function_definition(
-             test_json::function_declaration("world", {}, {}, type_name("Int")),
+        {test_json::func_def(
+             test_json::func_decl("world", {}, {}, type_name("Int")),
              test_json::block({test_json::return_statement(test_json::integer("0"))})
          ),
          test_json::return_statement(test_json::function_call(var_name("world"), {}))}
@@ -93,13 +86,13 @@ constexpr auto k_hello_world_input = R"(fn main(args: Std.Array<Std.String>): I3
     return 0;
 })";
 inline auto const k_hello_world_expected = R"({
-  "Function_Definition": {
-    "declaration": {
-      "Function_Declaration": {
+  "Func_Def": {
+    "decl": {
+      "Func_Decl": {
         "name": "main",
-        "parameters": [
+        "params": [
           {
-            "Function_Parameter": {
+            "Func_Param": {
               "is_mut": false,
               "name": "args",
               "type": {
@@ -142,7 +135,7 @@ inline auto const k_hello_world_expected = R"({
             }
           }
         ],
-        "returnType": {
+        "return_type": {
           "Type_Name": {
             "segments": [
               {
@@ -161,20 +154,20 @@ inline auto const k_hello_world_expected = R"({
       "Block": {
         "statements": [
           {
-            "Function_Call_Statement": {
+            "Func_Call_Statement": {
               "expr": {
-                "Function_Call_Expr": {
+                "Func_Call_Expr": {
                   "name": {
-                    "Variable_Name": {
+                    "Var_Name": {
                       "segments": [
                         {
-                          "Variable_Name_Segment": {
+                          "Var_Name_Segment": {
                             "value": "Std",
                             "type_params": []
                           }
                         },
                         {
-                          "Variable_Name_Segment": {
+                          "Var_Name_Segment": {
                             "value": "print",
                             "type_params": []
                           }
@@ -182,7 +175,7 @@ inline auto const k_hello_world_expected = R"({
                       ]
                     }
                   },
-                  "parameters": [
+                  "params": [
                     {
                       "String": {
                         "value": "\"Hello, world!\""
@@ -211,10 +204,8 @@ inline auto const k_hello_world_expected = R"({
 // Trailing content
 constexpr auto k_with_trailing_code_should_succeed = true;
 constexpr auto k_with_trailing_code_input = "fn foo(): Int {} bar";
-inline auto const k_with_trailing_code_expected = test_json::function_definition(
-    test_json::function_declaration("foo", {}, {}, type_name("Int")),
-    test_json::block({})
-);
+inline auto const k_with_trailing_code_expected =
+    test_json::func_def(test_json::func_decl("foo", {}, {}, type_name("Int")), test_json::block({}));
 
 // Invalid cases
 constexpr auto k_invalid_no_fn_keyword_should_succeed = false;
@@ -222,12 +213,12 @@ constexpr auto k_invalid_no_fn_keyword_input = "hello(): Int {}";
 constexpr auto k_invalid_empty_should_succeed = false;
 constexpr auto k_invalid_empty_input = "";
 inline auto const k_invalid_expected = R"({
-  "Function_Definition": {
-    "declaration": {
-      "Function_Declaration": {
+  "Func_Def": {
+    "decl": {
+      "Func_Decl": {
         "name": "",
-        "parameters": [],
-        "returnType": {
+        "params": [],
+        "return_type": {
           "Type_Name": {
             "segments": []
           }
@@ -245,9 +236,9 @@ inline auto const k_invalid_expected = R"({
 
 }  // namespace
 
-TEST_CASE("Parse Function_Definition", "[parser]") {
+TEST_CASE("Parse Func_Def", "[parser]") {
   auto const params = GENERATE(
-      Catch::Generators::values<Function_Definition_Params>({
+      Catch::Generators::values<Func_Def_Params>({
           // Simple function definitions
           {"empty body", k_empty_body_input, k_empty_body_expected, k_empty_body_should_succeed},
 
@@ -260,7 +251,7 @@ TEST_CASE("Parse Function_Definition", "[parser]") {
 
           // Nested constructs
           {"nested block", k_nested_block_input, k_nested_block_expected, k_nested_block_should_succeed},
-          {"nested function", k_nested_function_input, k_nested_function_expected, k_nested_function_should_succeed},
+          {"nested function", k_nested_func_input, k_nested_func_expected, k_nested_func_should_succeed},
 
           // Complex real-world examples
           {"hello world", k_hello_world_input, k_hello_world_expected, k_hello_world_should_succeed},

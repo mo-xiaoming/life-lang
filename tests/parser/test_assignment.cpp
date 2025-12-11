@@ -30,10 +30,10 @@ inline auto const k_field_assignment_expected = R"({
     "target": {
       "Field_Access_Expr": {
         "object": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "point"
                 }
@@ -62,10 +62,10 @@ inline auto const k_nested_field_assignment_expected = R"({
         "object": {
           "Field_Access_Expr": {
             "object": {
-              "Variable_Name": {
+              "Var_Name": {
                 "segments": [
                   {
-                    "Variable_Name_Segment": {
+                    "Var_Name_Segment": {
                       "type_params": [],
                       "value": "obj"
                     }
@@ -93,10 +93,10 @@ constexpr auto k_chained_assignment_input = "x = y = 42";
 inline auto const k_chained_assignment_expected = R"({
   "Assignment_Expr": {
     "target": {
-      "Variable_Name": {
+      "Var_Name": {
         "segments": [
           {
-            "Variable_Name_Segment": {
+            "Var_Name_Segment": {
               "type_params": [],
               "value": "x"
             }
@@ -107,10 +107,10 @@ inline auto const k_chained_assignment_expected = R"({
     "value": {
       "Assignment_Expr": {
         "target": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "y"
                 }
@@ -134,10 +134,10 @@ constexpr auto k_assignment_with_call_input = "result = calculate()";
 inline auto const k_assignment_with_call_expected = R"({
   "Assignment_Expr": {
     "target": {
-      "Variable_Name": {
+      "Var_Name": {
         "segments": [
           {
-            "Variable_Name_Segment": {
+            "Var_Name_Segment": {
               "type_params": [],
               "value": "result"
             }
@@ -146,12 +146,12 @@ inline auto const k_assignment_with_call_expected = R"({
       }
     },
     "value": {
-      "Function_Call_Expr": {
+      "Func_Call_Expr": {
         "name": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "calculate"
                 }
@@ -159,7 +159,7 @@ inline auto const k_assignment_with_call_expected = R"({
             ]
           }
         },
-        "parameters": []
+        "params": []
       }
     }
   }
@@ -171,10 +171,10 @@ constexpr auto k_assignment_with_string_input = R"(name = "Alice")";
 inline auto const k_assignment_with_string_expected = R"({
   "Assignment_Expr": {
     "target": {
-      "Variable_Name": {
+      "Var_Name": {
         "segments": [
           {
-            "Variable_Name_Segment": {
+            "Var_Name_Segment": {
               "type_params": [],
               "value": "name"
             }
@@ -196,10 +196,10 @@ constexpr auto k_assignment_precedence_input = "x = y + z";
 inline auto const k_assignment_precedence_expected = R"({
   "Assignment_Expr": {
     "target": {
-      "Variable_Name": {
+      "Var_Name": {
         "segments": [
           {
-            "Variable_Name_Segment": {
+            "Var_Name_Segment": {
               "type_params": [],
               "value": "x"
             }
@@ -210,10 +210,10 @@ inline auto const k_assignment_precedence_expected = R"({
     "value": {
       "Binary_Expr": {
         "lhs": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "y"
                 }
@@ -223,10 +223,10 @@ inline auto const k_assignment_precedence_expected = R"({
         },
         "op": "+",
         "rhs": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "z"
                 }
@@ -245,10 +245,10 @@ constexpr auto k_assignment_with_comparison_input = "flag = x < 10";
 inline auto const k_assignment_with_comparison_expected = R"({
   "Assignment_Expr": {
     "target": {
-      "Variable_Name": {
+      "Var_Name": {
         "segments": [
           {
-            "Variable_Name_Segment": {
+            "Var_Name_Segment": {
               "type_params": [],
               "value": "flag"
             }
@@ -259,10 +259,10 @@ inline auto const k_assignment_with_comparison_expected = R"({
     "value": {
       "Binary_Expr": {
         "lhs": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "x"
                 }
@@ -287,10 +287,10 @@ constexpr auto k_assignment_self_reference_input = "count = count + 1";
 inline auto const k_assignment_self_reference_expected = R"({
   "Assignment_Expr": {
     "target": {
-      "Variable_Name": {
+      "Var_Name": {
         "segments": [
           {
-            "Variable_Name_Segment": {
+            "Var_Name_Segment": {
               "type_params": [],
               "value": "count"
             }
@@ -301,10 +301,10 @@ inline auto const k_assignment_self_reference_expected = R"({
     "value": {
       "Binary_Expr": {
         "lhs": {
-          "Variable_Name": {
+          "Var_Name": {
             "segments": [
               {
-                "Variable_Name_Segment": {
+                "Var_Name_Segment": {
                   "type_params": [],
                   "value": "count"
                 }

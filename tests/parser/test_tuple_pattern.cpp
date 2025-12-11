@@ -90,9 +90,9 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
       }
     },
     "iterator": {
-      "Variable_Name": {
+      "Var_Name": {
         "segments": [
-          {"Variable_Name_Segment": {"type_params": [], "value": "data"}}
+          {"Var_Name_Segment": {"type_params": [], "value": "data"}}
         ]
       }
     },
@@ -100,35 +100,35 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
       "Block": {
         "statements": [
           {
-            "Function_Call_Statement": {
+            "Func_Call_Statement": {
               "expr": {
-                "Function_Call_Expr": {
+                "Func_Call_Expr": {
                   "name": {
-                    "Variable_Name": {
+                    "Var_Name": {
                       "segments": [
-                        {"Variable_Name_Segment": {"type_params": [], "value": "use"}}
+                        {"Var_Name_Segment": {"type_params": [], "value": "use"}}
                       ]
                     }
                   },
-                  "parameters": [
+                  "params": [
                     {
-                      "Variable_Name": {
+                      "Var_Name": {
                         "segments": [
-                          {"Variable_Name_Segment": {"type_params": [], "value": "px"}}
+                          {"Var_Name_Segment": {"type_params": [], "value": "px"}}
                         ]
                       }
                     },
                     {
-                      "Variable_Name": {
+                      "Var_Name": {
                         "segments": [
-                          {"Variable_Name_Segment": {"type_params": [], "value": "py"}}
+                          {"Var_Name_Segment": {"type_params": [], "value": "py"}}
                         ]
                       }
                     },
                     {
-                      "Variable_Name": {
+                      "Var_Name": {
                         "segments": [
-                          {"Variable_Name_Segment": {"type_params": [], "value": "z"}}
+                          {"Var_Name_Segment": {"type_params": [], "value": "z"}}
                         ]
                       }
                     }

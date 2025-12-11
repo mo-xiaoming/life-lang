@@ -17,8 +17,8 @@ struct Test_Case {
 constexpr auto k_simple_path_access_should_succeed = true;
 constexpr auto k_simple_path_access_input = "p.x";
 
-constexpr auto k_variable_name_access_should_succeed = true;
-constexpr auto k_variable_name_access_input = "point.value";
+constexpr auto k_var_name_access_should_succeed = true;
+constexpr auto k_var_name_access_input = "point.value";
 
 constexpr auto k_chained_two_levels_should_succeed = true;
 constexpr auto k_chained_two_levels_input = "p.x.y";
@@ -59,7 +59,7 @@ TEST_CASE("Parse Field Access", "[parser]") {
       Catch::Generators::values<Test_Case>({
           // Valid cases - just verify they parse successfully
           {"simple path access", k_simple_path_access_input, k_simple_path_access_should_succeed},
-          {"variable_name access", k_variable_name_access_input, k_variable_name_access_should_succeed},
+          {"variable_name access", k_var_name_access_input, k_var_name_access_should_succeed},
           {"chained two levels", k_chained_two_levels_input, k_chained_two_levels_should_succeed},
           {"chained three levels", k_chained_three_levels_input, k_chained_three_levels_should_succeed},
           {"with trailing content", k_with_trailing_content_input, k_with_trailing_content_should_succeed},
