@@ -90,6 +90,65 @@ inline auto const k_basic_single_method_expected = R"(
 }
 )";
 
+// Impl block with optional self type (no explicit type annotation)
+constexpr auto k_optional_self_type_should_succeed = true;
+constexpr auto k_optional_self_type_input = "impl Point { fn distance(self): F64 { return 0.0; } }";
+inline auto const k_optional_self_type_expected = R"(
+{
+  "Impl_Block": {
+    "type_name": {
+      "Type_Name": {
+        "segments": [
+          {"Type_Name_Segment": {"type_params": [], "value": "Point"}}
+        ]
+      }
+    },
+    "methods": [
+      {
+        "Function_Definition": {
+          "body": {
+            "Block": {
+              "statements": [
+                {
+                  "Return_Statement": {
+                    "expr": {
+                      "Float": {
+                        "value": "0.0"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "declaration": {
+            "Function_Declaration": {
+              "name": "distance",
+              "parameters": [
+                {
+                  "Function_Parameter": {
+                    "is_mut": false,
+                    "name": "self"
+                  }
+                }
+              ],
+              "returnType": {
+                "Type_Name": {
+                  "segments": [
+                    {"Type_Name_Segment": {"type_params": [], "value": "F64"}}
+                  ]
+                }
+              },
+              "type_params": []
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+)";
+
 // Generic impl block
 constexpr auto k_generic_single_param_should_succeed = true;
 constexpr auto k_generic_single_param_input = "impl<T> Array<T> { fn len(self: Array<T>): I32 { return 0; } }";
@@ -193,6 +252,10 @@ TEST_CASE("Parse Impl_Block", "[parser]") {
            k_basic_single_method_input,
            k_basic_single_method_expected,
            k_basic_single_method_should_succeed},
+          {"optional self type",
+           k_optional_self_type_input,
+           k_optional_self_type_expected,
+           k_optional_self_type_should_succeed},
           {"generic single param",
            k_generic_single_param_input,
            k_generic_single_param_expected,

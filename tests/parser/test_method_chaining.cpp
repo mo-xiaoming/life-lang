@@ -36,7 +36,7 @@ inline auto const k_field_on_call_result_expected =
     test_json::field_access(test_json::function_call(test_json::var_name("foo"), {}), "field");
 
 // Path-based function call: obj.field.method() parses as qualified function name
-// This is NOT a method call in UFCS style - it's a function call where the name is a dotted path
+// This is a function call where the name is a dotted path (qualified name)
 constexpr auto k_path_function_call_should_succeed = true;
 constexpr auto k_path_function_call_input = "obj.field.method()";
 inline auto const k_path_function_call_expected =

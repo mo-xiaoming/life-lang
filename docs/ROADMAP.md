@@ -5,7 +5,7 @@
 ### Implemented Features ✅
 - Value semantics & immutability by default
 - Structs with named fields and struct literals
-- Functions with UFCS (Uniform Function Call Syntax)
+- ~~Functions with UFCS (Uniform Function Call Syntax)~~ **DECISION: Removing UFCS** - methods only via `impl` blocks
 - Pattern matching infrastructure (match expressions, patterns)
 - Control flow (if, while, for expressions)
 - Basic expressions and operators (binary, unary, assignment)
@@ -15,14 +15,16 @@
 - Comments
 - Literals (integer, float, string, char)
 - **Enums/Sum Types**: Unit, tuple, and struct variants with generics (Dec 2025)
+- **Unit type `()`**: For functions with no return value (Dec 2025)
+- **Impl blocks**: Basic parsing for `impl Type { methods }` (Dec 2025)
 
 ### Partially Implemented
 - **Template/Generic types**: Syntax parsing exists (`Array<Int>`, `Map<String, Int>`) but no semantic analysis or type checking yet
 
 ## Priority 1: Essential Foundation (Q1 2026)
 
-### ~~1.1 Enums/Sum Types~~ ✅ COMPLETED
-**Status**: ✅ Implemented (December 2025)
+### ~~1.1 Enums/Sum Types~~ ✅ COMPLETED (Dec 2025)
+**Status**: ✅ Implemented
 
 Algebraic data types essential for error handling and type-safe variants.
 
@@ -57,28 +59,60 @@ enum Color {
 
 **Rationale**: Pattern matching exists but has nothing meaningful to match on. Enums complete the ADT story and enable proper error handling without exceptions.
 
-### 1.2 Impl Blocks (HIGH - 1 week)
+### ✅ 1.2 Remove UFCS Functions (Completed Dec 2025)
 
-Group method implementations together before introducing traits.
+**Decision**: ✅ Removed standalone UFCS functions in favor of coherent design.
+
+**Language Design Philosophy**:
+- **Methods**: Only inside `impl Type` blocks
+  - Scoped to type: `Type::method`
+  - Callable with dot syntax: `value.method()`
+  - Must be defined in same module as type (single impl per type initially)
+  
+- **Free functions**: Everything else
+  - Global scope (or module-scoped)
+  - Called with function syntax: `function_name(value)`
+  - Can be defined anywhere
+  
+- **Extension via traits** (future): `impl Trait for Type` allows controlled extension
+
+**Tasks**:
+1. ✅ Remove `self` as special keyword for UFCS
+2. ✅ Parser allows `self` parameter but semantic validation will enforce impl-only rule
+3. ✅ Removed UFCS test file (`test_ufcs_function.cpp`)
+4. ✅ Updated documentation and copilot instructions
+5. ✅ Reserved `self` keyword for impl blocks (semantic validation pending)
+
+**Rationale**: 
+- Eliminates "two ways to do the same thing" confusion
+- Clearer scoping and ownership semantics
+- Prepares clean foundation for trait system
+- No need to distinguish UFCS vs impl methods - only impl methods exist
+
+### 1.3 Complete Impl Blocks (HIGH - 1 week)
+
+**Status**: Basic parsing exists, needs semantic analysis and single-impl-per-type enforcement.
 
 **Syntax**:
 ```rust
 impl Point {
-    fn distance(self): F64 { ... }
+    fn distance(self): F64 { ... }  // self type optional, inferred as Point
     fn translate(self, dx: I32, dy: I32): Point { ... }
 }
 
 impl<T> Array<T> {
-    fn len(self): I32 { ... }
+    fn len(self): I32 { ... }  // self type inferred as Array<T>
     fn get(self, idx: I32): Option<T> { ... }
 }
 ```
 
 **Requirements**:
-- `impl Type { methods }` parsing
-- Generic impl blocks (`impl<T> Type<T>`)
-- Link methods to types in semantic analysis
-- Distinguish between UFCS functions and impl methods
+- ✅ Basic `impl Type { methods }` parsing (done)
+- ⏳ Generic impl blocks (`impl<T> Type<T>`)
+- ⏳ Enforce single impl block per type per module
+- ⏳ Link methods to types in semantic analysis
+- ⏳ Method resolution for dot syntax (`value.method()`)
+- ⏳ Qualified calls (`Type::method(value)`)
 
 **Rationale**: Provides organized method grouping and prepares infrastructure for trait implementations.
 
@@ -286,19 +320,20 @@ use Std.Iter.* as iter;
 
 ## Implementation Phases
 
-### Phase 1: Enums (Current - Week 1-2)
-1. Add AST nodes for enum definitions and variants
-2. Implement enum parsing rules
-3. Add tests for all enum syntax variations
-4. Integrate with pattern matching
-5. JSON serialization
+### ~~Phase 1: Enums~~ ✅ COMPLETED (Dec 2025)
+1. ✅ Add AST nodes for enum definitions and variants
+2. ✅ Implement enum parsing rules
+3. ✅ Add tests for all enum syntax variations
+4. ✅ Integrate with pattern matching
+5. ✅ JSON serialization
 
-### Phase 2: Impl Blocks (Week 3)
-1. Add AST node for impl blocks
-2. Parse impl syntax
-3. Tests and integration
+### Phase 2: Remove UFCS & Complete Impl Blocks (Current - Week 1-2)
+1. ⏳ Remove UFCS function support (3-4 days)
+2. ⏳ Complete impl block semantic analysis (1 week)
+3. ⏳ Method resolution for dot syntax
+4. ⏳ Tests and integration
 
-### Phase 3: Traits (Week 4-6)
+### Phase 3: Traits (Week 3-5)
 1. Trait declarations
 2. Trait implementations
 3. Trait bounds
@@ -316,11 +351,18 @@ use Std.Iter.* as iter;
 
 ## Success Criteria
 
-### Phase 1 Complete When:
+### ~~Phase 1 Complete~~ ✅ DONE (Dec 2025)
 - ✅ Can parse all enum syntax variations
 - ✅ Enums integrate with pattern matching
 - ✅ Standard library can define `Option<T>` and `Result<T, E>`
 - ✅ Comprehensive test coverage
+
+### Phase 2 Complete When:
+- ⏳ UFCS functions removed from language
+- ⏳ Only `impl` blocks can define methods
+- ⏳ Method call syntax works: `value.method()`
+- ⏳ Qualified syntax works: `Type::method(value)`
+- ⏳ Single impl block per type enforced
 
 ### Phase 3 Complete When:
 - ✅ Can define traits with methods

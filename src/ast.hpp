@@ -487,12 +487,12 @@ struct Match_Expr : boost::spirit::x3::position_tagged {
 // Function Types
 // ============================================================================
 
-// Example: items: Std.Array<T> or mut self: Point in function parameter list
+// Example: items: Std.Array<T> or mut self: Point or self (type optional for self in impl blocks)
 struct Function_Parameter : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Function_Parameter";
   bool is_mut;
   std::string name;
-  Type_Name type;
+  std::optional<Type_Name> type;  // Optional for self parameter in impl blocks
 };
 
 // Example: fn process(data: Vec<I32>, callback: Fn<I32, Bool>): Result<String>
@@ -580,8 +580,8 @@ struct Enum_Definition : boost::spirit::x3::position_tagged {
 // Impl Blocks
 // ============================================================================
 
-// Example: impl Point { fn distance(self): F64 { ... } }
-// Example: impl<T> Array<T> { fn len(self): I32 { ... } }
+// Example: impl Point { fn distance(self): F64 { ... } }  // self type optional in impl
+// Example: impl<T> Array<T> { fn len(self): I32 { ... } }  // self type inferred as Array<T>
 struct Impl_Block : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Impl_Block";
   Type_Name type_name;                       // Type being implemented (e.g., Point, Array<T>)
@@ -943,7 +943,8 @@ inline Unary_Expr make_unary_expr(Unary_Op a_op, Expr&& a_operand) {
 }
 
 // Function helpers
-inline Function_Parameter make_function_parameter(bool a_is_mut, std::string&& a_name, Type_Name&& a_type) {
+inline Function_Parameter
+make_function_parameter(bool a_is_mut, std::string&& a_name, std::optional<Type_Name>&& a_type) {
   return Function_Parameter{{}, a_is_mut, std::move(a_name), std::move(a_type)};
 }
 
@@ -1572,9 +1573,11 @@ inline void to_json(nlohmann::json& a_json, Function_Parameter const& a_param) {
   nlohmann::json obj;
   obj["is_mut"] = a_param.is_mut;
   obj["name"] = a_param.name;
-  nlohmann::json type_json;
-  to_json(type_json, a_param.type);
-  obj["type"] = type_json;
+  if (a_param.type.has_value()) {
+    nlohmann::json type_json;
+    to_json(type_json, *a_param.type);
+    obj["type"] = type_json;
+  }
   a_json[Function_Parameter::k_name] = obj;
 }
 

@@ -34,7 +34,6 @@ target_sources(tests
         parser/test_string.cpp
         parser/test_struct_definition.cpp
         parser/test_tuple_pattern.cpp
-        parser/test_ufcs_function.cpp
         parser/test_unary_expr.cpp
         parser/test_unit_type.cpp
         parser/test_while_expr.cpp
