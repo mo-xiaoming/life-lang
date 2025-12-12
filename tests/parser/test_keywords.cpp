@@ -76,7 +76,7 @@ TEST_CASE("Var_Name vs Keyword Distinction", "[parser][keywords]") {
 
     auto const got = life_lang::internal::parse_type_name(begin, end);
     REQUIRE(bool(got));
-    CHECK((*got).segments.size() == 1);
-    CHECK((*got).segments[0].value == test.expected_name);
+    CHECK((*got).segments().size() == 1);
+    CHECK((*got).segments()[0].value == test.expected_name);
   }
 }

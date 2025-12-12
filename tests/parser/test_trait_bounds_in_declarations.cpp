@@ -36,7 +36,7 @@ TEST_CASE("Trait bounds in struct definitions", "[parser][trait_bounds]") {
     REQUIRE(result);
     CHECK(result->type_params.size() == 1);
     CHECK(result->type_params[0].bounds.size() == 1);
-    CHECK(result->type_params[0].bounds[0].trait_name.segments[0].value == "Display");
+    CHECK(result->type_params[0].bounds[0].trait_name.segments()[0].value == "Display");
   }
 
   SECTION("struct with multiple bounds") {
@@ -45,8 +45,8 @@ TEST_CASE("Trait bounds in struct definitions", "[parser][trait_bounds]") {
     REQUIRE(result);
     CHECK(result->type_params.size() == 1);
     CHECK(result->type_params[0].bounds.size() == 2);
-    CHECK(result->type_params[0].bounds[0].trait_name.segments[0].value == "Display");
-    CHECK(result->type_params[0].bounds[1].trait_name.segments[0].value == "Clone");
+    CHECK(result->type_params[0].bounds[0].trait_name.segments()[0].value == "Display");
+    CHECK(result->type_params[0].bounds[1].trait_name.segments()[0].value == "Clone");
   }
 
   SECTION("struct with multiple params with bounds") {
@@ -66,7 +66,7 @@ TEST_CASE("Trait bounds in enum definitions", "[parser][trait_bounds]") {
     REQUIRE(result);
     CHECK(result->type_params.size() == 1);
     CHECK(result->type_params[0].bounds.size() == 1);
-    CHECK(result->type_params[0].bounds[0].trait_name.segments[0].value == "Clone");
+    CHECK(result->type_params[0].bounds[0].trait_name.segments()[0].value == "Clone");
   }
 
   SECTION("enum with multiple bounds") {
@@ -86,7 +86,7 @@ TEST_CASE("Trait bounds in trait definitions", "[parser][trait_bounds]") {
     REQUIRE(result);
     CHECK(result->type_params.size() == 1);
     CHECK(result->type_params[0].bounds.size() == 1);
-    CHECK(result->type_params[0].bounds[0].trait_name.segments[0].value == "Clone");
+    CHECK(result->type_params[0].bounds[0].trait_name.segments()[0].value == "Clone");
   }
 
   SECTION("trait with multiple bounds") {
@@ -105,7 +105,7 @@ TEST_CASE("Trait bounds in impl blocks", "[parser][trait_bounds]") {
     REQUIRE(result);
     CHECK(result->type_params.size() == 1);
     CHECK(result->type_params[0].bounds.size() == 1);
-    CHECK(result->type_params[0].bounds[0].trait_name.segments[0].value == "Display");
+    CHECK(result->type_params[0].bounds[0].trait_name.segments()[0].value == "Display");
   }
 
   SECTION("impl with multiple bounds") {
@@ -114,8 +114,8 @@ TEST_CASE("Trait bounds in impl blocks", "[parser][trait_bounds]") {
     REQUIRE(result);
     CHECK(result->type_params.size() == 1);
     CHECK(result->type_params[0].bounds.size() == 3);
-    CHECK(result->type_params[0].bounds[0].trait_name.segments[0].value == "Display");
-    CHECK(result->type_params[0].bounds[1].trait_name.segments[0].value == "Clone");
-    CHECK(result->type_params[0].bounds[2].trait_name.segments[0].value == "Eq");
+    CHECK(result->type_params[0].bounds[0].trait_name.segments()[0].value == "Display");
+    CHECK(result->type_params[0].bounds[1].trait_name.segments()[0].value == "Clone");
+    CHECK(result->type_params[0].bounds[2].trait_name.segments()[0].value == "Eq");
   }
 }

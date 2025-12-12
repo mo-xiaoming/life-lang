@@ -38,6 +38,7 @@ PARSE_FN_DECL(Expr, expr);
 
 // Type references
 PARSE_FN_DECL(Type_Name, type_name);
+PARSE_FN_DECL(Function_Type, function_type);
 
 // Literal building blocks
 PARSE_FN_DECL(Integer, integer);

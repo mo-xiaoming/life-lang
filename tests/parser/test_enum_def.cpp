@@ -342,7 +342,7 @@ inline auto const k_nested_types_expected = R"({
   "Enum_Def": {
     "name": "Tree",
     "type_params": [
-      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
+      {"Type_Param": {"name": {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
     ],
     "variants": [
       {
@@ -350,7 +350,7 @@ inline auto const k_nested_types_expected = R"({
           "name": "Leaf",
           "kind": "tuple",
           "fields": [
-            {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
+            {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
           ]
         }
       },
@@ -360,12 +360,12 @@ inline auto const k_nested_types_expected = R"({
           "kind": "tuple",
           "fields": [
             {
-              "Type_Name": {
+              "Path_Type": {
                 "segments": [
                   {
                     "Type_Name_Segment": {
                       "type_params": [
-                        {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
+                        {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
                       ],
                       "value": "Tree"
                     }
@@ -374,12 +374,12 @@ inline auto const k_nested_types_expected = R"({
               }
             },
             {
-              "Type_Name": {
+              "Path_Type": {
                 "segments": [
                   {
                     "Type_Name_Segment": {
                       "type_params": [
-                        {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
+                        {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
                       ],
                       "value": "Tree"
                     }

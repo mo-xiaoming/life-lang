@@ -22,6 +22,7 @@ target_sources(tests
         parser/test_float.cpp
         parser/test_for_expr.cpp
         parser/test_func_def.cpp
+        parser/test_func_type.cpp
         parser/test_if_expr.cpp
         parser/test_impl_block.cpp
         parser/test_integer.cpp

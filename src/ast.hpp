@@ -18,6 +18,7 @@ namespace life_lang::ast {
 
 struct Type_Name_Segment;
 struct Type_Name;
+struct Function_Type;
 struct Trait_Bound;
 struct Type_Param;
 struct Where_Predicate;
@@ -50,10 +51,34 @@ struct Let_Statement;
 // Type Name System (for type annotations)
 // ============================================================================
 
-// Example: Std.Map<Std.String, Vec<I32>>
-struct Type_Name : boost::spirit::x3::position_tagged {
-  static constexpr std::string_view k_name = "Type_Name";
+// Function type: fn(T, U): R
+// Examples: fn(I32): Bool, fn(String, I32): Result<T, E>
+struct Function_Type : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Function_Type";
+  std::vector<boost::spirit::x3::forward_ast<Type_Name>> param_types;  // Parameter types
+  boost::spirit::x3::forward_ast<Type_Name> return_type;               // Return type
+};
+
+// Path-based type name: Std.Map<String, I32>
+// This is the original Type_Name functionality extracted into its own struct
+struct Path_Type : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Path_Type";
   std::vector<Type_Name_Segment> segments;
+};
+
+// Type name: either a path-based type or a function type
+// Examples: I32, Vec<T>, Std.String, fn(I32): Bool
+struct Type_Name : boost::spirit::x3::variant<Path_Type, Function_Type>, boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Type_Name";
+  using Base_Type = boost::spirit::x3::variant<Path_Type, Function_Type>;
+  using Base_Type::Base_Type;
+  using Base_Type::operator=;
+
+  // Helper to access segments when Type_Name holds a Path_Type
+  // Throws std::bad_variant_access if Type_Name is not a Path_Type
+  [[nodiscard]] std::vector<Type_Name_Segment> const& segments() const { return boost::get<Path_Type>(*this).segments; }
+
+  [[nodiscard]] std::vector<Type_Name_Segment>& segments() { return boost::get<Path_Type>(*this).segments; }
 };
 
 // Example: Map<String, I32> where "Map" is value, type_params = [String, I32]
@@ -751,8 +776,43 @@ inline Type_Name_Segment make_type_name_segment(std::string&& a_value) {
   return make_type_name_segment(std::move(a_value), {});
 }
 
+// Path_Type helpers
+inline Path_Type make_path_type(std::vector<Type_Name_Segment>&& a_segments) {
+  return Path_Type{{}, std::move(a_segments)};
+}
+
+// Variadic make_path_type for convenient construction
+// Accepts string arguments and/or Type_Name_Segment arguments
+// Examples:
+//   make_path_type("Int")                                    -> Path_Type with single segment "Int"
+//   make_path_type("Std", "String")                          -> Path_Type with segments ["Std", "String"]
+//   make_path_type("Vec", make_type_name_segment("T", {...})) -> Path_Type with templated segment
+template <typename... Args>
+  requires(
+      (std::same_as<std::remove_cvref_t<Args>, Type_Name_Segment> || std::constructible_from<std::string, Args>) && ...
+  )
+inline Path_Type make_path_type(Args&&... a_args) {
+  if constexpr (sizeof...(a_args) == 0) {
+    return Path_Type{{}, {}};
+  } else {
+    std::vector<Type_Name_Segment> segments;
+    segments.reserve(sizeof...(a_args));
+    (
+        [&] {
+          if constexpr (std::same_as<std::remove_cvref_t<Args>, Type_Name_Segment>) {
+            segments.push_back(std::forward<Args>(a_args));
+          } else {
+            segments.push_back(make_type_name_segment(std::string(std::forward<Args>(a_args))));
+          }
+        }(),
+        ...
+    );
+    return Path_Type{{}, std::move(segments)};
+  }
+}
+
 inline Type_Name make_type_name(std::vector<Type_Name_Segment>&& a_segments) {
-  return Type_Name{{}, std::move(a_segments)};
+  return Type_Name(Path_Type{{}, std::move(a_segments)});
 }
 
 // Variadic make_type_name for convenient construction
@@ -767,7 +827,7 @@ template <typename... Args>
   )
 inline Type_Name make_type_name(Args&&... a_args) {
   if constexpr (sizeof...(a_args) == 0) {
-    return Type_Name{{}, {}};
+    return Type_Name(Path_Type{{}, {}});
   } else {
     std::vector<Type_Name_Segment> segments;
     segments.reserve(sizeof...(a_args));
@@ -781,8 +841,19 @@ inline Type_Name make_type_name(Args&&... a_args) {
         }(),
         ...
     );
-    return Type_Name{{}, std::move(segments)};
+    return Type_Name(Path_Type{{}, std::move(segments)});
   }
+}
+
+// Function_Type helpers
+inline Function_Type make_function_type(std::vector<Type_Name> a_param_types, Type_Name&& a_return_type) {
+  // Convert Type_Name vector to forward_ast vector
+  std::vector<boost::spirit::x3::forward_ast<Type_Name>> param_types;
+  param_types.reserve(a_param_types.size());
+  for (auto& param : a_param_types) {
+    param_types.emplace_back(std::move(param));
+  }
+  return Function_Type{{}, std::move(param_types), std::move(a_return_type)};
 }
 
 // Var_Name helpers
@@ -1251,6 +1322,8 @@ inline Module make_module(std::vector<Statement>&& a_statements) {
 
 // Forward declarations for recursive types
 void to_json(nlohmann::json& a_json, Type_Name_Segment const& a_segment);
+void to_json(nlohmann::json& a_json, Path_Type const& a_path_type);
+void to_json(nlohmann::json& a_json, Function_Type const& a_func_type);
 void to_json(nlohmann::json& a_json, Trait_Bound const& a_bound);
 void to_json(nlohmann::json& a_json, Type_Param const& a_param);
 void to_json(nlohmann::json& a_json, Where_Predicate const& a_predicate);
@@ -1350,16 +1423,46 @@ inline void to_json(nlohmann::json& a_json, Type_Name_Segment const& a_segment) 
   a_json[Type_Name_Segment::k_name] = obj;
 }
 
-inline void to_json(nlohmann::json& a_json, Type_Name const& a_type) {
+// Path_Type serialization
+inline void to_json(nlohmann::json& a_json, Path_Type const& a_path_type) {
   nlohmann::json obj;
   nlohmann::json segments = nlohmann::json::array();
-  for (auto const& segment : a_type.segments) {
+  for (auto const& segment : a_path_type.segments) {
     nlohmann::json segment_json;
     to_json(segment_json, segment);
     segments.push_back(segment_json);
   }
   obj["segments"] = segments;
-  a_json[Type_Name::k_name] = obj;
+  a_json[Path_Type::k_name] = obj;
+}
+
+// Function_Type serialization
+inline void to_json(nlohmann::json& a_json, Function_Type const& a_func_type) {
+  nlohmann::json obj;
+
+  // Parameter types
+  nlohmann::json param_types = nlohmann::json::array();
+  for (auto const& param_type : a_func_type.param_types) {
+    nlohmann::json param_json;
+    to_json(param_json, param_type.get());
+    param_types.push_back(param_json);
+  }
+  obj["param_types"] = param_types;
+
+  // Return type
+  nlohmann::json return_type_json;
+  to_json(return_type_json, a_func_type.return_type.get());
+  obj["return_type"] = return_type_json;
+
+  a_json[Function_Type::k_name] = obj;
+}
+
+// Type_Name serialization (variant)
+inline void to_json(nlohmann::json& a_json, Type_Name const& a_type) {
+  boost::apply_visitor(
+      [&a_json](auto const& a_v) { to_json(a_json, a_v); },
+      static_cast<Type_Name::Base_Type const&>(a_type)
+  );
 }
 
 // Var_Name serialization

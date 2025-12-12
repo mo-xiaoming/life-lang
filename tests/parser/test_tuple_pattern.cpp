@@ -73,7 +73,7 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
           {
             "Struct_Pattern": {
               "type_name": {
-                "Type_Name": {
+                "Path_Type": {
                   "segments": [
                     {"Type_Name_Segment": {"type_params": [], "value": "Point"}}
                   ]

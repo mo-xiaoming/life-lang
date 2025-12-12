@@ -14,7 +14,7 @@ inline auto const k_simple_alias_expected = R"(
   "Type_Alias": {
     "name": "My_Type",
     "aliased_type": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {
             "Type_Name_Segment": {
@@ -40,7 +40,7 @@ inline auto const k_generic_single_param_expected = R"(
       {
         "Type_Param": {
           "name": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
@@ -55,14 +55,14 @@ inline auto const k_generic_single_param_expected = R"(
       }
     ],
     "aliased_type": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {
             "Type_Name_Segment": {
               "value": "Map",
               "type_params": [
                 {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
@@ -74,7 +74,7 @@ inline auto const k_generic_single_param_expected = R"(
                   }
                 },
                 {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
@@ -106,7 +106,7 @@ inline auto const k_generic_multi_param_expected = R"(
       {
         "Type_Param": {
           "name": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
@@ -122,7 +122,7 @@ inline auto const k_generic_multi_param_expected = R"(
       {
         "Type_Param": {
           "name": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
@@ -137,14 +137,14 @@ inline auto const k_generic_multi_param_expected = R"(
       }
     ],
     "aliased_type": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {
             "Type_Name_Segment": {
               "value": "Tuple",
               "type_params": [
                 {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
@@ -156,7 +156,7 @@ inline auto const k_generic_multi_param_expected = R"(
                   }
                 },
                 {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
@@ -185,7 +185,7 @@ inline auto const k_qualified_path_expected = R"(
   "Type_Alias": {
     "name": "My_String",
     "aliased_type": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {
             "Type_Name_Segment": {
@@ -217,7 +217,7 @@ inline auto const k_nested_generics_expected = R"(
       {
         "Type_Param": {
           "name": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
@@ -233,7 +233,7 @@ inline auto const k_nested_generics_expected = R"(
       {
         "Type_Param": {
           "name": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
@@ -248,21 +248,21 @@ inline auto const k_nested_generics_expected = R"(
       }
     ],
     "aliased_type": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {
             "Type_Name_Segment": {
               "value": "Vec",
               "type_params": [
                 {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
                           "value": "Result",
                           "type_params": [
                             {
-                              "Type_Name": {
+                              "Path_Type": {
                                 "segments": [
                                   {
                                     "Type_Name_Segment": {
@@ -274,7 +274,7 @@ inline auto const k_nested_generics_expected = R"(
                               }
                             },
                             {
-                              "Type_Name": {
+                              "Path_Type": {
                                 "segments": [
                                   {
                                     "Type_Name_Segment": {
@@ -312,7 +312,7 @@ inline auto const k_type_param_with_bounds_expected = R"(
       {
         "Type_Param": {
           "name": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
@@ -327,7 +327,7 @@ inline auto const k_type_param_with_bounds_expected = R"(
             {
               "Trait_Bound": {
                 "trait_name": {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
@@ -345,14 +345,14 @@ inline auto const k_type_param_with_bounds_expected = R"(
       }
     ],
     "aliased_type": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {
             "Type_Name_Segment": {
               "value": "Vec",
               "type_params": [
                 {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
@@ -384,7 +384,7 @@ inline auto const k_multiple_bounds_expected = R"(
       {
         "Type_Param": {
           "name": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
@@ -399,7 +399,7 @@ inline auto const k_multiple_bounds_expected = R"(
             {
               "Trait_Bound": {
                 "trait_name": {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
@@ -415,7 +415,7 @@ inline auto const k_multiple_bounds_expected = R"(
             {
               "Trait_Bound": {
                 "trait_name": {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
@@ -433,14 +433,14 @@ inline auto const k_multiple_bounds_expected = R"(
       }
     ],
     "aliased_type": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {
             "Type_Name_Segment": {
               "value": "Vec",
               "type_params": [
                 {
-                  "Type_Name": {
+                  "Path_Type": {
                     "segments": [
                       {
                         "Type_Name_Segment": {
@@ -469,7 +469,7 @@ inline auto const k_with_trailing_content_expected = R"(
   "Type_Alias": {
     "name": "My_Int",
     "aliased_type": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {
             "Type_Name_Segment": {
