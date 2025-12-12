@@ -57,7 +57,7 @@ auto const k_skipper = x3::ascii::space | k_comment;
 
 struct Keyword_Symbols : x3::symbols<> {
   Keyword_Symbols() {
-    add("fn")("let")("return")("struct")("enum")("impl")("trait")("self")("mut")("if")("else")("while")("for")("in")("match")(
+    add("fn")("let")("return")("struct")("enum")("impl")("trait")("type")("self")("mut")("if")("else")("while")("for")("in")("match")(
         "break")("continue")("where"
     );
   }
@@ -71,6 +71,7 @@ auto const k_kw_struct = lexeme[lit("struct") >> !(alnum | '_')];
 auto const k_kw_enum = lexeme[lit("enum") >> !(alnum | '_')];
 auto const k_kw_impl = lexeme[lit("impl") >> !(alnum | '_')];
 auto const k_kw_trait = lexeme[lit("trait") >> !(alnum | '_')];
+auto const k_kw_type = lexeme[lit("type") >> !(alnum | '_')];
 auto const k_kw_self = lexeme[lit("self") >> !(alnum | '_')];
 auto const k_kw_mut = lexeme[lit("mut") >> !(alnum | '_')];
 auto const k_kw_if = lexeme[lit("if") >> !(alnum | '_')];
@@ -705,7 +706,6 @@ auto const k_primary_expr_def = k_struct_literal_rule | k_func_call_expr_rule | 
 BOOST_SPIRIT_DEFINE(k_primary_expr)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_primary_expr), Iterator_Type, Context_Type)
 
-// Postfix operations: field access (.field) or method call (.method(args))
 // Helper structures for postfix chain
 struct Postfix_Field_Access {
   std::string field_name;
@@ -1515,6 +1515,28 @@ auto const k_impl_block_rule_def =
 BOOST_SPIRIT_DEFINE(k_impl_block_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_impl_block_rule), Iterator_Type, Context_Type)
 
+// Parse associated type declaration in trait: "type Name;" or "type Name: Bound;"
+// Examples:
+//   type Item;
+//   type Output: Display;
+//   type Error: Debug + Send;
+struct Assoc_Type_Decl_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Assoc_Type_Decl_Tag, ast::Assoc_Type_Decl> const k_assoc_type_decl_rule = "associated type declaration";
+auto const k_assoc_type_decl_rule_def = (k_kw_type > k_camel_snake_case > -k_trait_bounds > ';')[([](auto& a_ctx) {
+  auto& attr = x3::_attr(a_ctx);
+  auto& boost_opt_bounds = boost::fusion::at_c<1>(attr);
+
+  // Convert boost::optional<vector> to vector (empty if no bounds)
+  std::vector<ast::Trait_Bound> bounds;
+  if (boost_opt_bounds) {
+    bounds = std::move(*boost_opt_bounds);
+  }
+
+  x3::_val(a_ctx) = ast::make_assoc_type_decl(std::move(boost::fusion::at_c<0>(attr)), std::move(bounds));
+})];
+BOOST_SPIRIT_DEFINE(k_assoc_type_decl_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_assoc_type_decl_rule), Iterator_Type, Context_Type)
+
 // Parse trait method signatures list (semicolon-terminated declarations)
 x3::rule<struct trait_methods_tag, std::vector<ast::Func_Decl>> const k_trait_methods = "trait methods";
 auto const k_trait_methods_def = *(k_func_decl_rule > ';');
@@ -1527,15 +1549,17 @@ auto const k_trait_name_def = k_camel_snake_case;
 BOOST_SPIRIT_DEFINE(k_trait_name)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_trait_name), Iterator_Type, Context_Type)
 
-// Parse trait definition: "trait Name<T> { method_decls }"
+// Parse trait definition: "trait Name<T> { assoc_types method_decls }"
 // Examples:
 //   trait Display { fn to_string(self): String; }
-//   trait Iterator<T> { fn next(mut self): Option<T>; }
+//   trait Iterator<T> { type Item; fn next(mut self): Option<T>; }
 //   trait Comparable { fn compare(self, other: Self): Ordering; }
+//   trait Collection { type Item: Display; fn len(self): I32; }
 struct Trait_Def_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Trait_Def_Tag, ast::Trait_Def> const k_trait_def_rule = "trait definition";
 auto const k_trait_def_rule_def =
-    (k_kw_trait > k_trait_name > -k_type_param_decls > -k_where_clause > '{' > k_trait_methods > '}')[([](auto& a_ctx) {
+    (k_kw_trait > k_trait_name > -k_type_param_decls > -k_where_clause > '{' > *k_assoc_type_decl_rule >
+     k_trait_methods > '}')[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
       // Convert boost::optional to std::optional for where_clause
       auto& boost_where = boost::fusion::at_c<2>(attr);
@@ -1544,24 +1568,42 @@ auto const k_trait_def_rule_def =
         where_clause = std::move(*boost_where);
       }
       x3::_val(a_ctx) = ast::make_trait_def(
-          std::move(boost::fusion::at_c<0>(attr)),  // trait name
-          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Param>{}),
-          std::move(boost::fusion::at_c<3>(attr)),  // methods
-          std::move(where_clause)                   // where clause
+          std::move(boost::fusion::at_c<0>(attr)),                                // trait name
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Param>{}),  // type params
+          std::move(boost::fusion::at_c<3>(attr)),                                // assoc_types
+          std::move(boost::fusion::at_c<4>(attr)),                                // methods
+          std::move(where_clause)                                                 // where clause
       );
     })];
 BOOST_SPIRIT_DEFINE(k_trait_def_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_trait_def_rule), Iterator_Type, Context_Type)
 
-// Parse trait implementation: "impl Trait for Type { method_defs }"
+// Parse associated type implementation: "type Name = Type;"
+// Examples:
+//   type Item = I32;
+//   type Output = String;
+struct Assoc_Type_Impl_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Assoc_Type_Impl_Tag, ast::Assoc_Type_Impl> const k_assoc_type_impl_rule = "associated type implementation";
+auto const k_assoc_type_impl_rule_def =
+    (k_kw_type > k_camel_snake_case > '=' > k_type_name_rule > ';')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) = ast::make_assoc_type_impl(
+          std::move(boost::fusion::at_c<0>(attr)),  // name
+          std::move(boost::fusion::at_c<1>(attr))   // type_value
+      );
+    })];
+BOOST_SPIRIT_DEFINE(k_assoc_type_impl_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_assoc_type_impl_rule), Iterator_Type, Context_Type)
+
+// Parse trait implementation: "impl Trait for Type { assoc_type_impls method_defs }"
 // Examples:
 //   impl Display for Point { fn to_string(self): String { ... } }
-//   impl<T> Iterator<T> for Array<T> { fn next(mut self): Option<T> { ... } }
+//   impl<T> Iterator<T> for Array<T> { type Item = T; fn next(mut self): Option<T> { ... } }
 struct Trait_Impl_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Trait_Impl_Tag, ast::Trait_Impl> const k_trait_impl_rule = "trait implementation";
 auto const k_trait_impl_rule_def =
     (k_kw_impl > -k_type_param_decls > k_type_name_rule > lit("for") > k_type_name_rule > -k_where_clause > '{' >
-     k_impl_methods > '}')[([](auto& a_ctx) {
+     *k_assoc_type_impl_rule > k_impl_methods > '}')[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
       // Convert boost::optional to std::optional for where_clause
       auto& boost_where = boost::fusion::at_c<3>(attr);
@@ -1573,7 +1615,8 @@ auto const k_trait_impl_rule_def =
           std::move(boost::fusion::at_c<1>(attr)),  // trait name
           std::move(boost::fusion::at_c<2>(attr)),  // type name
           boost::fusion::at_c<0>(attr).value_or(std::vector<ast::Type_Param>{}),
-          std::move(boost::fusion::at_c<4>(attr)),  // methods
+          std::move(boost::fusion::at_c<4>(attr)),  // assoc_type_impls
+          std::move(boost::fusion::at_c<5>(attr)),  // methods
           std::move(where_clause)                   // where clause
       );
     })];

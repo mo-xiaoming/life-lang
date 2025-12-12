@@ -48,26 +48,29 @@ TEST_CASE("Where clauses in function declarations", "[parser][where_clause]") {
     auto const* input = "fn process<T>(items: Vec<T>): Result where T: Display { return Result {}; }";
     auto const result = parse_func(input);
     REQUIRE(result);
-    CHECK(result->declaration.where_clause.has_value());
-    CHECK(result->declaration.where_clause->predicates.size() == 1);
-    CHECK(result->declaration.where_clause->predicates[0].bounds.size() == 1);
+    REQUIRE(result->declaration.where_clause.has_value());
+    auto const& where = *result->declaration.where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 1);
+    REQUIRE(where.predicates[0].bounds.size() == 1);
   }
 
   SECTION("multiple bounds on one type") {
     auto const* input = "fn compare<T>(a: T, b: T): Bool where T: Eq + Ord { return true; }";
     auto const result = parse_func(input);
     REQUIRE(result);
-    CHECK(result->declaration.where_clause.has_value());
-    CHECK(result->declaration.where_clause->predicates.size() == 1);
-    CHECK(result->declaration.where_clause->predicates[0].bounds.size() == 2);
+    REQUIRE(result->declaration.where_clause.has_value());
+    auto const& where = *result->declaration.where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 1);
+    REQUIRE(where.predicates[0].bounds.size() == 2);
   }
 
   SECTION("multiple predicates") {
     auto const* input = "fn transform<T, U>(input: T): U where T: Display, U: Clone { return input; }";
     auto const result = parse_func(input);
     REQUIRE(result);
-    CHECK(result->declaration.where_clause.has_value());
-    CHECK(result->declaration.where_clause->predicates.size() == 2);
+    REQUIRE(result->declaration.where_clause.has_value());
+    auto const& where = *result->declaration.where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 2);
   }
 
   SECTION("inline bounds and where clause") {
@@ -75,9 +78,10 @@ TEST_CASE("Where clauses in function declarations", "[parser][where_clause]") {
     auto const result = parse_func(input);
     REQUIRE(result);
     CHECK(result->declaration.type_params[0].bounds.size() == 1);  // inline bound on T
-    CHECK(result->declaration.where_clause.has_value());
-    CHECK(result->declaration.where_clause->predicates.size() == 1);            // where clause for U
-    CHECK(result->declaration.where_clause->predicates[0].bounds.size() == 2);  // Clone + Eq
+    REQUIRE(result->declaration.where_clause.has_value());
+    auto const& where = *result->declaration.where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 1);            // where clause for U
+    REQUIRE(where.predicates[0].bounds.size() == 2);  // Clone + Eq
   }
 
   SECTION("no where clause - regression test") {
@@ -97,16 +101,18 @@ TEST_CASE("Where clauses in struct definitions", "[parser][where_clause]") {
     auto const* input = "struct Container<T> where T: Clone { value: T }";
     auto const result = parse_struct(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 1);
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 1);
   }
 
   SECTION("multiple predicates") {
     auto const* input = "struct Pair<T, U> where T: Display, U: Clone { first: T, second: U }";
     auto const result = parse_struct(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 2);
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 2);
   }
 
   SECTION("empty struct with where") {
@@ -126,17 +132,19 @@ TEST_CASE("Where clauses in enum definitions", "[parser][where_clause]") {
     auto const* input = "enum Option<T> where T: Clone { Some(T), None }";
     auto const result = parse_enum(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 1);
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 1);
   }
 
   SECTION("multiple bounds") {
     auto const* input = "enum Result<T, E> where T: Display + Clone, E: Debug { Ok(T), Err(E) }";
     auto const result = parse_enum(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 2);
-    CHECK(result->where_clause->predicates[0].bounds.size() == 2);  // Display + Clone
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 2);
+    REQUIRE(where.predicates[0].bounds.size() == 2);  // Display + Clone
   }
 }
 
@@ -149,16 +157,18 @@ TEST_CASE("Where clauses in impl blocks", "[parser][where_clause]") {
     auto const* input = "impl<T> Container<T> where T: Clone { fn new(): Container<T> { return Container {}; } }";
     auto const result = parse_impl(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 1);
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 1);
   }
 
   SECTION("multiple predicates") {
     auto const* input = "impl<T, U> Pair<T, U> where T: Display, U: Clone { fn first(self): T { return self.first; } }";
     auto const result = parse_impl(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 2);
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 2);
   }
 }
 
@@ -171,17 +181,19 @@ TEST_CASE("Where clauses in trait definitions", "[parser][where_clause]") {
     auto const* input = "trait Processor<T> where T: Clone { fn process(item: T): Result; }";
     auto const result = parse_trait(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 1);
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 1);
   }
 
   SECTION("complex where clause") {
     auto const* input = "trait Converter<T, U> where T: Display + Clone, U: Debug { fn convert(input: T): U; }";
     auto const result = parse_trait(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 2);
-    CHECK(result->where_clause->predicates[0].bounds.size() == 2);
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 2);
+    REQUIRE(where.predicates[0].bounds.size() == 2);
   }
 }
 
@@ -194,8 +206,9 @@ TEST_CASE("Where clauses in trait implementations", "[parser][where_clause]") {
     auto const* input = "impl<T> Display for Container<T> where T: Display { fn fmt(self): String { return \"\"; } }";
     auto const result = parse_trait_impl(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 1);
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 1);
   }
 
   SECTION("multiple predicates") {
@@ -204,7 +217,8 @@ TEST_CASE("Where clauses in trait implementations", "[parser][where_clause]") {
         "self.value; } }";
     auto const result = parse_trait_impl(input);
     REQUIRE(result);
-    CHECK(result->where_clause.has_value());
-    CHECK(result->where_clause->predicates.size() == 2);
+    REQUIRE(result->where_clause.has_value());
+    auto const& where = *result->where_clause;  // NOLINT(bugprone-unchecked-optional-access)
+    REQUIRE(where.predicates.size() == 2);
   }
 }

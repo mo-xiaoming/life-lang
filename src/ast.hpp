@@ -37,6 +37,8 @@ struct Block;
 struct Struct_Def;
 struct Enum_Def;
 struct Impl_Block;
+struct Assoc_Type_Decl;
+struct Assoc_Type_Impl;
 struct Trait_Def;
 struct Trait_Impl;
 struct Expr;
@@ -645,25 +647,44 @@ struct Impl_Block : boost::spirit::x3::position_tagged {
 // Trait Types
 // ============================================================================
 
+// Associated type declaration within a trait
+// Example: type Item; (in trait Iterator)
+// Example: type Item: Display; (with bound)
+struct Assoc_Type_Decl : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Assoc_Type_Decl";
+  std::string name;                 // Associated type name (e.g., Item, Output)
+  std::vector<Trait_Bound> bounds;  // Optional trait bounds (e.g., Display, Clone + Send)
+};
+
+// Example: type Item = I32; (in impl Iterator for Vec)
+// Example: type Output = String; (in impl Transformer for Converter)
+struct Assoc_Type_Impl : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Assoc_Type_Impl";
+  std::string name;      // Associated type name (e.g., Item, Output)
+  Type_Name type_value;  // Concrete type assigned (e.g., I32, String)
+};
+
 // Example: trait Display { fn to_string(self): String; }
-// Example: trait Iterator<T> { fn next(mut self): Option<T>; fn has_next(self): Bool; }
+// Example: trait Iterator { type Item; fn next(mut self): Option<Item>; }
 struct Trait_Def : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Trait_Def";
   std::string name;                          // Trait name (e.g., Display, Iterator)
   std::vector<Type_Param> type_params;       // Generic parameters: <T>, <T: Display>, <K, V>
+  std::vector<Assoc_Type_Decl> assoc_types;  // Associated type declarations: type Item, type Output
   std::vector<Func_Decl> methods;            // Method signatures in the trait
   std::optional<Where_Clause> where_clause;  // Optional where clause
 };
 
 // Example: impl Display for Point { fn to_string(self): String { ... } }
-// Example: impl<T> Iterator<T> for Array<T> where T: Display { ... }
+// Example: impl<T> Iterator<T> for Array<T> where T: Display { type Item = T; ... }
 struct Trait_Impl : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Trait_Impl";
-  Type_Name trait_name;                      // Trait being implemented (e.g., Display, Iterator<T>)
-  Type_Name type_name;                       // Type implementing the trait (e.g., Point, Array<T>)
-  std::vector<Type_Param> type_params;       // Generic parameters: <T>, <T: Display>, <K, V>
-  std::vector<Func_Def> methods;             // Method implementations
-  std::optional<Where_Clause> where_clause;  // Optional where clause
+  Type_Name trait_name;                           // Trait being implemented (e.g., Display, Iterator<T>)
+  Type_Name type_name;                            // Type implementing the trait (e.g., Point, Array<T>)
+  std::vector<Type_Param> type_params;            // Generic parameters: <T>, <T: Display>, <K, V>
+  std::vector<Assoc_Type_Impl> assoc_type_impls;  // Associated type implementations: type Item = T
+  std::vector<Func_Def> methods;                  // Method implementations
+  std::optional<Where_Clause> where_clause;       // Optional where clause
 };
 
 // ============================================================================
@@ -1137,24 +1158,42 @@ inline Impl_Block make_impl_block(Type_Name&& a_type_name, std::vector<Func_Def>
   return make_impl_block(std::move(a_type_name), {}, std::move(a_methods), std::nullopt);
 }
 
+// Associated type helpers
+inline Assoc_Type_Decl make_assoc_type_decl(std::string&& a_name, std::vector<Trait_Bound>&& a_bounds = {}) {
+  return Assoc_Type_Decl{{}, std::move(a_name), std::move(a_bounds)};
+}
+
+inline Assoc_Type_Impl make_assoc_type_impl(std::string&& a_name, Type_Name&& a_type_value) {
+  return Assoc_Type_Impl{{}, std::move(a_name), std::move(a_type_value)};
+}
+
 // Trait helpers
 inline Trait_Def make_trait_def(
     std::string&& a_name,
     std::vector<Type_Param>&& a_type_params,
+    std::vector<Assoc_Type_Decl>&& a_assoc_types,
     std::vector<Func_Decl>&& a_methods,
     std::optional<Where_Clause>&& a_where_clause = std::nullopt
 ) {
-  return Trait_Def{{}, std::move(a_name), std::move(a_type_params), std::move(a_methods), std::move(a_where_clause)};
+  return Trait_Def{
+      {},
+      std::move(a_name),
+      std::move(a_type_params),
+      std::move(a_assoc_types),
+      std::move(a_methods),
+      std::move(a_where_clause)
+  };
 }
 
 inline Trait_Def make_trait_def(std::string&& a_name, std::vector<Func_Decl>&& a_methods) {
-  return make_trait_def(std::move(a_name), {}, std::move(a_methods), std::nullopt);
+  return make_trait_def(std::move(a_name), {}, {}, std::move(a_methods), std::nullopt);
 }
 
 inline Trait_Impl make_trait_impl(
     Type_Name&& a_trait_name,
     Type_Name&& a_type_name,
     std::vector<Type_Param>&& a_type_params,
+    std::vector<Assoc_Type_Impl>&& a_assoc_type_impls,
     std::vector<Func_Def>&& a_methods,
     std::optional<Where_Clause>&& a_where_clause = std::nullopt
 ) {
@@ -1163,6 +1202,7 @@ inline Trait_Impl make_trait_impl(
       std::move(a_trait_name),
       std::move(a_type_name),
       std::move(a_type_params),
+      std::move(a_assoc_type_impls),
       std::move(a_methods),
       std::move(a_where_clause)
   };
@@ -1170,7 +1210,7 @@ inline Trait_Impl make_trait_impl(
 
 inline Trait_Impl
 make_trait_impl(Type_Name&& a_trait_name, Type_Name&& a_type_name, std::vector<Func_Def>&& a_methods) {
-  return make_trait_impl(std::move(a_trait_name), std::move(a_type_name), {}, std::move(a_methods), std::nullopt);
+  return make_trait_impl(std::move(a_trait_name), std::move(a_type_name), {}, {}, std::move(a_methods), std::nullopt);
 }
 
 // Module helpers
@@ -1204,6 +1244,7 @@ void to_json(nlohmann::json& a_json, Struct_Def const& a_def);
 void to_json(nlohmann::json& a_json, Enum_Variant const& a_variant);
 void to_json(nlohmann::json& a_json, Enum_Def const& a_def);
 void to_json(nlohmann::json& a_json, Impl_Block const& a_impl);
+void to_json(nlohmann::json& a_json, Assoc_Type_Decl const& a_assoc_type);
 void to_json(nlohmann::json& a_json, Trait_Def const& a_trait);
 void to_json(nlohmann::json& a_json, Trait_Impl const& a_trait_impl);
 void to_json(nlohmann::json& a_json, Block const& a_block);
@@ -1995,6 +2036,35 @@ inline void to_json(nlohmann::json& a_json, Impl_Block const& a_impl) {
 }
 
 // Trait definition serialization
+inline void to_json(nlohmann::json& a_json, Assoc_Type_Decl const& a_assoc_type) {
+  nlohmann::json obj;
+  obj["name"] = a_assoc_type.name;
+
+  if (!a_assoc_type.bounds.empty()) {
+    nlohmann::json bounds = nlohmann::json::array();
+    for (auto const& bound : a_assoc_type.bounds) {
+      nlohmann::json bound_json;
+      to_json(bound_json, bound);
+      bounds.push_back(bound_json);
+    }
+    obj["bounds"] = bounds;
+  }
+
+  a_json[Assoc_Type_Decl::k_name] = obj;
+}
+
+// Associated type implementation serialization
+inline void to_json(nlohmann::json& a_json, Assoc_Type_Impl const& a_assoc_type_impl) {
+  nlohmann::json obj;
+  obj["name"] = a_assoc_type_impl.name;
+
+  nlohmann::json type_value_json;
+  to_json(type_value_json, a_assoc_type_impl.type_value);
+  obj["type_value"] = type_value_json;
+
+  a_json[Assoc_Type_Impl::k_name] = obj;
+}
+
 inline void to_json(nlohmann::json& a_json, Trait_Def const& a_trait) {
   nlohmann::json obj;
 
@@ -2009,6 +2079,17 @@ inline void to_json(nlohmann::json& a_json, Trait_Def const& a_trait) {
       type_params.push_back(param_json);
     }
     obj["type_params"] = type_params;
+  }
+
+  // Associated types (optional)
+  if (!a_trait.assoc_types.empty()) {
+    nlohmann::json assoc_types = nlohmann::json::array();
+    for (auto const& assoc_type : a_trait.assoc_types) {
+      nlohmann::json assoc_type_json;
+      to_json(assoc_type_json, assoc_type);
+      assoc_types.push_back(assoc_type_json);
+    }
+    obj["assoc_types"] = assoc_types;
   }
 
   // Method signatures
@@ -2052,6 +2133,17 @@ inline void to_json(nlohmann::json& a_json, Trait_Impl const& a_trait_impl) {
       type_params.push_back(param_json);
     }
     obj["type_params"] = type_params;
+  }
+
+  // Associated type implementations (optional)
+  if (!a_trait_impl.assoc_type_impls.empty()) {
+    nlohmann::json assoc_type_impls = nlohmann::json::array();
+    for (auto const& assoc_impl : a_trait_impl.assoc_type_impls) {
+      nlohmann::json assoc_impl_json;
+      to_json(assoc_impl_json, assoc_impl);
+      assoc_type_impls.push_back(assoc_impl_json);
+    }
+    obj["assoc_type_impls"] = assoc_type_impls;
   }
 
   // Method implementations
