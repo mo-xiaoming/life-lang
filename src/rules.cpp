@@ -11,6 +11,23 @@
 namespace life_lang::parser {
 namespace x3 = boost::spirit::x3;
 
+// Utility functions for common parsing attribute transformations
+namespace {
+// Convert boost::optional<vector<T>> to std::vector<T> (empty if none)
+// Eliminates the common pattern: vec = opt ? std::move(*opt) : std::vector<T>{}
+template <typename T>
+std::vector<T> unwrap_optional_vector(boost::optional<std::vector<T>>& a_opt) {
+  return a_opt ? std::move(*a_opt) : std::vector<T>{};
+}
+
+// Convert boost::optional<T> to std::optional<T>
+// Spirit X3 uses boost::optional but our AST uses std::optional
+template <typename T>
+std::optional<T> to_std_optional(boost::optional<T>& a_opt) {
+  return a_opt ? std::optional<T>(std::move(*a_opt)) : std::nullopt;
+}
+}  // namespace
+
 // Marker string used in Spirit X3 error messages to identify expectation failures
 // This prefix is added by Error_Handler::on_error() and searched for during error extraction
 inline constexpr std::string_view k_spirit_error_marker = "[PARSE_ERROR]";
@@ -180,15 +197,8 @@ struct Type_Param_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Type_Param_Tag, ast::Type_Param> const k_type_param_rule = "type parameter";
 auto const k_type_param_rule_def = (k_type_name_rule >> -k_trait_bounds)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
-  auto& boost_opt_bounds = boost::fusion::at_c<1>(attr);
-
-  // Convert boost::optional<vector> to vector (empty if no bounds)
-  std::vector<ast::Trait_Bound> bounds;
-  if (boost_opt_bounds) {
-    bounds = std::move(*boost_opt_bounds);
-  }
-
-  x3::_val(a_ctx) = ast::make_type_param(std::move(boost::fusion::at_c<0>(attr)), std::move(bounds));
+  auto& opt_bounds = boost::fusion::at_c<1>(attr);
+  x3::_val(a_ctx) = ast::make_type_param(std::move(boost::fusion::at_c<0>(attr)), unwrap_optional_vector(opt_bounds));
 })];
 BOOST_SPIRIT_DEFINE(k_type_param_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_type_param_rule), Iterator_Type, Context_Type)
@@ -249,10 +259,9 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_where_clause), Iterator_Type, Context_Type)
 //   "Container<Int>"                         - segment with type parameters (can be followed by more segments)
 auto const k_type_name_segment_rule_def = (k_segment_name >> -k_type_params)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
-  x3::_val(a_ctx) = ast::make_type_name_segment(
-      std::move(boost::fusion::at_c<0>(attr)),
-      boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{})
-  );
+  auto& opt_params = boost::fusion::at_c<1>(attr);
+  x3::_val(a_ctx) =
+      ast::make_type_name_segment(std::move(boost::fusion::at_c<0>(attr)), unwrap_optional_vector(opt_params));
 })];
 BOOST_SPIRIT_DEFINE(k_type_name_segment_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_segment_rule), Iterator_Type, Context_Type)
@@ -293,18 +302,10 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_path_type_rule), Iterator_Type, Context_Type
 struct Make_Function_Type {
   template <typename Context>
   void operator()(Context const& a_ctx) const {
-    // Parse result is: (optional<vector<Type_Name>>, Type_Name)
     auto attr = x3::_attr(a_ctx);
-    auto& param_types_opt = boost::fusion::at_c<0>(attr);
-    auto return_type = boost::fusion::at_c<1>(attr);
-
-    if (param_types_opt) {
-      // Copy param_types since optional may be const
-      std::vector<ast::Type_Name> param_types = *param_types_opt;
-      x3::_val(a_ctx) = ast::make_function_type(std::move(param_types), std::move(return_type));
-    } else {
-      x3::_val(a_ctx) = ast::make_function_type({}, std::move(return_type));
-    }
+    auto& opt_param_types = boost::fusion::at_c<0>(attr);
+    x3::_val(a_ctx) =
+        ast::make_function_type(unwrap_optional_vector(opt_param_types), std::move(boost::fusion::at_c<1>(attr)));
   }
 };
 
@@ -336,10 +337,9 @@ x3::rule<Var_Name_Segment_Tag, ast::Var_Name_Segment> const k_var_name_segment_r
 // Examples: "foo", "map<Int, String>", "Vec<T>"
 auto const k_var_name_segment_rule_def = (k_segment_name >> -k_type_params)[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
-  x3::_val(a_ctx) = ast::make_var_name_segment(
-      std::move(boost::fusion::at_c<0>(attr)),
-      boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Name>{})
-  );
+  auto& opt_params = boost::fusion::at_c<1>(attr);
+  x3::_val(a_ctx) =
+      ast::make_var_name_segment(std::move(boost::fusion::at_c<0>(attr)), unwrap_optional_vector(opt_params));
 })];
 BOOST_SPIRIT_DEFINE(k_var_name_segment_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_var_name_segment_rule), Iterator_Type, Context_Type)
@@ -554,19 +554,11 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_param_type), Iterator_Type, Context_Type)
 // Examples: "x: Int", "mut self: Point", "callback: Fn<String, Bool>", "self", "mut self"
 auto const k_func_param_rule_def = (x3::matches[k_kw_mut] >> k_param_name >> -(':' > k_param_type))[([](auto& a_ctx) {
   auto& attr = x3::_attr(a_ctx);
-  auto const& is_mut = boost::fusion::at_c<0>(attr);
-  auto& name = boost::fusion::at_c<1>(attr);
   auto& opt_type = boost::fusion::at_c<2>(attr);
-
-  std::optional<ast::Type_Name> type;
-  if (opt_type) {
-    type = std::move(*opt_type);
-  }
-
   x3::_val(a_ctx) = ast::make_func_param(
-      is_mut,           // is_mut: bool
-      std::move(name),  // name: string
-      std::move(type)   // type: optional<Type_Name>
+      boost::fusion::at_c<0>(attr),             // is_mut: bool
+      std::move(boost::fusion::at_c<1>(attr)),  // name: string
+      to_std_optional(opt_type)                 // type: optional<Type_Name>
   );
 })];
 BOOST_SPIRIT_DEFINE(k_func_param_rule)
@@ -600,18 +592,15 @@ auto const k_func_decl_rule_def =
     (k_kw_fn > k_func_name > -k_type_param_decls > '(' > -k_func_params > ')' > ':' > k_func_return_type >
      -k_where_clause)[([](auto& a_ctx) {
       auto& attr = x3::_attr(a_ctx);
-      // Convert boost::optional to std::optional for where_clause
-      auto& boost_where = boost::fusion::at_c<4>(attr);
-      std::optional<ast::Where_Clause> where_clause;
-      if (boost_where.has_value()) {
-        where_clause = std::move(*boost_where);
-      }
+      auto& opt_type_params = boost::fusion::at_c<1>(attr);
+      auto& opt_params = boost::fusion::at_c<2>(attr);
+      auto& opt_where = boost::fusion::at_c<4>(attr);
       x3::_val(a_ctx) = ast::make_func_decl(
           std::move(boost::fusion::at_c<0>(attr)),
-          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Param>{}),
-          boost::fusion::at_c<2>(attr).value_or(std::vector<ast::Func_Param>{}),
+          unwrap_optional_vector(opt_type_params),
+          unwrap_optional_vector(opt_params),
           std::move(boost::fusion::at_c<3>(attr)),
-          std::move(where_clause)
+          to_std_optional(opt_where)
       );
     })];
 BOOST_SPIRIT_DEFINE(k_func_decl_rule)
