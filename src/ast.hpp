@@ -753,10 +753,6 @@ inline Type_Param make_type_param(Type_Name&& a_name, std::vector<Trait_Bound>&&
   return Type_Param{{}, std::move(a_name), std::move(a_bounds)};
 }
 
-inline Type_Param make_type_param(Type_Name&& a_name) {
-  return Type_Param{{}, std::move(a_name), {}};
-}
-
 // Where_Predicate helpers
 inline Where_Predicate make_where_predicate(Type_Name&& a_type_name, std::vector<Trait_Bound>&& a_bounds) {
   return Where_Predicate{{}, std::move(a_type_name), std::move(a_bounds)};
@@ -770,10 +766,6 @@ inline Where_Clause make_where_clause(std::vector<Where_Predicate>&& a_predicate
 // Type_Name helpers
 inline Type_Name_Segment make_type_name_segment(std::string&& a_value, std::vector<Type_Name>&& a_type_params) {
   return Type_Name_Segment{{}, std::move(a_value), std::move(a_type_params)};
-}
-
-inline Type_Name_Segment make_type_name_segment(std::string&& a_value) {
-  return make_type_name_segment(std::move(a_value), {});
 }
 
 // Path_Type helpers
@@ -802,7 +794,7 @@ inline Path_Type make_path_type(Args&&... a_args) {
           if constexpr (std::same_as<std::remove_cvref_t<Args>, Type_Name_Segment>) {
             segments.push_back(std::forward<Args>(a_args));
           } else {
-            segments.push_back(make_type_name_segment(std::string(std::forward<Args>(a_args))));
+            segments.push_back(make_type_name_segment(std::string(std::forward<Args>(a_args)), {}));
           }
         }(),
         ...
@@ -836,7 +828,7 @@ inline Type_Name make_type_name(Args&&... a_args) {
           if constexpr (std::same_as<std::remove_cvref_t<Args>, Type_Name_Segment>) {
             segments.push_back(std::forward<Args>(a_args));
           } else {
-            segments.push_back(make_type_name_segment(std::string(std::forward<Args>(a_args))));
+            segments.push_back(make_type_name_segment(std::string(std::forward<Args>(a_args)), {}));
           }
         }(),
         ...
@@ -861,10 +853,6 @@ inline Var_Name_Segment make_var_name_segment(std::string&& a_value, std::vector
   return Var_Name_Segment{{}, std::move(a_value), std::move(a_type_params)};
 }
 
-inline Var_Name_Segment make_var_name_segment(std::string&& a_value) {
-  return make_var_name_segment(std::move(a_value), {});
-}
-
 inline Var_Name make_var_name(std::vector<Var_Name_Segment>&& a_segments) {
   return Var_Name{{}, std::move(a_segments)};
 }
@@ -884,7 +872,7 @@ inline Var_Name make_var_name(Args&&... a_args) {
           if constexpr (std::same_as<std::remove_cvref_t<Args>, Var_Name_Segment>) {
             segments.push_back(std::forward<Args>(a_args));
           } else {
-            segments.push_back(make_var_name_segment(std::string(std::forward<Args>(a_args))));
+            segments.push_back(make_var_name_segment(std::string(std::forward<Args>(a_args)), {}));
           }
         }(),
         ...
