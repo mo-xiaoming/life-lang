@@ -8,6 +8,266 @@
 #include <boost/spirit/home/x3/support/utility/error_reporting.hpp>
 #include <variant>
 
+// ============================================================================
+// life-lang Complete EBNF Grammar
+// ============================================================================
+//
+// Notation:
+//   ::=      Definition
+//   |        Alternative
+//   ()       Grouping
+//   []       Optional (0 or 1)
+//   {}       Zero or more repetitions
+//   {,}      Comma-separated list
+//   <rule>   Non-terminal reference
+//
+// Lexical Conventions:
+//   - Keywords: fn, let, return, struct, enum, impl, trait, type, self, mut,
+//               if, else, while, for, in, match, break, continue, where
+//   - Identifiers: snake_case for variables/functions/fields, Camel_Snake_Case for types
+//   - Comments: // line comment, /* block comment */
+//   - Whitespace and comments are skipped between tokens
+//
+// ============================================================================
+// Module and Top-Level Declarations
+// ============================================================================
+//
+// module ::= {<top_level_item>}
+//
+// top_level_item ::= <func_def>
+//                  | <struct_def>
+//                  | <enum_def>
+//                  | <impl_block>
+//                  | <trait_def>
+//                  | <trait_impl>
+//                  | <type_alias>
+//
+// ============================================================================
+// Type System
+// ============================================================================
+//
+// type_name ::= <function_type>
+//             | <path_type>
+//
+// path_type ::= <type_name_segment> {'.' <type_name_segment>}
+//
+// type_name_segment ::= <Camel_Snake_Case> ['<' <type_name> {, <type_name>} '>']
+//
+// function_type ::= 'fn' '(' [<type_name> {, <type_name>}] ')' [':' <type_name>]
+//
+// type_param ::= <type_name> [':' <trait_bound> {'+' <trait_bound>}]
+//
+// trait_bound ::= <type_name>
+//
+// type_param_decls ::= '<' <type_param> {, <type_param>} '>'
+//
+// where_clause ::= 'where' <where_predicate> {, <where_predicate>}
+//
+// where_predicate ::= <type_name> ':' <trait_bound> {'+' <trait_bound>}
+//
+// ============================================================================
+// Struct Definitions
+// ============================================================================
+//
+// struct_def ::= 'struct' <Camel_Snake_Case> [<type_param_decls>] [<where_clause>]
+//                '{' [<struct_field> {, <struct_field>} [,]] '}'
+//
+// struct_field ::= <snake_case> ':' <type_name>
+//
+// ============================================================================
+// Enum Definitions
+// ============================================================================
+//
+// enum_def ::= 'enum' <Camel_Snake_Case> [<type_param_decls>] [<where_clause>]
+//              '{' [<enum_variant> {, <enum_variant>} [,]] '}'
+//
+// enum_variant ::= <Camel_Snake_Case> [<variant_data>]
+//
+// variant_data ::= '(' [<type_name> {, <type_name>} [,]] ')'                    // Tuple variant
+//                | '{' [<struct_field> {, <struct_field>} [,]] '}'              // Struct variant
+//
+// ============================================================================
+// Function Definitions
+// ============================================================================
+//
+// func_def ::= 'fn' <snake_case> [<type_param_decls>]
+//              '(' [<func_param> {, <func_param>}] ')'
+//              [':' <type_name>]
+//              [<where_clause>]
+//              <block>
+//
+// func_param ::= ['mut'] <snake_case> [':' <type_name>]
+//              | 'self'
+//
+// ============================================================================
+// Impl Blocks and Traits
+// ============================================================================
+//
+// impl_block ::= 'impl' [<type_param_decls>] <type_name> [<where_clause>]
+//                '{' {<func_def>} '}'
+//
+// trait_def ::= 'trait' <Camel_Snake_Case> [<type_param_decls>] [<where_clause>]
+//               '{' {<func_decl>} '}'
+//
+// func_decl ::= 'fn' <snake_case> [<type_param_decls>]
+//               '(' [<func_param> {, <func_param>}] ')'
+//               [':' <type_name>]
+//               [<where_clause>] ';'
+//
+// trait_impl ::= 'impl' [<type_param_decls>] <type_name> 'for' <type_name>
+//                [<where_clause>] '{' {<func_def>} '}'
+//
+// type_alias ::= 'type' <Camel_Snake_Case> [<type_param_decls>]
+//                '=' <type_name> [<where_clause>] ';'
+//
+// ============================================================================
+// Expressions
+// ============================================================================
+//
+// expr ::= <assignment_expr>
+//
+// assignment_expr ::= <logical_or_expr> ['=' <assignment_expr>]
+//
+// logical_or_expr ::= <logical_and_expr> {'||' <logical_and_expr>}
+//
+// logical_and_expr ::= <equality_expr> {'&&' <equality_expr>}
+//
+// equality_expr ::= <relational_expr> {('==' | '!=') <relational_expr>}
+//
+// relational_expr ::= <additive_expr> {('<' | '<=' | '>' | '>=') <additive_expr>}
+//
+// additive_expr ::= <multiplicative_expr> {('+' | '-') <multiplicative_expr>}
+//
+// multiplicative_expr ::= <unary_expr> {('*' | '/' | '%') <unary_expr>}
+//
+// unary_expr ::= ('-' | '!') <unary_expr>
+//              | <postfix_expr>
+//
+// postfix_expr ::= <primary_expr> {<postfix_op>}
+//
+// postfix_op ::= '.' <snake_case>                                               // Field access
+//              | '.' <snake_case> '(' [<expr> {, <expr>}] ')'                   // Method call
+//              | '(' [<expr> {, <expr>}] ')'                                    // Function call
+//
+// primary_expr ::= <literal>
+//                | <var_name>
+//                | <struct_literal>
+//                | <if_expr>
+//                | <while_expr>
+//                | <for_expr>
+//                | <match_expr>
+//                | <block>
+//                | <range_expr>
+//                | '(' <expr> ')'
+//
+// range_expr ::= <additive_expr> '..' <additive_expr>
+//              | <additive_expr> '..'
+//              | '..' <additive_expr>
+//
+// ============================================================================
+// Control Flow Expressions
+// ============================================================================
+//
+// if_expr ::= 'if' <expr> <block> ['else' (<if_expr> | <block>)]
+//
+// while_expr ::= 'while' <expr> <block>
+//
+// for_expr ::= 'for' <pattern> 'in' <expr> <block>
+//
+// match_expr ::= 'match' <expr> '{' {<match_arm>} '}'
+//
+// match_arm ::= <pattern> '=>' (<expr> | <block>) [',']
+//
+// ============================================================================
+// Patterns
+// ============================================================================
+//
+// pattern ::= <literal>
+//           | <var_name>
+//           | <struct_pattern>
+//           | <tuple_pattern>
+//           | <enum_pattern>
+//           | '_'                                                               // Wildcard
+//
+// struct_pattern ::= <type_name> '{' [<field_pattern> {, <field_pattern>} [,]] '}'
+//
+// field_pattern ::= <snake_case> ':' <pattern>
+//
+// tuple_pattern ::= '(' [<pattern> {, <pattern>} [,]] ')'
+//
+// enum_pattern ::= <type_name> ['(' [<pattern> {, <pattern>} [,]] ')']
+//                | <type_name> '{' [<field_pattern> {, <field_pattern>} [,]] '}'
+//
+// ============================================================================
+// Statements
+// ============================================================================
+//
+// statement ::= <let_statement>
+//             | <return_statement>
+//             | <break_statement>
+//             | <continue_statement>
+//             | <expr_statement>
+//
+// let_statement ::= 'let' <pattern> [':' <type_name>] '=' <expr> ';'
+//
+// return_statement ::= 'return' [<expr>] ';'
+//
+// break_statement ::= 'break' ';'
+//
+// continue_statement ::= 'continue' ';'
+//
+// expr_statement ::= <expr> ';'
+//
+// block ::= '{' {<statement>} [<expr>] '}'
+//
+// ============================================================================
+// Literals
+// ============================================================================
+//
+// literal ::= <integer>
+//           | <float>
+//           | <string>
+//           | <char>
+//           | '(' ')'                                                           // Unit type
+//
+// struct_literal ::= <type_name> '{' [<field_init> {, <field_init>} [,]] '}'
+//
+// field_init ::= <snake_case> ':' <expr>
+//
+// integer ::= ['-'] <decimal_digits> [<integer_suffix>]
+//           | '0x' <hex_digits> [<integer_suffix>]
+//           | '0o' <octal_digits> [<integer_suffix>]
+//           | '0b' <binary_digits> [<integer_suffix>]
+//
+// integer_suffix ::= 'i8' | 'i16' | 'i32' | 'i64' | 'i128' | 'isize'
+//                  | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'usize'
+//
+// float ::= ['-'] <decimal_digits> '.' <decimal_digits> ['e' ['+' | '-'] <decimal_digits>] [<float_suffix>]
+//         | ['-'] <decimal_digits> 'e' ['+' | '-'] <decimal_digits> [<float_suffix>]
+//
+// float_suffix ::= 'f32' | 'f64'
+//
+// string ::= '"' {<string_char> | <escape_sequence>} '"'
+//
+// char ::= "'" (<utf8_char> | <escape_sequence>) "'"
+//
+// escape_sequence ::= '\' ('n' | 't' | 'r' | '\' | '"' | "'")
+//                   | '\x' <hex_digit> <hex_digit>
+//
+// ============================================================================
+// Identifiers and Names
+// ============================================================================
+//
+// var_name ::= <snake_case> ['<' <type_name> {, <type_name>} '>']
+//
+// qualified_var_name ::= <var_name> {'.' <var_name>}
+//
+// snake_case ::= [a-z] {[a-z0-9_]}                                             // Must not be keyword
+//
+// Camel_Snake_Case ::= [A-Z] {[A-Za-z0-9_]}                                    // Must not be keyword
+//
+// ============================================================================
+
 namespace life_lang::parser {
 namespace x3 = boost::spirit::x3;
 
