@@ -38,6 +38,7 @@ target_sources(tests
         parser/test_trait_def.cpp
         parser/test_trait_impl.cpp
         parser/test_tuple_pattern.cpp
+        parser/test_type_alias.cpp
         parser/test_unary_expr.cpp
         parser/test_unit_type.cpp
         parser/test_where_clause.cpp

@@ -80,8 +80,8 @@ TEST_CASE("Where clauses in function declarations", "[parser][where_clause]") {
     CHECK(result->declaration.type_params[0].bounds.size() == 1);  // inline bound on T
     REQUIRE(result->declaration.where_clause.has_value());
     auto const& where = *result->declaration.where_clause;  // NOLINT(bugprone-unchecked-optional-access)
-    REQUIRE(where.predicates.size() == 1);            // where clause for U
-    REQUIRE(where.predicates[0].bounds.size() == 2);  // Clone + Eq
+    REQUIRE(where.predicates.size() == 1);                  // where clause for U
+    REQUIRE(where.predicates[0].bounds.size() == 2);        // Clone + Eq
   }
 
   SECTION("no where clause - regression test") {

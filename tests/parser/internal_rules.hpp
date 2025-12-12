@@ -27,6 +27,7 @@ PARSE_FN_DECL(Enum_Def, enum_def);
 PARSE_FN_DECL(Impl_Block, impl_block);
 PARSE_FN_DECL(Trait_Def, trait_def);
 PARSE_FN_DECL(Trait_Impl, trait_impl);
+PARSE_FN_DECL(Type_Alias, type_alias);
 
 // Statement-level constructs
 PARSE_FN_DECL(Statement, statement);
