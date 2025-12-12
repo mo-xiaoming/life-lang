@@ -56,12 +56,12 @@ inline auto const k_template_types_expected = R"(
         "Struct_Field": {
           "name": "items",
           "type": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
                     "type_params": [
-                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "I32"}}]}}
+                      {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "I32"}}]}}
                     ],
                     "value": "Vec"
                   }
@@ -75,12 +75,12 @@ inline auto const k_template_types_expected = R"(
         "Struct_Field": {
           "name": "names",
           "type": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
                     "type_params": [
-                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "String"}}]}}
+                      {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "String"}}]}}
                     ],
                     "value": "Array"
                   }
@@ -107,19 +107,19 @@ inline auto const k_complex_nested_expected = R"(
         "Struct_Field": {
           "name": "data",
           "type": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
                     "type_params": [
-                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "String"}}]}},
+                      {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "String"}}]}},
                       {
-                        "Type_Name": {
+                        "Path_Type": {
                           "segments": [
                             {
                               "Type_Name_Segment": {
                                 "type_params": [
-                                  {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "I32"}}]}}
+                                  {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "I32"}}]}}
                                 ],
                                 "value": "Vec"
                               }
@@ -210,7 +210,7 @@ inline auto const k_generic_single_param_expected = R"(
         "Struct_Field": {
           "name": "value",
           "type": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {"Type_Name_Segment": {"type_params": [], "value": "T"}}
               ]
@@ -221,7 +221,7 @@ inline auto const k_generic_single_param_expected = R"(
     ],
     "name": "Box",
     "type_params": [
-      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
+      {"Type_Param": {"name": {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
     ]
   }
 }
@@ -237,7 +237,7 @@ inline auto const k_generic_two_params_expected = R"(
         "Struct_Field": {
           "name": "first",
           "type": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {"Type_Name_Segment": {"type_params": [], "value": "T"}}
               ]
@@ -249,7 +249,7 @@ inline auto const k_generic_two_params_expected = R"(
         "Struct_Field": {
           "name": "second",
           "type": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {"Type_Name_Segment": {"type_params": [], "value": "U"}}
               ]
@@ -260,8 +260,8 @@ inline auto const k_generic_two_params_expected = R"(
     ],
     "name": "Pair",
     "type_params": [
-      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}},
-      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "U"}}]}}}}
+      {"Type_Param": {"name": {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}},
+      {"Type_Param": {"name": {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "U"}}]}}}}
     ]
   }
 }
@@ -277,12 +277,12 @@ inline auto const k_generic_map_expected = R"(
         "Struct_Field": {
           "name": "keys",
           "type": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
                     "type_params": [
-                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "K"}}]}}
+                      {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "K"}}]}}
                     ],
                     "value": "Vec"
                   }
@@ -296,12 +296,12 @@ inline auto const k_generic_map_expected = R"(
         "Struct_Field": {
           "name": "values",
           "type": {
-            "Type_Name": {
+            "Path_Type": {
               "segments": [
                 {
                   "Type_Name_Segment": {
                     "type_params": [
-                      {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "V"}}]}}
+                      {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "V"}}]}}
                     ],
                     "value": "Vec"
                   }
@@ -314,8 +314,8 @@ inline auto const k_generic_map_expected = R"(
     ],
     "name": "Map",
     "type_params": [
-      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "K"}}]}}}},
-      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "V"}}]}}}}
+      {"Type_Param": {"name": {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "K"}}]}}}},
+      {"Type_Param": {"name": {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "V"}}]}}}}
     ]
   }
 }
@@ -329,7 +329,7 @@ inline auto const k_generic_empty_expected = R"(
     "fields": [],
     "name": "Empty",
     "type_params": [
-      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
+      {"Type_Param": {"name": {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
     ]
   }
 }

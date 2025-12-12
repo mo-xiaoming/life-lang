@@ -124,8 +124,12 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_segment_name), Iterator_Type, Context_Type)
 
 // Forward declarations for mutually recursive rules
 struct Type_Name_Tag : x3::annotate_on_success, Error_Handler {};
+struct Path_Type_Tag : x3::annotate_on_success, Error_Handler {};
+struct Function_Type_Tag : x3::annotate_on_success, Error_Handler {};
 struct Type_Name_Segment_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Type_Name_Tag, ast::Type_Name> const k_type_name_rule = "type name";
+x3::rule<Path_Type_Tag, ast::Path_Type> const k_path_type_rule = "path type";
+x3::rule<Function_Type_Tag, ast::Function_Type> const k_function_type_rule = "function type";
 x3::rule<Type_Name_Segment_Tag, ast::Type_Name_Segment> const k_type_name_segment_rule = "type name segment";
 
 // Parse type arguments: angle-bracketed comma-separated type names (for type instantiation)
@@ -254,9 +258,8 @@ BOOST_SPIRIT_DEFINE(k_type_name_segment_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_segment_rule), Iterator_Type, Context_Type)
 
 // Parse full qualified name: dot-separated qualified name segments
-// Any segment can have type parameters, not just the last one!
-// This allows names like "Container<T>.Iterator<Forward>" where intermediate segments have type parameters.
-// Unit type "()" is special-cased first: matches '(' ')' with optional whitespace between them
+// === Path Type Rules ===
+// Parses path-based types: qualified names with optional type parameters
 // This is safe because empty tuple patterns require at least one element (pattern % ',') so won't match empty parens
 // Examples:
 //   "()" or "( )" or "(  )"                            - unit type (void/no return value)
@@ -269,11 +272,50 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_segment_rule), Iterator_Type, Cont
 //   "Parser<Token>.Result<AST>.Error<String>"          - multiple segments with type parameters in chain
 //   "Network.Protocol<Http.Request, Http.Response>"    - deeply nested qualified type parameters
 //   "IO.Result<Data.Error, Parser.AST>"                - multiple qualified params
-auto const k_type_name_rule_def =
-    ((lit('(') >> lit(')'))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_type_name("()"); })]) |
+auto const k_path_type_rule_def =
+    ((lit('(') >> lit(')'))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_path_type("()"); })]) |
     (k_type_name_segment_rule %
      (lit('.') >>
-      !lit('.')))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_type_name(std::move(x3::_attr(a_ctx))); })];
+      !lit('.')))[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_path_type(std::move(x3::_attr(a_ctx))); })];
+BOOST_SPIRIT_DEFINE(k_path_type_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_path_type_rule), Iterator_Type, Context_Type)
+
+// === Function Type Rules ===
+// Parses function types: fn(param_types): return_type
+// Examples:
+//   "fn(): ()"                                         - no params, no return (void)
+//   "fn(I32): Bool"                                    - single param, bool return
+//   "fn(I32, I32): I32"                                - multiple params
+//   "fn(Std.String): Std.Result<(), Error>"            - qualified types
+//   "fn(fn(I32): Bool): Bool"                          - higher-order function (function takes function)
+
+// Semantic action for function type: creates Function_Type from parsed params and return type
+struct Make_Function_Type {
+  template <typename Context>
+  void operator()(Context const& a_ctx) const {
+    // Parse result is: (optional<vector<Type_Name>>, Type_Name)
+    auto attr = x3::_attr(a_ctx);
+    auto& param_types_opt = boost::fusion::at_c<0>(attr);
+    auto return_type = boost::fusion::at_c<1>(attr);
+
+    if (param_types_opt) {
+      // Copy param_types since optional may be const
+      std::vector<ast::Type_Name> param_types = *param_types_opt;
+      x3::_val(a_ctx) = ast::make_function_type(std::move(param_types), std::move(return_type));
+    } else {
+      x3::_val(a_ctx) = ast::make_function_type({}, std::move(return_type));
+    }
+  }
+};
+
+auto const k_function_type_rule_def =
+    (lit("fn") >> '(' >> -(k_type_name_rule % ',') >> ')' >> ':' >> k_type_name_rule)[Make_Function_Type{}];
+BOOST_SPIRIT_DEFINE(k_function_type_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_function_type_rule), Iterator_Type, Context_Type)
+
+// === Type Name Rules (Variant) ===
+// Type_Name is a variant that can be either Path_Type or Function_Type
+auto const k_type_name_rule_def = k_function_type_rule | k_path_type_rule;
 BOOST_SPIRIT_DEFINE(k_type_name_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_rule), Iterator_Type, Context_Type)
 
@@ -1813,22 +1855,23 @@ parser::Parse_Result<Ast> parse_with_rule(
   }
 
 // Exposed test API - semantic boundaries only
-PARSE_FN_IMPL(Module, module)          // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Func_Def, func_def)      // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Struct_Def, struct_def)  // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Enum_Def, enum_def)      // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Impl_Block, impl_block)  // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Trait_Def, trait_def)    // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Trait_Impl, trait_impl)  // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Type_Alias, type_alias)  // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Statement, statement)    // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Block, block)            // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Expr, expr)              // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Type_Name, type_name)    // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Integer, integer)        // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Float, float)            // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(String, string)          // NOLINT(misc-use-internal-linkage)
-PARSE_FN_IMPL(Char, char)              // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Module, module)                // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Func_Def, func_def)            // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Struct_Def, struct_def)        // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Enum_Def, enum_def)            // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Impl_Block, impl_block)        // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Trait_Def, trait_def)          // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Trait_Impl, trait_impl)        // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Type_Alias, type_alias)        // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Statement, statement)          // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Block, block)                  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Expr, expr)                    // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Type_Name, type_name)          // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Function_Type, function_type)  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Integer, integer)              // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Float, float)                  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(String, string)                // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Char, char)                    // NOLINT(misc-use-internal-linkage)
 #undef PARSE_FN_IMPL
 
 }  // namespace life_lang::internal

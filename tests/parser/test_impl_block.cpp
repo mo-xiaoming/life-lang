@@ -13,7 +13,7 @@ inline auto const k_empty_impl_expected = R"(
 {
   "Impl_Block": {
     "type_name": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {"Type_Name_Segment": {"type_params": [], "value": "Point"}}
         ]
@@ -31,7 +31,7 @@ inline auto const k_basic_single_method_expected = R"(
 {
   "Impl_Block": {
     "type_name": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {"Type_Name_Segment": {"type_params": [], "value": "Point"}}
         ]
@@ -64,7 +64,7 @@ inline auto const k_basic_single_method_expected = R"(
                     "is_mut": false,
                     "name": "self",
                     "type": {
-                      "Type_Name": {
+                      "Path_Type": {
                         "segments": [
                           {"Type_Name_Segment": {"type_params": [], "value": "Point"}}
                         ]
@@ -74,7 +74,7 @@ inline auto const k_basic_single_method_expected = R"(
                 }
               ],
               "return_type": {
-                "Type_Name": {
+                "Path_Type": {
                   "segments": [
                     {"Type_Name_Segment": {"type_params": [], "value": "F64"}}
                   ]
@@ -97,7 +97,7 @@ inline auto const k_optional_self_type_expected = R"(
 {
   "Impl_Block": {
     "type_name": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {"Type_Name_Segment": {"type_params": [], "value": "Point"}}
         ]
@@ -133,7 +133,7 @@ inline auto const k_optional_self_type_expected = R"(
                 }
               ],
               "return_type": {
-                "Type_Name": {
+                "Path_Type": {
                   "segments": [
                     {"Type_Name_Segment": {"type_params": [], "value": "F64"}}
                   ]
@@ -156,12 +156,12 @@ inline auto const k_generic_single_param_expected = R"(
 {
   "Impl_Block": {
     "type_name": {
-      "Type_Name": {
+      "Path_Type": {
         "segments": [
           {
             "Type_Name_Segment": {
               "type_params": [
-                {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
+                {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
               ],
               "value": "Array"
             }
@@ -170,7 +170,7 @@ inline auto const k_generic_single_param_expected = R"(
       }
     },
     "type_params": [
-      {"Type_Param": {"name": {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
+      {"Type_Param": {"name": {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}}}
     ],
     "methods": [
       {
@@ -199,12 +199,12 @@ inline auto const k_generic_single_param_expected = R"(
                     "is_mut": false,
                     "name": "self",
                     "type": {
-                      "Type_Name": {
+                      "Path_Type": {
                         "segments": [
                           {
                             "Type_Name_Segment": {
                               "type_params": [
-                                {"Type_Name": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
+                                {"Path_Type": {"segments": [{"Type_Name_Segment": {"type_params": [], "value": "T"}}]}}
                               ],
                               "value": "Array"
                             }
@@ -216,7 +216,7 @@ inline auto const k_generic_single_param_expected = R"(
                 }
               ],
               "return_type": {
-                "Type_Name": {
+                "Path_Type": {
                   "segments": [
                     {"Type_Name_Segment": {"type_params": [], "value": "I32"}}
                   ]
@@ -236,12 +236,12 @@ inline auto const k_generic_single_param_expected = R"(
 constexpr auto k_invalid_no_braces_should_succeed = false;
 constexpr auto k_invalid_no_braces_input = "impl Point";
 constexpr auto k_invalid_no_braces_expected =
-    R"({"Impl_Block": {"type_name": {"Type_Name": {"segments": []}}, "methods": []}})";
+    R"({"Impl_Block": {"type_name": {"Path_Type": {"segments": []}}, "methods": []}})";
 
 constexpr auto k_invalid_empty_should_succeed = false;
 constexpr auto k_invalid_empty_input = "";
 constexpr auto k_invalid_empty_expected =
-    R"({"Impl_Block": {"type_name": {"Type_Name": {"segments": []}}, "methods": []}})";
+    R"({"Impl_Block": {"type_name": {"Path_Type": {"segments": []}}, "methods": []}})";
 }  // namespace
 
 TEST_CASE("Parse Impl_Block", "[parser]") {

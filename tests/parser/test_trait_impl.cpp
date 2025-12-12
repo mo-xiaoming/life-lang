@@ -22,8 +22,8 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     )";
     auto const result = parse_trait_impl(input);
     REQUIRE(result);
-    CHECK(result->trait_name.segments.front().value == "Display");
-    CHECK(result->type_name.segments.front().value == "Point");
+    CHECK(result->trait_name.segments().front().value == "Display");
+    CHECK(result->type_name.segments().front().value == "Point");
     CHECK(result->methods.size() == 1);
   }
 
@@ -75,11 +75,11 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     )";
     auto const result = parse_trait_impl(input);
     REQUIRE(result);
-    CHECK(result->trait_name.segments.front().value == "Iterator");
-    CHECK(result->type_name.segments.front().value == "Vec");
+    CHECK(result->trait_name.segments().front().value == "Iterator");
+    CHECK(result->type_name.segments().front().value == "Vec");
     CHECK(result->assoc_type_impls.size() == 1);
     CHECK(result->assoc_type_impls[0].name == "Item");
-    CHECK(result->assoc_type_impls[0].type_value.segments.front().value == "I32");
+    CHECK(result->assoc_type_impls[0].type_value.segments().front().value == "I32");
     CHECK(result->methods.size() == 1);
   }
 
@@ -96,9 +96,9 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     REQUIRE(result);
     CHECK(result->assoc_type_impls.size() == 2);
     CHECK(result->assoc_type_impls[0].name == "Node");
-    CHECK(result->assoc_type_impls[0].type_value.segments.front().value == "Vertex");
+    CHECK(result->assoc_type_impls[0].type_value.segments().front().value == "Vertex");
     CHECK(result->assoc_type_impls[1].name == "Edge");
-    CHECK(result->assoc_type_impls[1].type_value.segments.front().value == "Connection");
+    CHECK(result->assoc_type_impls[1].type_value.segments().front().value == "Connection");
     CHECK(result->methods.size() == 2);
   }
 
@@ -116,7 +116,7 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     CHECK(result->type_params.size() == 1);
     CHECK(result->assoc_type_impls.size() == 1);
     CHECK(result->assoc_type_impls[0].name == "Item");
-    CHECK(result->assoc_type_impls[0].type_value.segments.front().value == "T");
+    CHECK(result->assoc_type_impls[0].type_value.segments().front().value == "T");
     CHECK(result->methods.size() == 1);
   }
 
@@ -133,8 +133,8 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     REQUIRE(result);
     CHECK(result->assoc_type_impls.size() == 1);
     CHECK(result->assoc_type_impls[0].name == "Output");
-    CHECK(result->assoc_type_impls[0].type_value.segments.front().value == "Vec");
-    CHECK(result->assoc_type_impls[0].type_value.segments.front().type_params.size() == 1);
+    CHECK(result->assoc_type_impls[0].type_value.segments().front().value == "Vec");
+    CHECK(result->assoc_type_impls[0].type_value.segments().front().type_params.size() == 1);
   }
 
   SECTION("impl with only associated types, no methods") {

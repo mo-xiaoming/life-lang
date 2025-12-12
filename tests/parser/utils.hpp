@@ -92,7 +92,7 @@ inline std::string var_name_path(std::vector<std::string_view> const& a_segments
 inline std::string type_name(std::string_view a_name) {
   return fmt::format(
       R"({{
-    "Type_Name": {{
+    "Path_Type": {{
       "segments": [
         {{
           "Type_Name_Segment": {{
@@ -111,7 +111,7 @@ inline std::string type_name(std::string_view a_name) {
 inline std::string type_name(std::string_view a_seg1, std::string_view a_seg2) {
   return fmt::format(
       R"({{
-    "Type_Name": {{
+    "Path_Type": {{
       "segments": [
         {{
           "Type_Name_Segment": {{
@@ -142,7 +142,7 @@ inline std::string type_name_path(std::vector<std::string_view> const& a_segment
     }
     segments_json += fmt::format(R"({{"Type_Name_Segment":{{"value":"{}","type_params":[]}}}})", a_segments[i]);
   }
-  return fmt::format(R"({{"Type_Name":{{"segments":[{}]}}}})", segments_json);
+  return fmt::format(R"({{"Path_Type":{{"segments":[{}]}}}})", segments_json);
 }
 
 // Type parameter (wraps a Type_Name in Type_Param for generic declarations)

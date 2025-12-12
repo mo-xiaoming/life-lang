@@ -96,7 +96,7 @@ inline auto const k_hello_world_expected = R"({
               "is_mut": false,
               "name": "args",
               "type": {
-                "Type_Name": {
+                "Path_Type": {
                   "segments": [
                     {
                       "Type_Name_Segment": {
@@ -109,7 +109,7 @@ inline auto const k_hello_world_expected = R"({
                         "value": "Array",
                         "type_params": [
                           {
-                            "Type_Name": {
+                            "Path_Type": {
                               "segments": [
                                 {
                                   "Type_Name_Segment": {
@@ -136,7 +136,7 @@ inline auto const k_hello_world_expected = R"({
           }
         ],
         "return_type": {
-          "Type_Name": {
+          "Path_Type": {
             "segments": [
               {
                 "Type_Name_Segment": {
@@ -219,7 +219,7 @@ inline auto const k_invalid_expected = R"({
         "name": "",
         "params": [],
         "return_type": {
-          "Type_Name": {
+          "Path_Type": {
             "segments": []
           }
         },
