@@ -41,6 +41,7 @@ struct Assoc_Type_Decl;
 struct Assoc_Type_Impl;
 struct Trait_Def;
 struct Trait_Impl;
+struct Type_Alias;
 struct Expr;
 struct Pattern;
 struct Let_Statement;
@@ -373,6 +374,7 @@ struct Statement : boost::spirit::x3::variant<
                        boost::spirit::x3::forward_ast<Impl_Block>,
                        boost::spirit::x3::forward_ast<Trait_Def>,
                        boost::spirit::x3::forward_ast<Trait_Impl>,
+                       boost::spirit::x3::forward_ast<Type_Alias>,
                        boost::spirit::x3::forward_ast<Let_Statement>,
                        Func_Call_Statement,
                        boost::spirit::x3::forward_ast<Expr_Statement>,
@@ -391,6 +393,7 @@ struct Statement : boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<Impl_Block>,
       boost::spirit::x3::forward_ast<Trait_Def>,
       boost::spirit::x3::forward_ast<Trait_Impl>,
+      boost::spirit::x3::forward_ast<Type_Alias>,
       boost::spirit::x3::forward_ast<Let_Statement>,
       Func_Call_Statement,
       boost::spirit::x3::forward_ast<Expr_Statement>,
@@ -685,6 +688,20 @@ struct Trait_Impl : boost::spirit::x3::position_tagged {
   std::vector<Assoc_Type_Impl> assoc_type_impls;  // Associated type implementations: type Item = T
   std::vector<Func_Def> methods;                  // Method implementations
   std::optional<Where_Clause> where_clause;       // Optional where clause
+};
+
+// ============================================================================
+// Type Alias
+// ============================================================================
+
+// Example: type String_Map<T> = Map<String, T>;
+// Example: type Result<T> = Result<T, Error>;
+// Example: type Handler = fn(I32): Bool;
+struct Type_Alias : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Type_Alias";
+  std::string name;                     // Alias name (must be Camel_Snake_Case)
+  std::vector<Type_Param> type_params;  // Generic parameters: <T>, <K, V>
+  Type_Name aliased_type;               // The type being aliased
 };
 
 // ============================================================================
@@ -1213,6 +1230,16 @@ make_trait_impl(Type_Name&& a_trait_name, Type_Name&& a_type_name, std::vector<F
   return make_trait_impl(std::move(a_trait_name), std::move(a_type_name), {}, {}, std::move(a_methods), std::nullopt);
 }
 
+// Type_Alias helpers
+inline Type_Alias
+make_type_alias(std::string&& a_name, std::vector<Type_Param>&& a_type_params, Type_Name&& a_aliased_type) {
+  return Type_Alias{{}, std::move(a_name), std::move(a_type_params), std::move(a_aliased_type)};
+}
+
+inline Type_Alias make_type_alias(std::string&& a_name, Type_Name&& a_aliased_type) {
+  return Type_Alias{{}, std::move(a_name), {}, std::move(a_aliased_type)};
+}
+
 // Module helpers
 inline Module make_module(std::vector<Statement>&& a_statements) {
   return Module{{}, std::move(a_statements)};
@@ -1247,6 +1274,7 @@ void to_json(nlohmann::json& a_json, Impl_Block const& a_impl);
 void to_json(nlohmann::json& a_json, Assoc_Type_Decl const& a_assoc_type);
 void to_json(nlohmann::json& a_json, Trait_Def const& a_trait);
 void to_json(nlohmann::json& a_json, Trait_Impl const& a_trait_impl);
+void to_json(nlohmann::json& a_json, Type_Alias const& a_type_alias);
 void to_json(nlohmann::json& a_json, Block const& a_block);
 
 // Type_Name serialization (Type_Name must be declared before Type_Name_Segment due to recursion)
@@ -2162,6 +2190,32 @@ inline void to_json(nlohmann::json& a_json, Trait_Impl const& a_trait_impl) {
   }
 
   a_json[Trait_Impl::k_name] = obj;
+}
+
+// Type_Alias serialization
+inline void to_json(nlohmann::json& a_json, Type_Alias const& a_type_alias) {
+  nlohmann::json obj;
+
+  // Name
+  obj["name"] = a_type_alias.name;
+
+  // Type parameters (optional)
+  if (!a_type_alias.type_params.empty()) {
+    nlohmann::json type_params = nlohmann::json::array();
+    for (auto const& param : a_type_alias.type_params) {
+      nlohmann::json param_json;
+      to_json(param_json, param);
+      type_params.push_back(param_json);
+    }
+    obj["type_params"] = type_params;
+  }
+
+  // Aliased type
+  nlohmann::json aliased_type_json;
+  to_json(aliased_type_json, a_type_alias.aliased_type);
+  obj["aliased_type"] = aliased_type_json;
+
+  a_json[Type_Alias::k_name] = obj;
 }
 
 // Module serialization

@@ -1595,6 +1595,31 @@ auto const k_assoc_type_impl_rule_def =
 BOOST_SPIRIT_DEFINE(k_assoc_type_impl_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_assoc_type_impl_rule), Iterator_Type, Context_Type)
 
+// Parse type alias name: any identifier (naming convention checked at semantic analysis)
+x3::rule<struct type_alias_name_tag, std::string> const k_type_alias_name = "type alias name";
+auto const k_type_alias_name_def = k_segment_name;
+BOOST_SPIRIT_DEFINE(k_type_alias_name)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_type_alias_name), Iterator_Type, Context_Type)
+
+// Parse type alias: "type Name<T> = Type;"
+// Examples:
+//   type String_Map<T> = Map<String, T>;
+//   type Result<T> = Result<T, Error>;
+//   type Handler = fn(I32): Bool;
+struct Type_Alias_Tag : x3::annotate_on_success, Error_Handler {};
+x3::rule<Type_Alias_Tag, ast::Type_Alias> const k_type_alias_rule = "type alias";
+auto const k_type_alias_rule_def =
+    (k_kw_type > k_type_alias_name > -k_type_param_decls > '=' > k_type_name_rule > ';')[([](auto& a_ctx) {
+      auto& attr = x3::_attr(a_ctx);
+      x3::_val(a_ctx) = ast::make_type_alias(
+          std::move(boost::fusion::at_c<0>(attr)),  // name
+          boost::fusion::at_c<1>(attr).value_or(std::vector<ast::Type_Param>{}),
+          std::move(boost::fusion::at_c<2>(attr))  // aliased_type
+      );
+    })];
+BOOST_SPIRIT_DEFINE(k_type_alias_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_type_alias_rule), Iterator_Type, Context_Type)
+
 // Parse trait implementation: "impl Trait for Type { assoc_type_impls method_defs }"
 // Examples:
 //   impl Display for Point { fn to_string(self): String { ... } }
@@ -1626,9 +1651,10 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_trait_impl_rule), Iterator_Type, Context_Typ
 // Parse statement: variant of different statement types
 // Order matters: try function definition first (longest match), then let, then others
 // trait_impl_rule must come before impl_block_rule (more specific due to 'for' keyword)
+// type_alias_rule should be early since it's a declaration
 // expression_statement must come last as it matches most broadly
 auto const k_statement_rule_def = k_func_def_rule | k_struct_def_rule | k_enum_def_rule | k_trait_def_rule |
-                                  k_trait_impl_rule | k_impl_block_rule | k_let_statement_rule |
+                                  k_trait_impl_rule | k_impl_block_rule | k_type_alias_rule | k_let_statement_rule |
                                   k_func_call_statement_rule | k_if_statement_rule | k_while_statement_rule |
                                   k_for_statement_rule | k_block_rule | k_return_statement_rule |
                                   k_break_statement_rule | k_continue_statement_rule | k_expr_statement_rule;
@@ -1794,6 +1820,7 @@ PARSE_FN_IMPL(Enum_Def, enum_def)      // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Impl_Block, impl_block)  // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Trait_Def, trait_def)    // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Trait_Impl, trait_impl)  // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Type_Alias, type_alias)  // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Statement, statement)    // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Block, block)            // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Expr, expr)              // NOLINT(misc-use-internal-linkage)
