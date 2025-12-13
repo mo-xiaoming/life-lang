@@ -1,8 +1,8 @@
 // Auto-generated file - DO NOT EDIT
 // This file is generated from version.hpp.in by CMake
 
-#ifndef VERSION_HPP__
-#define VERSION_HPP__
+#ifndef LIFE_LANG_VERSION_HPP
+#define LIFE_LANG_VERSION_HPP
 
 #include <string_view>
 
@@ -15,4 +15,4 @@ inline constexpr int k_version_patch = @PROJECT_VERSION_PATCH@;
 
 }  // namespace life_lang
 
-#endif  // VERSION_HPP__
+#endif  // LIFE_LANG_VERSION_HPP

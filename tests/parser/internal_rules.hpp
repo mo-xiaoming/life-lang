@@ -1,5 +1,5 @@
-#ifndef TESTS_PARSER_INTERNAL_RULES_HPP__
-#define TESTS_PARSER_INTERNAL_RULES_HPP__
+#ifndef LIFE_LANG_TESTS_PARSER_INTERNAL_RULES_HPP
+#define LIFE_LANG_TESTS_PARSER_INTERNAL_RULES_HPP
 
 // Internal Parser Rule Declarations - FOR TESTING ONLY
 //
@@ -50,4 +50,4 @@ PARSE_FN_DECL(Char, char);
 
 }  // namespace life_lang::internal
 
-#endif
+#endif  // LIFE_LANG_TESTS_PARSER_INTERNAL_RULES_HPP

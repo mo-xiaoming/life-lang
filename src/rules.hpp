@@ -1,5 +1,5 @@
-#ifndef RULES_HPP__
-#define RULES_HPP__
+#ifndef LIFE_LANG_RULES_HPP
+#define LIFE_LANG_RULES_HPP
 
 #include <string>
 #include <string_view>
@@ -24,4 +24,4 @@ Parse_Result<ast::Module> parse_module(std::string_view a_source, std::string a_
 
 }  // namespace life_lang::parser
 
-#endif
+#endif  // LIFE_LANG_RULES_HPP

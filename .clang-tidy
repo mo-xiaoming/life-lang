@@ -19,7 +19,9 @@ Checks: >
   -readability-identifier-length,
   -misc-no-recursion,
   -misc-include-cleaner,
-  -bugprone-chained-comparison
+  -bugprone-chained-comparison,
+  -clang-analyzer-cplusplus.NewDelete
+HeaderFilterRegex: '(src|tests)/.*\.(hpp|cpp)$'
 CheckOptions:
   - key: readability-identifier-naming.StructCase
     value: Camel_Snake_Case

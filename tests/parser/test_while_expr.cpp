@@ -227,9 +227,14 @@ constexpr auto k_missing_braces_should_succeed = false;
 constexpr auto k_missing_braces_input = "while x return 1;";
 inline auto const k_missing_braces_expected = "";
 
-constexpr auto k_parentheses_condition_should_succeed = false;
+// NOTE: With parenthesized expressions support, `while (x)` is valid because `(x)` is a valid expr,
+// it is consistent with allowing (a + b).method()
+constexpr auto k_parentheses_condition_should_succeed = true;
 constexpr auto k_parentheses_condition_input = "while (x) { return 1; }";
-inline auto const k_parentheses_condition_expected = "";
+inline auto const k_parentheses_condition_expected = test_json::while_expr(
+    test_json::var_name("x"),
+    test_json::block({test_json::return_statement(test_json::integer(1))})
+);
 
 }  // namespace
 

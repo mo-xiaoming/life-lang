@@ -143,11 +143,20 @@ inline auto const k_nested_struct_in_tuple_expected = R"({
   }
 })";
 
+// === Valid Tuple Pattern Tests (continued) ===
+
+// Unit pattern (empty tuple) - () matches the unit value
+constexpr auto k_unit_pattern_should_succeed = true;
+constexpr auto k_unit_pattern_input = "for () in items { process(); }";
+inline auto const k_unit_pattern_expected = test_json::for_expr(
+    test_json::tuple_pattern({}),  // Empty tuple = unit pattern
+    test_json::var_name("items"),
+    test_json::block({test_json::function_call_statement(test_json::function_call(test_json::var_name("process"), {}))})
+);
+
 // === Invalid Tuple Pattern Tests ===
 
-// Empty tuple (invalid)
-constexpr auto k_empty_tuple_should_succeed = false;
-constexpr auto k_empty_tuple_input = "for () in items { }";
+// === Invalid Tuple Pattern Tests ===
 
 // Missing closing paren
 constexpr auto k_missing_closing_paren_should_succeed = false;
@@ -198,7 +207,7 @@ TEST_CASE("Parse Tuple_Pattern in For_Expr", "[parser][tuple_pattern]") {
            k_nested_struct_in_tuple_input,
            k_nested_struct_in_tuple_expected,
            k_nested_struct_in_tuple_should_succeed},
-          {"empty tuple (invalid)", k_empty_tuple_input, "", k_empty_tuple_should_succeed},
+          {"unit pattern (empty tuple)", k_unit_pattern_input, k_unit_pattern_expected, k_unit_pattern_should_succeed},
           {"missing closing paren", k_missing_closing_paren_input, "", k_missing_closing_paren_should_succeed},
           {"missing opening paren", k_missing_opening_paren_input, "", k_missing_opening_paren_should_succeed},
           {"trailing comma", k_trailing_comma_input, "", k_trailing_comma_should_succeed},

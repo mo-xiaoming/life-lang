@@ -1,5 +1,5 @@
-#ifndef AST_HPP__
-#define AST_HPP__
+#ifndef LIFE_LANG_AST_HPP
+#define LIFE_LANG_AST_HPP
 
 #include <boost/optional.hpp>
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
@@ -278,6 +278,7 @@ struct Expr : boost::spirit::x3::variant<
                   boost::spirit::x3::forward_ast<While_Expr>,
                   boost::spirit::x3::forward_ast<For_Expr>,
                   boost::spirit::x3::forward_ast<Match_Expr>,
+                  boost::spirit::x3::forward_ast<Block>,
                   boost::spirit::x3::forward_ast<Range_Expr>,
                   boost::spirit::x3::forward_ast<Assignment_Expr>,
                   Struct_Literal,
@@ -297,6 +298,7 @@ struct Expr : boost::spirit::x3::variant<
       boost::spirit::x3::forward_ast<While_Expr>,
       boost::spirit::x3::forward_ast<For_Expr>,
       boost::spirit::x3::forward_ast<Match_Expr>,
+      boost::spirit::x3::forward_ast<Block>,
       boost::spirit::x3::forward_ast<Range_Expr>,
       boost::spirit::x3::forward_ast<Assignment_Expr>,
       Struct_Literal,
@@ -437,6 +439,7 @@ struct Statement : boost::spirit::x3::variant<
 struct Block : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Block";
   std::vector<Statement> statements;
+  std::optional<boost::spirit::x3::forward_ast<Expr>> trailing_expr;  // Optional trailing expression
 };
 
 // Example: if x > 0 { x } else if x < 0 { -x } else { 0 }
@@ -499,12 +502,25 @@ struct Tuple_Pattern : boost::spirit::x3::position_tagged {
   std::vector<boost::spirit::x3::forward_ast<Pattern>> elements;
 };
 
+// Enum pattern: matches enum variants with optional tuple arguments
+// Examples:
+//   Option.Some(x)        - enum tuple variant with one arg
+//   Result.Ok(value)      - qualified enum variant
+//   Color.Rgb(r, g, b)    - multiple tuple args
+//   Status.Active         - unit variant (no args)
+struct Enum_Pattern : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Enum_Pattern";
+  Type_Name type_name;                                            // Enum variant name (can be qualified)
+  std::vector<boost::spirit::x3::forward_ast<Pattern>> patterns;  // Optional tuple patterns (empty for unit variants)
+};
+
 // Pattern variant supporting all pattern types
 struct Pattern
-    : boost::spirit::x3::variant<Wildcard_Pattern, Literal_Pattern, Simple_Pattern, Struct_Pattern, Tuple_Pattern>,
+    : boost::spirit::x3::
+          variant<Wildcard_Pattern, Literal_Pattern, Simple_Pattern, Struct_Pattern, Tuple_Pattern, Enum_Pattern>,
       boost::spirit::x3::position_tagged {
-  using Base_Type =
-      boost::spirit::x3::variant<Wildcard_Pattern, Literal_Pattern, Simple_Pattern, Struct_Pattern, Tuple_Pattern>;
+  using Base_Type = boost::spirit::x3::
+      variant<Wildcard_Pattern, Literal_Pattern, Simple_Pattern, Struct_Pattern, Tuple_Pattern, Enum_Pattern>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -517,7 +533,7 @@ struct Pattern
 // Introduces a new binding with optional type annotation and optional mutability
 struct Let_Statement : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Let_Statement";
-  bool is_mut;                                 // true if 'mut' keyword present
+  bool is_mut{false};                          // true if 'mut' keyword present
   Pattern pattern;                             // Binding pattern (simple, struct, or tuple)
   boost::optional<Type_Name> type;             // Optional type annotation
   boost::spirit::x3::forward_ast<Expr> value;  // Initializer expression
@@ -568,7 +584,7 @@ struct Match_Expr : boost::spirit::x3::position_tagged {
 // Example: items: Std.Array<T> or mut self: Point or self (type optional for self in impl blocks)
 struct Func_Param : boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Func_Param";
-  bool is_mut;
+  bool is_mut{false};
   std::string name;
   std::optional<Type_Name> type;  // Optional for self parameter in impl blocks
 };
@@ -789,6 +805,8 @@ inline Path_Type make_path_type(Args&&... a_args) {
   } else {
     std::vector<Type_Name_Segment> segments;
     segments.reserve(sizeof...(a_args));
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    // Intentional: Template accepts string literals for ergonomic API
     (
         [&] {
           if constexpr (std::same_as<std::remove_cvref_t<Args>, Type_Name_Segment>) {
@@ -799,6 +817,7 @@ inline Path_Type make_path_type(Args&&... a_args) {
         }(),
         ...
     );
+    // NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     return Path_Type{{}, std::move(segments)};
   }
 }
@@ -954,6 +973,9 @@ inline Expr make_expr(For_Expr&& a_for) {
 inline Expr make_expr(Match_Expr&& a_match) {
   return Expr{std::move(a_match)};
 }
+inline Expr make_expr(Block&& a_block) {
+  return Expr{std::move(a_block)};
+}
 inline Expr make_expr(Range_Expr&& a_range) {
   return Expr{std::move(a_range)};
 }
@@ -1028,6 +1050,11 @@ inline Tuple_Pattern make_tuple_pattern(std::vector<boost::spirit::x3::forward_a
   return Tuple_Pattern{{}, std::move(a_elements)};
 }
 
+inline Enum_Pattern
+make_enum_pattern(Type_Name&& a_type_name, std::vector<boost::spirit::x3::forward_ast<Pattern>>&& a_patterns) {
+  return Enum_Pattern{{}, std::move(a_type_name), std::move(a_patterns)};
+}
+
 inline Pattern make_pattern(Wildcard_Pattern const& a_pattern) {
   return Pattern{a_pattern};
 }
@@ -1041,6 +1068,9 @@ inline Pattern make_pattern(Struct_Pattern&& a_pattern) {
   return Pattern{std::move(a_pattern)};
 }
 inline Pattern make_pattern(Tuple_Pattern&& a_pattern) {
+  return Pattern{std::move(a_pattern)};
+}
+inline Pattern make_pattern(Enum_Pattern&& a_pattern) {
   return Pattern{std::move(a_pattern)};
 }
 
@@ -1130,8 +1160,8 @@ inline Statement make_statement(Trait_Impl&& a_impl) {
   return Statement{std::move(a_impl)};
 }
 
-inline Block make_block(std::vector<Statement>&& a_statements) {
-  return Block{{}, std::move(a_statements)};
+inline Block make_block(std::vector<Statement>&& a_statements, std::optional<Expr>&& a_trailing_expr = std::nullopt) {
+  return Block{{}, std::move(a_statements), std::move(a_trailing_expr)};
 }
 
 // Binary expression helper
@@ -1753,6 +1783,22 @@ inline void to_json(nlohmann::json& a_json, Tuple_Pattern const& a_pattern) {
   a_json[Tuple_Pattern::k_name] = obj;
 }
 
+inline void to_json(nlohmann::json& a_json, Enum_Pattern const& a_pattern) {
+  nlohmann::json obj;
+  nlohmann::json type_json;
+  to_json(type_json, a_pattern.type_name);
+  obj["type_name"] = type_json;
+
+  nlohmann::json patterns_array = nlohmann::json::array();
+  for (auto const& pattern : a_pattern.patterns) {
+    nlohmann::json pattern_json;
+    to_json(pattern_json, pattern.get());
+    patterns_array.push_back(pattern_json);
+  }
+  obj["patterns"] = patterns_array;
+  a_json[Enum_Pattern::k_name] = obj;
+}
+
 inline void to_json(nlohmann::json& a_json, Pattern const& a_pattern) {
   boost::apply_visitor([&a_json](auto const& a_variant) { to_json(a_json, a_variant); }, a_pattern);
 }
@@ -1939,6 +1985,11 @@ inline void to_json(nlohmann::json& a_json, Block const& a_block) {
     statements.push_back(stmt_json);
   }
   obj["statements"] = statements;
+  if (a_block.trailing_expr.has_value()) {
+    nlohmann::json trailing_json;
+    to_json(trailing_json, a_block.trailing_expr.value().get());
+    obj["trailing_expr"] = trailing_json;
+  }
   a_json[Block::k_name] = obj;
 }
 
@@ -2339,4 +2390,4 @@ std::string to_json_string(JsonStringConvertible auto const& a_t, int a_indent) 
 
 }  // namespace life_lang::ast
 
-#endif
+#endif  // LIFE_LANG_AST_HPP
