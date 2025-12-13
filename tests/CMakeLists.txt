@@ -47,6 +47,7 @@ target_sources(tests
         
         # Integration tests - test complete parse_module workflows
         integration/test_parse_module_integration.cpp
+        integration/test_readme_example.cpp
 )
 
 target_link_libraries(tests

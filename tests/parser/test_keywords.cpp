@@ -1,6 +1,10 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
 
+// NOLINTBEGIN(clang-analyzer-cplusplus.NewDelete)
+// False positive: Analyzer can't track Boost.Spirit variant lifetime through complex templates.
+// Our code is correct - test.input is a member that outlives the parse result.
+
 // Specialized test for keyword boundary validation
 // Note: This test validates lexical analysis (keyword boundaries), not AST structure,
 // so it doesn't follow the standard PARSE_TEST pattern which compares expected AST.
@@ -80,3 +84,5 @@ TEST_CASE("Var_Name vs Keyword Distinction", "[parser][keywords]") {
     CHECK((*got).segments()[0].value == test.expected_name);
   }
 }
+
+// NOLINTEND(clang-analyzer-cplusplus.NewDelete)

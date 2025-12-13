@@ -1,189 +1,345 @@
-# life-lang Compiler - AI Coding Agent Instructions
+# life-lang Compiler - Development Guide
 
-High-level guidance for AI assistance on this C++20 compiler project using Boost.Spirit X3.  
-**When in doubt, check existing code patterns - they're the source of truth.**
+Prescriptive guide for working on this C++20 compiler using Boost.Spirit X3.  
+**Check existing code patterns first - they're the source of truth.**
 
-## Architecture
-Parser (Boost.Spirit X3) → AST (position-tagged nodes) → JSON serialization  
-Use `dev` preset for fast iteration (clang-tidy disabled), `debug` for strict checks.
+## Project Overview
 
-## Language Design Principles
+**Pipeline**: Source code → Parser (Spirit X3) → AST (position-tagged) → JSON output  
+**Status**: Parser phase complete, all language features implemented  
+**Next**: Semantic analysis (type checking, name resolution)
+
+### Build Presets
+- `dev`: Fast iteration, clang-tidy disabled
+- `debug`: Full checks enabled, slower builds
+
+### Core Components
+- **src/ast.hpp**: AST node definitions (all inherit `x3::position_tagged`)
+- **src/rules.cpp**: Spirit X3 parser definitions + **EBNF grammar documentation (lines 12-276)**
+- **src/rules.hpp**: Parser function declarations
+- **src/diagnostics.cpp**: Error reporting (clang-style diagnostics)
+- **tests/parser/**: Comprehensive parser tests (56 test files, 998 assertions)
+
+### ⚠️ CRITICAL: EBNF Grammar Synchronization
+**MANDATORY WORKFLOW when modifying parser rules:**
+1. **Update EBNF first** - Edit grammar documentation in `src/rules.cpp` (lines 12-276)
+2. **Then modify parser** - Change the actual Spirit X3 rule implementation
+3. **Verify alignment** - Ensure EBNF accurately reflects parser behavior
+4. **Update tests** - Add/modify test cases to cover changes
+
+**Why this matters**: The EBNF is the single source of truth for language syntax. Parser bugs are hard to catch - wrong EBNF leads to language design drift.
+
+**Examples of what to update**:
+- Adding/removing operators → Update expression hierarchy
+- Changing pattern syntax → Update pattern rules
+- Modifying statement semicolons → Update statement rules
+- New control flow → Update expr/statement sections
+
+---
+
+## Language Design
 
 ### Type System
-- **Value semantics**: Immutable by default, modifications return new values
-- **No destructors initially**: Simplifies memory model during bootstrap
-- **Structs**: Records with named fields, public by default
-  - Fields: `struct Point { x: I32, y: I32 }`
-  - Literals: `Point { x: 1, y: 2 }` (trailing comma optional)
-  - Access: `point.x`, `obj.field.nested` (chained field access)
+- **Value semantics**: Immutable by default
+- **Primitives**: `I32`, `I64`, `F32`, `F64`, `Bool`, `Char`, `String`, etc.
+- **Unit type**: `()` - represents "no value"
+- **Structs**: Named fields, public by default
+  ```rust
+  struct Point { x: I32, y: I32 }
+  let p = Point { x: 1, y: 2 };
+  ```
+- **Enums**: Sum types with variants
+  ```rust
+  enum Option<T> { Some(T), None }
+  ```
+- **Tuples**: Ordered product types `(I32, String, Bool)`
 
 ### Functions and Methods
-- **Keywords**: `fn` for functions, `self` reserved keyword for impl block methods
-- **Methods**: Defined only inside `impl Type` blocks
-  - Define: `impl Point { fn distance(self): F64 { return 0.0; } }` (type optional)
-  - Alternative: `impl Point { fn distance(self: Point): F64 { return 0.0; } }` (explicit type)
-  - Call syntax: `point.distance()` (dot notation for methods)
-  - `self` parameter type is optional in impl blocks (inferred from impl type)
-  - `self` parameter allowed only in impl block methods (enforced in semantic analysis)
-- **Free functions**: Regular functions without `self` parameter
-  - Define: `fn make_point(x: I32, y: I32): Point { return Point { x: x, y: y }; }`
-  - Call syntax: `make_point(1, 2)` (function call syntax)
-- **Mutation**: `mut self` for methods that modify receiver (future feature)
-- **No implicit `this`**: Explicit `self` parameter required in method signatures
+```rust
+// Free function
+fn add(x: I32, y: I32): I32 { return x + y; }
 
-### Values and Scoping
-- **No special "constant" concept**: Everything is immutable by default (value semantics)
-- **Module-level values**: Use functions instead of constants
-  - `fn max_size(): I32 { return 100; }`
-  - `fn default_config(): Config { return Config { timeout: 30 }; }`
-- **Rationale**: Simpler design, no need for separate constant category in value semantics
+// Methods in impl block
+impl Point {
+  fn distance(self): F64 { /* ... */ }        // self type inferred
+  fn translate(mut self, dx: I32): Point { /* ... */ }  // mutation (future)
+}
+
+// Call syntax
+add(1, 2)           // function call
+point.distance()    // method call (dot notation)
+```
+- `self` parameter **only** in impl blocks (enforced semantically)
+- No implicit `this` - always explicit `self`
 
 ### Control Flow
-- **If expressions**: No parentheses around condition, expression-based
-  - Syntax: `if condition { then_block } else { else_block }`
-  - Expression form: `let max = if x > y { x } else { y };` (else required, all branches same type)
-  - Statement form: `if needs_log { log(msg); }` (else optional, no return value)
-  - Else-if: `if x { a } else if y { b } else { c }`
-  - Design rationale: Clean syntax, no parens needed (braces provide boundaries), fits value semantics
+```rust
+// If expression (else required for expression form)
+let max = if x > y { x } else { y };
 
-## Key Files
-- **src/ast.hpp**: All AST nodes inherit from `x3::position_tagged` with `k_name` constant
-- **src/rules.cpp**: Spirit X3 parsers use `BOOST_SPIRIT_DEFINE()` + `BOOST_SPIRIT_INSTANTIATE()`
-  - Keywords: `struct Keyword_Symbols : x3::symbols<>` (canonical Spirit X3 pattern)
-  - Tag structs: `struct Tag : x3::annotate_on_success, Error_Handler {}` (both required)
-  - Error handling: Done in `parse_with_rule()`, extracts from `x3::error_handler` stream
+// If statement (else optional)
+if condition { do_something(); }
 
-## Critical Patterns
+// Match expression
+match value {
+  Pattern1 => expr1,
+  Pattern2 => expr2,
+}
 
-### AST Construction (C++20 + position_tagged)
-- **Cannot use designated initializers** with `position_tagged` base class
-- **Must use**: `return Type{{}, member1, member2};` (empty braces for base)
+// For loop
+for item in collection { /* ... */ }
+for (key, value) in map { /* ... */ }
+```
+- **No parentheses** around conditions (braces provide boundaries)
+- **Block trailing expressions**: Last expression without semicolon is block value
 
-### Recursive AST Nodes
-- Use `x3::forward_ast<T>` to break circular dependencies (wraps in `shared_ptr`)
-- **Cannot use `std::unique_ptr`** - Spirit X3 requires copyable types
+### Naming Conventions
+| Element | Convention | Example |
+|---------|-----------|---------|
+| Variables, functions, fields | `snake_case` | `my_var`, `calculate_sum` |
+| Types, structs, modules | `Camel_Snake_Case` | `Point`, `User_Profile` |
+| Constants | Use functions | `fn max_size(): I32 { return 100; }` |
 
-### Variants as Structs (Spirit X3 idiom)
+---
+
+## C++ Implementation Patterns
+
+### AST Node Structure
+Every AST node:
+1. Inherits from `x3::position_tagged` (for source location)
+2. Has `static constexpr std::string_view k_name` (for error messages)
+3. Uses `make_<node>()` helper for construction
+4. Implements `to_json()` with snake_case keys
+
 ```cpp
-struct Expr : x3::variant<...>, x3::position_tagged {
-  using Base_Type = x3::variant<...>;
+// In ast.hpp
+struct My_Node : x3::position_tagged {
+  static constexpr std::string_view k_name = "my_node";
+  std::string value;
+};
+
+inline auto make_my_node(std::string a_value) -> My_Node {
+  return My_Node{{}, std::move(a_value)};  // ⚠️ Empty braces for base class
+}
+
+inline void to_json(nlohmann::json& a_json, My_Node const& a_node) {
+  a_json = {{"value", a_node.value}};  // ⚠️ snake_case keys
+}
+```
+
+### Parser Rule Pattern
+```cpp
+// In rules.hpp
+PARSE_FN_DECL(My_Node, my_node)  // Declares parse_my_node()
+
+// In rules.cpp
+namespace {
+  struct My_Node_Tag : x3::annotate_on_success, Error_Handler {};
+  auto const my_node_parser = /* parser expression */;
+  auto const k_my_node_rule = x3::rule<My_Node_Tag, ast::My_Node>{"my_node"};
+  
+  BOOST_SPIRIT_DEFINE(k_my_node_rule)
+}
+
+PARSE_FN_IMPL(My_Node, my_node, k_my_node_rule)
+BOOST_SPIRIT_INSTANTIATE(k_my_node_rule, Iterator_Type, Context_Type)
+```
+
+### Variants (Sum Types)
+```cpp
+struct Expr : x3::variant<Integer, String, Binary_Expr>, x3::position_tagged {
+  using Base_Type = x3::variant<Integer, String, Binary_Expr>;
   using Base_Type::Base_Type;      // Inherit constructors
-  using Base_Type::operator=;      // Inherit assignment
+  using Base_Type::operator=;       // Inherit assignment
+  static constexpr std::string_view k_name = "expr";
 };
 ```
 
-### Error Handling Architecture
+### Recursive Types
+Use `x3::forward_ast<T>` (wraps in `shared_ptr`):
+```cpp
+struct Binary_Expr {
+  x3::forward_ast<Expr> left;   // ⚠️ Not unique_ptr - X3 requires copyable
+  Operator op;
+  x3::forward_ast<Expr> right;
+};
+```
+
+---
+
+## Spirit X3 Parser Patterns
+
+### Operator Reference
+| Operator | Meaning | Backtracking | Use Case |
+|----------|---------|--------------|----------|
+| `a > b` | Expect | ❌ No - commits after `a` | Required syntax: `k_kw_fn > k_snake_case` |
+| `a >> b` | Sequence | ✅ Yes - commits after both | Optional syntax: `k_stmt >> ';'` |
+| `a \| b` | Alternative | First match wins | Try alternatives: `k_trait_impl \| k_impl_block` |
+| `a % b` | List | One or more | `k_param % ','` |
+| `-(a % b)` | Optional list | Zero or more | `-(k_param % ','` for empty `()` |
+| `-a` | Optional | Zero or one | `-k_type_annotation` |
+| `*a` | Kleene star | Zero or more | `*k_whitespace` |
+| `+a` | Plus | One or more | `+x3::digit` |
+
+### Critical Pattern: Statement Semicolons
+**Always use `>> ';'` for statements to enable block trailing expressions:**
+```cpp
+// ✅ CORRECT - allows backtracking when semicolon missing
+auto const k_return_statement_rule = k_kw_return > -k_expr >> ';';
+
+// ❌ WRONG - expects semicolon, errors if missing
+auto const k_return_statement_rule = k_kw_return > -k_expr > ';';
+```
+**Why**: Blocks can end with expressions (no semicolon). Statement parsers must fail gracefully and backtrack to try expression statement.
+
+### Rule Ordering
+Order alternatives **most specific → most general**:
+```cpp
+// ✅ CORRECT
+auto const k_impl_rule = k_trait_impl | k_impl_block;  // trait impl is more specific
+
+// ❌ WRONG
+auto const k_impl_rule = k_impl_block | k_trait_impl;  // impl_block matches trait impls
+```
+
+### Semantic Validation
+Reject valid parses when semantics require it:
+```cpp
+auto const validate = [](auto& a_ctx) {
+  auto const& node = x3::_attr(a_ctx);
+  if (/* invalid condition */) {
+    x3::_pass(a_ctx) = false;  // Reject, try next alternative
+    return;
+  }
+};
+
+auto const k_rule = parser[validate];
+```
+**Example**: Reject `()` as enum type name to prefer tuple pattern.
+
+### Error Handling
+- **Tag structs**: Must inherit from **both** `x3::annotate_on_success` and `Error_Handler`
 - **Error_Handler::on_error()**: Intercepts expectation failures, logs to `x3::error_handler` stream
-  - Returns `fail` (stop) - no error recovery yet
-- **parse_with_rule()**: Extracts errors from stream, builds clang-style diagnostics
-  - Combines rule name with Spirit X3's expectation message
-  - Uses `Position_Tracker` for line:column conversion
-- **Tag Structs**: Must inherit from both `x3::annotate_on_success` and `Error_Handler`
-- **Limitation**: Must use `x3::error_handler` (required by `annotate_on_success` for position tracking)
+- **parse_with_rule()**: Extracts errors, builds clang-style diagnostics with line:column
 
-## Common Pitfalls
-- Forgetting `BOOST_SPIRIT_INSTANTIATE()` - rules won't link
-- Using designated initializers with `position_tagged` - won't compile
-- GCC 14+ requires `CMAKE_CXX_SCAN_FOR_MODULES OFF` for clang-tidy compatibility
+---
 
-## Naming Conventions
+## Testing Pattern
 
-### C++ Implementation (Enforced by `.clang-tidy`)
-- **Types**: `Camel_Snake_Case` (e.g., `Path_Segment`, `Iterator_Type`)
-- **Functions/variables**: `lower_case`
-- **Parameters**: `a_` prefix (e.g., `a_begin`, `a_value`)
-- **Private members**: `m_` prefix (e.g., `m_data`, `m_count`)
-- **Global constants**: `k_` prefix (e.g., `k_path_rule`, `k_kw_fn`)
-- **Parser rule pattern**: `k_<name>_rule` for public rules with `PARSE_FN_DECL()`
-- **Test files**: `test_<lowercase_ast_node>.cpp`
-
-### life-lang Language (Parser enforces via rules)
-- **`snake_case`**: Variables, functions, struct fields, function parameters
-  - Example: `my_var`, `calculate_sum`, `field_name`, `param_value`
-  - Validated by: `k_snake_case` parser rule (lowercase start, allows `_` and digits)
-  - Semantic: Object-related identifiers (runtime values, behaviors on objects)
-
-- **`Camel_Snake_Case`**: Types, struct names, modules
-  - Example: `Point`, `User_Profile`, `Std`, `Http_Request`
-  - Validated by: `k_camel_snake_case` parser rule (uppercase start, allows `_` and digits)
-  - Semantic: Type and module identifiers (compile-time namespace/organization)
-
-**Note:** No separate "constant" naming convention needed. In a value semantics system, everything is immutable by default. Use functions for module-level values: `fn max_size(): I32 { return 100; }`
-
-### Expression Context Rules
-- **Paths with dots**: Only in type positions and function call names
-  - `Std.IO.print()` → function call with qualified name
-  - `param: Std.String` → type annotation with qualified path
-- **Field access**: Dots in expression positions are always field access
-  - `obj.field.nested` → parsed as `Field_Access_Expr` chain
-
-## JSON Serialization Naming
-- **JSON keys use `snake_case`**: All `to_json()` functions must output snake_case keys
-  - ✅ Correct: `"template_parameters"`, `"field_name"`, `"return_type"`
-  - ❌ Wrong: `"templateParameters"`, `"fieldName"`, `"returnType"`
-- **Rationale**: Consistent with language syntax (variables, functions use snake_case)
-- **Test helpers**: `test_json::var_name()`, `test_json::type_name()` generate correct JSON
-
-## Adding New AST Nodes
-1. Define struct in `ast.hpp` inheriting from `x3::position_tagged` with `k_name`
-2. Add `make_<node>()` helper - use `Type{{}, member1, member2}` (not designated init)
-3. Add `to_json()` function using snake_case for all JSON keys
-4. Define parser in `rules.cpp` with Tag inheriting from `x3::annotate_on_success, Error_Handler`
-5. Add `BOOST_SPIRIT_DEFINE()` and `BOOST_SPIRIT_INSTANTIATE()`
-6. Use `PARSE_FN_DECL()` in `rules.hpp` and `PARSE_FN_IMPL()` in `rules.cpp`
-7. Create `test_<node>.cpp` with parameterized tests (see Test Pattern below)
-8. Add to variant if needed (e.g., `Statement`, `Expr`)
-
-## Test Pattern (All test files must follow this)
-
-### Standard Pattern (with JSON comparison)
+### Standard Test Structure
 ```cpp
 #include "utils.hpp"
-using life_lang::ast::Ast_Type;
+using life_lang::ast::My_Node;
 
-PARSE_TEST(Ast_Type, parser_function_name)  // Generates check_parse() and Params type
+PARSE_TEST(My_Node, parse_my_node)  // Generates check_parse() and Params type
 
 namespace {
-// For each test case, define constants in this exact order:
-constexpr auto k_test_name_should_succeed = true;  // 1. SUCCESS FLAG FIRST
-constexpr auto k_test_name_input = "code";          // 2. Input second
-inline auto const k_test_name_expected = R"(json)"; // 3. Expected LAST (pretty printed)
+// Constants in order: should_succeed → input → expected
+constexpr auto k_simple_should_succeed = true;
+constexpr auto k_simple_input = "code";
+inline auto const k_simple_expected = R"({"value": "code"})";
 
-// Use helper functions to reduce JSON duplication:
-// - test_json::var_name("name") for Variable_Name JSON
-// - test_json::type_name("Type") for Type_Name JSON
-// - fmt::format() for dynamic JSON generation
-}  // namespace
+// Use helpers to reduce duplication
+inline auto const k_complex_expected = fmt::format(
+  R"({{"field": {}}})", test_json::var_name("x")
+);
+}
 
-TEST_CASE("Parse Ast_Type", "[parser]") {
+TEST_CASE("Parse My_Node", "[parser]") {
   auto const params = GENERATE(
-    Catch::Generators::values<Ast_Type_Params>({
-      {"test", k_test_name_input, k_test_name_expected, k_test_name_should_succeed},
+    Catch::Generators::values<My_Node_Params>({
+      {"simple", k_simple_input, k_simple_expected, k_simple_should_succeed},
+      {"invalid", "bad input", "", false},  // should_succeed = false
     })
   );
   DYNAMIC_SECTION(params.name) { check_parse(params); }
 }
 ```
 
-### Special Case (success-only validation, no JSON comparison)
-When expected JSON is too complex to construct (e.g., deeply nested variants):
-```cpp
-// See tests/parser/test_field_access.cpp for full example
-namespace {
-constexpr auto k_test_should_succeed = true;  // Still use should_succeed first
-constexpr auto k_test_input = "code";
-// No k_test_expected - will manually verify parse result
-}
+### Test Helpers
+- `test_json::var_name("name")` - Generate Variable_Name JSON
+- `test_json::type_name("Type")` - Generate Type_Name JSON
+- `fmt::format()` - Dynamic JSON construction
 
-TEST_CASE("Parse Special", "[parser]") {
-  // Custom Test_Case struct without expected field
-  // Manually call parse function and verify success/failure only
-}
+---
+
+## Naming Conventions
+
+### C++ Code (Enforced by `.clang-tidy`)
+- **Types**: `Camel_Snake_Case` - `Path_Segment`, `Iterator_Type`
+- **Functions/variables**: `lower_case` - `parse_expr`, `token_count`
+- **Parameters**: `a_` prefix - `a_begin`, `a_value`
+- **Private members**: `m_` prefix - `m_data`, `m_count`
+- **Global constants**: `k_` prefix - `k_path_rule`, `k_kw_fn`
+- **Parser rules**: `k_<name>_rule` - `k_expr_rule`, `k_statement_rule`
+- **Test files**: `test_<node>.cpp` - `test_binary_expr.cpp`
+
+### JSON Output
+All `to_json()` functions use **snake_case** keys:
+```cpp
+// ✅ CORRECT
+a_json = {
+  {"template_parameters", node.template_parameters},
+  {"return_type", node.return_type}
+};
+
+// ❌ WRONG
+a_json = {
+  {"templateParameters", node.template_parameters},  // camelCase - wrong!
+  {"returnType", node.return_type}
+};
 ```
 
-### Key Principles
-1. **Constant order**: `should_succeed` → `input` → `expected` (always)
-2. **Extract all inline data**: No inline strings/JSON in test arrays
-3. **Use PARSE_TEST macro**: Unless JSON comparison is impractical
-4. **Group related constants**: Keep test case constants together with comments
-5. **Invalid tests**: Use `should_succeed = false` for error cases
+---
+
+## Common Pitfalls
+
+| Issue | Symptom | Fix |
+|-------|---------|-----|
+| Missing `BOOST_SPIRIT_INSTANTIATE()` | Linker error | Add instantiation in rules.cpp |
+| Designated initializers with `position_tagged` | Compile error | Use `Type{{}, member1, member2}` |
+| `> ';'` for statements | Blocks reject trailing expressions | Use `>> ';'` instead |
+| `a % b` for optional lists | Rejects empty `()` | Use `-(a % b)` |
+| Wrong alternative order | Wrong parser matches | Order specific → general |
+| Parser structure can't enforce constraint | Accepts invalid input | Add semantic validation |
+
+---
+
+## Debugging
+
+### Approach 1: Manual Tracing (Recommended)
+Add debug output in semantic actions:
+```cpp
+auto const debug = [](auto& a_ctx) {
+  auto const& node = x3::_attr(a_ctx);
+  std::cerr << "Parsed: " << node.value << "\n";
+};
+auto const k_rule = parser[debug];
+```
+**Pros**: Targeted, shows actual values  
+**Cons**: Requires code changes
+
+### Approach 2: BOOST_SPIRIT_DEBUG
+Enable automatic trace:
+```cpp
+BOOST_SPIRIT_DEFINE(k_my_rule)
+BOOST_SPIRIT_DEBUG(k_my_rule)
+```
+**Pros**: No code changes, comprehensive  
+**Cons**: Extremely verbose, hard to parse
+
+---
+
+## Next Phase: Semantic Analysis
+
+Parser is complete. Next steps:
+1. **Symbol table**: Track declarations (functions, types, variables)
+2. **Name resolution**: Resolve identifiers to declarations
+3. **Type checking**: Verify type correctness
+4. **Trait resolution**: Check trait bounds, impl blocks
+5. **Borrow checking**: Validate lifetime rules (future)
+
+Key considerations:
+- Preserve position information for error reporting
+- Build on existing JSON serialization for IR output
+- Maintain value semantics throughout
