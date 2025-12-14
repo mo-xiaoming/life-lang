@@ -6,7 +6,7 @@ configure_file(
 )
 
 # Library with public headers
-add_library(life-lang rules.cpp diagnostics.cpp)
+add_library(life-lang diagnostics.cpp parser.cpp)
 target_sources(life-lang
   PUBLIC FILE_SET HEADERS
   BASE_DIRS
@@ -14,16 +14,14 @@ target_sources(life-lang
     ${CMAKE_CURRENT_BINARY_DIR}
   FILES
     ast.hpp
-    rules.hpp
     diagnostics.hpp
+    expected.hpp
+    parser.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/version.hpp
 )
 target_link_libraries(life-lang
   PUBLIC
-    Boost::spirit
-    nlohmann_json::nlohmann_json
     project_defaults
-    fmt::fmt
 )
 
 # Compiler executable

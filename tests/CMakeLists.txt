@@ -1,12 +1,12 @@
-find_package(Catch2 CONFIG REQUIRED)
-
-# Enable catch_discover_tests
-include(Catch)
+find_package(doctest CONFIG REQUIRED)
 
 add_executable(tests)
 
 target_sources(tests
     PRIVATE
+        # Main test runner
+        test_main.cpp
+        
         # Unit tests - test semantic boundaries only (11 exposed rules)
         parser/test_assignment.cpp
         parser/test_binary_expr.cpp
@@ -53,8 +53,8 @@ target_sources(tests
 target_link_libraries(tests
     PRIVATE
         life-lang
-        Catch2::Catch2WithMain
-        fmt::fmt
+        doctest::doctest
 )
 
-catch_discover_tests(tests)
+include(doctest)
+doctest_discover_tests(tests)

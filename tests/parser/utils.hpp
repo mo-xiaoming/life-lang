@@ -10,10 +10,11 @@
 // 2. Define constants in namespace{} with this ordering:
 //    constexpr auto k_test_name_should_succeed = true/false;  // FIRST
 //    constexpr auto k_test_name_input = "code";
-//    inline auto const k_test_name_expected = R"(json)";      // LAST
+//    inline auto const k_test_name_expected = R"(json)";      // LAST (omit for should_succeed=false)
 //
 // 3. Use test array with constant references:
-//    {"test name", k_test_name_input, k_test_name_expected, k_test_name_should_succeed}
+//    {"test name", k_test_name_input, k_test_name_expected, k_test_name_should_succeed}  // success case
+//    {"test name", k_test_name_input, std::nullopt, k_test_name_should_succeed}          // failure case
 //
 // EXAMPLE:
 //   PARSE_TEST(Func_Call_Statement, function_call_statement)
@@ -44,440 +45,744 @@
 // The expected field accepts std::variant<AST_Type, std::string>
 // JSON strings are automatically parsed and normalized for comparison
 
-#include <fmt/core.h>
-#include <fmt/format.h>
-
-#include <boost/fusion/include/io.hpp>
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/generators/catch_generators.hpp>
-#include <nlohmann/json.hpp>
+#include <doctest/doctest.h>
+#include <format>
+#include <iostream>
+#include <sstream>
 #include <string_view>
 #include <variant>
 
-// Common JSON building helpers to reduce duplication
-namespace test_json {
+#include "sexp.hpp"  // For future S-expression comparison
+
+// Helper functions for building S-expressions for testing
+namespace test_sexp {
 
 // Variable name with single segment (no templates)
-inline std::string var_name(std::string_view a_name) {
-  return fmt::format(
-      R"({{
-    "Var_Name": {{
-      "segments": [
-        {{
-          "Var_Name_Segment": {{
-            "value": "{}",
-            "type_params": []
-          }}
-        }}
-      ]
-    }}
-  }})",
-      a_name
-  );
+inline std::string var_name(std::string_view name_) {
+  return std::format("(var ((var_segment \"{}\")))", name_);
 }
 
 // Variable name with multiple path segments (no templates)
-inline std::string var_name_path(std::vector<std::string_view> const& a_segments) {
-  std::string segments_json;
-  for (size_t i = 0; i < a_segments.size(); ++i) {
-    if (i > 0) {
-      segments_json += ",";
-    }
-    segments_json += fmt::format(R"({{"Var_Name_Segment":{{"value":"{}","type_params":[]}}}})", a_segments[i]);
+inline std::string var_name_path(std::vector<std::string_view> const& segments_) {
+  if (segments_.empty()) {
+    return "(var ())";
   }
-  return fmt::format(R"({{"Var_Name":{{"segments":[{}]}}}})", segments_json);
+  std::string segments_sexp = "(";
+  for (size_t i = 0; i < segments_.size(); ++i) {
+    if (i > 0) {
+      segments_sexp += " ";
+    }
+    segments_sexp += std::format(R"((var_segment "{}"))", segments_[i]);
+  }
+  segments_sexp += ")";
+  return std::format("(var {})", segments_sexp);
 }
 
 // Type name with single segment (no templates)
-inline std::string type_name(std::string_view a_name) {
-  return fmt::format(
-      R"({{
-    "Path_Type": {{
-      "segments": [
-        {{
-          "Type_Name_Segment": {{
-            "value": "{}",
-            "type_params": []
-          }}
-        }}
-      ]
-    }}
-  }})",
-      a_name
-  );
+inline std::string type_name(std::string_view name_) {
+  return std::format(R"((path ((type_segment "{}"))))", name_);
 }
 
 // Type name with two segments (convenience overload for qualified names)
-inline std::string type_name(std::string_view a_seg1, std::string_view a_seg2) {
-  return fmt::format(
-      R"({{
-    "Path_Type": {{
-      "segments": [
-        {{
-          "Type_Name_Segment": {{
-            "value": "{}",
-            "type_params": []
-          }}
-        }},
-        {{
-          "Type_Name_Segment": {{
-            "value": "{}",
-            "type_params": []
-          }}
-        }}
-      ]
-    }}
-  }})",
-      a_seg1,
-      a_seg2
-  );
+inline std::string type_name(std::string_view seg1_, std::string_view seg2_) {
+  return std::format(R"((path ((type_segment "{}") (type_segment "{}"))))", seg1_, seg2_);
 }
 
 // Type name with multiple path segments (no templates)
-inline std::string type_name_path(std::vector<std::string_view> const& a_segments) {
-  std::string segments_json;
-  for (size_t i = 0; i < a_segments.size(); ++i) {
-    if (i > 0) {
-      segments_json += ",";
-    }
-    segments_json += fmt::format(R"({{"Type_Name_Segment":{{"value":"{}","type_params":[]}}}})", a_segments[i]);
+inline std::string type_name_path(std::vector<std::string_view> const& segments_) {
+  if (segments_.empty()) {
+    return "(path ())";
   }
-  return fmt::format(R"({{"Path_Type":{{"segments":[{}]}}}})", segments_json);
+  std::string segments_sexp = "(";
+  for (size_t i = 0; i < segments_.size(); ++i) {
+    if (i > 0) {
+      segments_sexp += " ";
+    }
+    segments_sexp += std::format(R"((type_segment "{}"))", segments_[i]);
+  }
+  segments_sexp += ")";
+  return std::format("(path {})", segments_sexp);
 }
 
 // Type parameter (wraps a Type_Name in Type_Param for generic declarations)
-inline std::string type_param(std::string_view a_type_name_json) {
-  return fmt::format(R"({{"Type_Param":{{"name":{}}}}})", a_type_name_json);
+inline std::string type_param(std::string_view type_name_sexp_) {
+  return std::format(R"((type_param {}))", type_name_sexp_);
 }
 
 // Integer literal
-inline std::string integer(std::string_view a_value) {
-  return fmt::format(R"({{"Integer":{{"value":"{}"}}}})", a_value);
+inline std::string integer(std::string_view value_) {
+  return std::format(R"((integer "{}"))", value_);
 }
 
 // String literal
-inline std::string string(std::string_view a_value) {
-  return fmt::format(R"({{"String":{{"value":"{}"}}}})", a_value);
+// Note: AST stores strings WITH surrounding quotes
+// Use the same escaping as the S-expression printer
+inline std::string string(std::string_view value_) {
+  std::ostringstream oss;
+  oss << "(string \"";
+  for (char const ch : value_) {
+    switch (ch) {
+      case '"':
+        oss << "\\\"";
+        break;
+      case '\\':
+        oss << "\\\\";
+        break;
+      case '\n':
+        oss << "\\n";
+        break;
+      case '\r':
+        oss << "\\r";
+        break;
+      case '\t':
+        oss << "\\t";
+        break;
+      default:
+        oss << ch;
+        break;
+    }
+  }
+  oss << "\")";
+  return oss.str();
 }
 
 // Character literal
-inline std::string char_literal(std::string_view a_value) {
-  return fmt::format(R"({{"Char":{{"value":"{}"}}}})", a_value);
+inline std::string char_literal(std::string_view value_) {
+  return std::format(R"((char "{}"))", value_);
 }
 
 // Wildcard pattern
 inline std::string wildcard_pattern() {
-  return R"({"Wildcard_Pattern":{}})";
+  return "_";
 }
 
 // Literal pattern (wraps an expression)
-inline std::string literal_pattern(std::string_view a_expr_json) {
-  return fmt::format(R"({{"Literal_Pattern":{{"value":{}}}}})", a_expr_json);
+inline std::string literal_pattern(std::string_view expr_) {
+  return std::format("(lit_pattern {})", expr_);
 }
 
 // Simple pattern (identifier)
-inline std::string simple_pattern(std::string_view a_name) {
-  return fmt::format(R"({{"Simple_Pattern":{{"name":"{}"}}}})", a_name);
+inline std::string simple_pattern(std::string_view name_) {
+  return std::format(R"((pattern "{}"))", name_);
 }
 
 // Tuple pattern
-inline std::string tuple_pattern(std::vector<std::string> const& a_elements) {
-  std::string elements = "[";
-  for (size_t i = 0; i < a_elements.size(); ++i) {
-    if (i > 0) {
-      elements += ",";
-    }
-    elements += a_elements[i];
+inline std::string tuple_pattern(std::vector<std::string> const& elements_) {
+  if (elements_.empty()) {
+    return "(tuple_pattern)";
   }
-  elements += "]";
-  return fmt::format(R"({{"Tuple_Pattern":{{"elements":{}}}}})", elements);
+  std::string elements = "(";
+  for (size_t i = 0; i < elements_.size(); ++i) {
+    if (i > 0) {
+      elements += " ";
+    }
+    elements += elements_[i];
+  }
+  elements += ")";
+  return std::format("(tuple_pattern {})", elements);
 }
 
 // Field pattern (name: pattern)
-inline std::string field_pattern(std::string_view a_name, std::string_view a_pattern) {
-  return fmt::format(R"({{"Field_Pattern":{{"name":"{}","pattern":{}}}}})", a_name, a_pattern);
+inline std::string field_pattern(std::string_view name_, std::string_view pattern_) {
+  return std::format(R"((field_pattern "{}" {}))", name_, pattern_);
 }
 
 // Struct pattern
-inline std::string struct_pattern(std::string_view a_type_name, std::vector<std::string> const& a_fields) {
-  std::string fields = "[";
-  for (size_t i = 0; i < a_fields.size(); ++i) {
-    if (i > 0) {
-      fields += ",";
-    }
-    fields += a_fields[i];
+inline std::string struct_pattern(std::string_view type_name_, std::vector<std::string> const& fields_) {
+  if (fields_.empty()) {
+    return std::format("(struct_pattern {} ())", type_name_);
   }
-  fields += "]";
-  return fmt::format(R"({{"Struct_Pattern":{{"type_name":{},"fields":{}}}}})", a_type_name, fields);
+  std::string fields = "(";
+  for (size_t i = 0; i < fields_.size(); ++i) {
+    if (i > 0) {
+      fields += " ";
+    }
+    fields += fields_[i];
+  }
+  fields += ")";
+  return std::format("(struct_pattern {} {})", type_name_, fields);
 }
 
 // Match arm without guard
-inline std::string match_arm(std::string_view a_pattern, std::string_view a_result) {
-  return fmt::format(R"({{"Match_Arm":{{"pattern":{},"result":{}}}}})", a_pattern, a_result);
+inline std::string match_arm(std::string_view pattern_, std::string_view result_) {
+  return std::format("(arm {} nil {})", pattern_, result_);
 }
 
 // Match arm with guard
-inline std::string
-match_arm_with_guard(std::string_view a_pattern, std::string_view a_guard, std::string_view a_result) {
-  return fmt::format(R"({{"Match_Arm":{{"pattern":{},"guard":{},"result":{}}}}})", a_pattern, a_guard, a_result);
+inline std::string match_arm_with_guard(std::string_view pattern_, std::string_view guard_, std::string_view result_) {
+  return std::format("(arm {} {} {})", pattern_, guard_, result_);
 }
 
 // Binary expression
-inline std::string binary_expr(std::string_view a_op, std::string_view a_lhs, std::string_view a_rhs) {
-  return fmt::format(R"({{"Binary_Expr":{{"lhs":{},"op":"{}","rhs":{}}}}})", a_lhs, a_op, a_rhs);
+inline std::string binary_expr(std::string_view op_, std::string_view lhs_, std::string_view rhs_) {
+  return std::format("(binary {} {} {})", op_, lhs_, rhs_);
 }
 
 // Function call expression
-inline std::string function_call(std::string_view a_name, std::vector<std::string> const& a_args) {
-  std::string params = "[";
-  for (size_t i = 0; i < a_args.size(); ++i) {
-    if (i > 0) {
-      params += ",";
-    }
-    params += a_args[i];
+inline std::string function_call(std::string_view name_, std::vector<std::string> const& args_) {
+  if (args_.empty()) {
+    return std::format("(call {} ())", name_);
   }
-  params += "]";
-  return fmt::format(R"({{"Func_Call_Expr":{{"name":{},"params":{}}}}})", a_name, params);
+  std::string params = "(";
+  for (size_t i = 0; i < args_.size(); ++i) {
+    if (i > 0) {
+      params += " ";
+    }
+    params += args_[i];
+  }
+  params += ")";
+  return std::format("(call {} {})", name_, params);
 }
 
 // Match expression
-inline std::string match_expr(std::string_view a_scrutinee, std::vector<std::string> const& a_arms) {
-  std::string arms = "[";
-  for (size_t i = 0; i < a_arms.size(); ++i) {
-    if (i > 0) {
-      arms += ",";
-    }
-    arms += a_arms[i];
+inline std::string match_expr(std::string_view scrutinee_, std::vector<std::string> const& arms_) {
+  if (arms_.empty()) {
+    return std::format("(match {} ())", scrutinee_);
   }
-  arms += "]";
-  return fmt::format(R"({{"Match_Expr":{{"scrutinee":{},"arms":{}}}}})", a_scrutinee, arms);
+  std::string arms = "(";
+  for (size_t i = 0; i < arms_.size(); ++i) {
+    if (i > 0) {
+      arms += " ";
+    }
+    arms += arms_[i];
+  }
+  arms += ")";
+  return std::format("(match {} {})", scrutinee_, arms);
 }
 
 // Field access expression
-inline std::string field_access(std::string_view a_object, std::string_view a_field_name) {
-  return fmt::format(R"({{"Field_Access_Expr":{{"object":{},"field_name":"{}"}}}})", a_object, a_field_name);
+inline std::string field_access(std::string_view object_, std::string_view field_name_) {
+  return std::format("(field_access {} \"{}\")", object_, field_name_);
 }
 
 // Overload for integer that accepts int directly
-inline std::string integer(int a_value) {
-  return fmt::format(R"({{"Integer":{{"value":"{}"}}}})", a_value);
+inline std::string integer(int value_) {
+  return std::format("(integer \"{}\")", value_);
 }
 
 // Block with statements
-inline std::string block(std::vector<std::string> const& a_statements) {
-  std::string statements_json;
-  for (size_t i = 0; i < a_statements.size(); ++i) {
-    if (i > 0) {
-      statements_json += ",";
-    }
-    statements_json += a_statements[i];
+inline std::string block(std::vector<std::string> const& statements_) {
+  if (statements_.empty()) {
+    return "(block)";
   }
-  return fmt::format(R"({{"Block":{{"statements":[{}]}}}})", statements_json);
+  std::string statements_sexp = "(";
+  for (size_t i = 0; i < statements_.size(); ++i) {
+    if (i > 0) {
+      statements_sexp += " ";
+    }
+    statements_sexp += statements_[i];
+  }
+  statements_sexp += ")";
+  return std::format("(block {})", statements_sexp);
 }
 
 // Return statement
-inline std::string return_statement(std::string_view a_expr) {
-  return fmt::format(R"({{"Return_Statement":{{"expr":{}}}}})", a_expr);
+inline std::string return_statement(std::string_view expr_) {
+  return std::format("(return {})", expr_);
 }
 
 // Function call statement
-inline std::string function_call_statement(std::string_view a_expr) {
-  return fmt::format(R"({{"Func_Call_Statement":{{"expr":{}}}}})", a_expr);
+inline std::string function_call_statement(std::string_view expr_) {
+  return std::format("(call_stmt {})", expr_);
 }
 
 // Assignment expression
-inline std::string assignment_expr(std::string_view a_target, std::string_view a_value) {
-  return fmt::format(R"({{"Assignment_Expr":{{"target":{},"value":{}}}}})", a_target, a_value);
+inline std::string assignment_expr(std::string_view target_, std::string_view value_) {
+  return std::format("(assign {} {})", target_, value_);
 }
 
 // Let statement
 inline std::string let_statement(
-    std::string_view a_pattern,
-    std::string_view a_value,
-    bool a_is_mut = false,
-    std::string_view a_type = "null"
+    std::string_view pattern_,
+    std::string_view value_,
+    bool is_mut_ = false,
+    std::string_view type_ = "nil"
 ) {
-  return fmt::format(
-      R"({{"Let_Statement":{{"is_mut":{},"pattern":{},"type":{},"value":{}}}}})",
-      a_is_mut ? "true" : "false",
-      a_pattern,
-      a_type,
-      a_value
-  );
+  return std::format("(let {} {} {} {})", is_mut_ ? "true" : "false", pattern_, type_, value_);
 }
 
 // If expression without else
-inline std::string if_expr(std::string_view a_condition, std::string_view a_then_block) {
-  return fmt::format(R"({{"If_Expr":{{"condition":{},"then_block":{}}}}})", a_condition, a_then_block);
+inline std::string if_expr(std::string_view condition_, std::string_view then_block_) {
+  return std::format("(if {} {})", condition_, then_block_);
 }
 
 // If expression with else
 inline std::string
-if_else_expr(std::string_view a_condition, std::string_view a_then_block, std::string_view a_else_block) {
-  return fmt::format(
-      R"({{"If_Expr":{{"condition":{},"then_block":{},"else_block":{}}}}})",
-      a_condition,
-      a_then_block,
-      a_else_block
-  );
+if_else_expr(std::string_view condition_, std::string_view then_block_, std::string_view else_block_) {
+  return std::format("(if {} {} {})", condition_, then_block_, else_block_);
+}
+
+// Else-if clause
+inline std::string else_if_clause(std::string_view condition_, std::string_view then_block_) {
+  return std::format("(else_if {} {})", condition_, then_block_);
+}
+
+// If expression with else-if clauses (and optional else block)
+// else_ifs is a vector of else_if_clause() results
+// else_block can be empty string for no else block
+inline std::string if_with_elseif(
+    std::string_view condition_,
+    std::string_view then_block_,
+    std::vector<std::string> const& else_ifs_,
+    std::string_view else_block_ = ""
+) {
+  std::string result = std::format("(if {} {}", condition_, then_block_);
+
+  if (!else_ifs_.empty()) {
+    result += " (";
+    for (size_t i = 0; i < else_ifs_.size(); ++i) {
+      if (i > 0) {
+        result += " ";
+      }
+      result += else_ifs_[i];
+    }
+    result += ")";
+  }
+
+  if (!else_block_.empty()) {
+    result += " ";
+    result += else_block_;
+  }
+
+  result += ")";
+  return result;
 }
 
 // While expression
-inline std::string while_expr(std::string_view a_condition, std::string_view a_body) {
-  return fmt::format(R"({{"While_Expr":{{"condition":{},"body":{}}}}})", a_condition, a_body);
+inline std::string while_expr(std::string_view condition_, std::string_view body_) {
+  return std::format("(while {} {})", condition_, body_);
+}
+
+// While statement (wrapper for while expression used as a statement)
+inline std::string while_statement(std::string_view while_expr_) {
+  return std::format("(while_stmt {})", while_expr_);
 }
 
 // Range expression
-inline std::string range_expr(std::string_view a_start, std::string_view a_end, bool a_inclusive) {
-  return fmt::format(
-      R"({{"Range_Expr":{{"start":{},"end":{},"inclusive":{}}}}})",
-      a_start,
-      a_end,
-      a_inclusive ? "true" : "false"
-  );
+inline std::string range_expr(std::string_view start_, std::string_view end_, bool inclusive_) {
+  return std::format("({} {} {})", inclusive_ ? "range_inclusive" : "range", start_, end_);
 }
 
 // For expression
-inline std::string for_expr(std::string_view a_pattern, std::string_view a_iterator, std::string_view a_body) {
-  return fmt::format(R"({{"For_Expr":{{"pattern":{},"iterator":{},"body":{}}}}})", a_pattern, a_iterator, a_body);
+inline std::string for_expr(std::string_view pattern_, std::string_view iterator_, std::string_view body_) {
+  return std::format("(for {} {} {})", pattern_, iterator_, body_);
+}
+
+// For statement (wrapper for for expression used as a statement)
+inline std::string for_statement(std::string_view for_expr_) {
+  return std::format("(for_stmt {})", for_expr_);
 }
 
 // Break statement (with optional value)
-inline std::string break_statement(std::string_view a_value = "null") {
-  return fmt::format(R"({{"Break_Statement":{{"value":{}}}}})", a_value);
+inline std::string break_statement(std::string_view value_ = "") {
+  if (value_.empty()) {
+    return "(break)";
+  }
+  return std::format("(break {})", value_);
 }
 
 // Continue statement
 inline std::string continue_statement() {
-  return R"({"Continue_Statement":null})";
+  return "continue";
 }
 
 // Unary expression
-inline std::string unary_expr(std::string_view a_op, std::string_view a_operand) {
-  return fmt::format(R"({{"Unary_Expr":{{"op":"{}","operand":{}}}}})", a_op, a_operand);
+inline std::string unary_expr(std::string_view op_, std::string_view operand_) {
+  return std::format("(unary {} {})", op_, operand_);
 }
 
 // Struct field
-inline std::string struct_field(std::string_view a_name, std::string_view a_type) {
-  return fmt::format(R"({{"Struct_Field":{{"name":"{}","type":{}}}}})", a_name, a_type);
+inline std::string struct_field(std::string_view name_, std::string_view type_) {
+  return std::format(R"((field "{}" {}))", name_, type_);
 }
 
 // Struct definition
-inline std::string struct_def(std::string_view a_name, std::vector<std::string> const& a_fields) {
-  std::string fields = "[";
-  for (size_t i = 0; i < a_fields.size(); ++i) {
-    if (i > 0) {
-      fields += ",";
-    }
-    fields += a_fields[i];
+inline std::string struct_def(std::string_view name_, std::vector<std::string> const& fields_) {
+  if (fields_.empty()) {
+    return std::format(R"((struct_def "{}" () ()))", name_);
   }
-  fields += "]";
-  return fmt::format(R"({{"Struct_Def":{{"fields":{},"name":"{}"}}}})", fields, a_name);
+  std::string fields = "(";
+  for (size_t i = 0; i < fields_.size(); ++i) {
+    if (i > 0) {
+      fields += " ";
+    }
+    fields += fields_[i];
+  }
+  fields += ")";
+  return std::format(R"((struct_def "{}" () {}))", name_, fields);
+}
+
+// Struct definition with type parameters
+inline std::string struct_def(
+    std::string_view name_,
+    std::vector<std::string> const& type_params_,
+    std::vector<std::string> const& fields_  // NOLINT(bugprone-easily-swappable-parameters)
+) {
+  std::string type_params = "(";
+  for (size_t i = 0; i < type_params_.size(); ++i) {
+    if (i > 0) {
+      type_params += " ";
+    }
+    type_params += type_params_[i];
+  }
+  type_params += ")";
+
+  if (fields_.empty()) {
+    return std::format(R"((struct_def "{}" {} ()))", name_, type_params);
+  }
+  std::string fields = "(";
+  for (size_t i = 0; i < fields_.size(); ++i) {
+    if (i > 0) {
+      fields += " ";
+    }
+    fields += fields_[i];
+  }
+  fields += ")";
+  return std::format(R"((struct_def "{}" {} {}))", name_, type_params, fields);
 }
 
 // Function parameter
-inline std::string function_parameter(std::string_view a_name, std::string_view a_type, bool a_is_mut = false) {
-  return fmt::format(
-      R"({{"Func_Param":{{"is_mut":{},"name":"{}","type":{}}}}})",
-      a_is_mut ? "true" : "false",
-      a_name,
-      a_type
-  );
+inline std::string function_parameter(std::string_view name_, std::string_view type_, bool is_mut_ = false) {
+  return std::format(R"((param {} "{}" {}))", is_mut_ ? "true" : "false", name_, type_);
 }
 
 // Function declaration
 inline std::string func_decl(
-    std::string_view a_name,
-    std::vector<std::string> const& a_type_params,
-    std::vector<std::string> const& a_params,
-    std::string_view a_return_type
+    std::string_view name_,
+    std::vector<std::string> const& type_params_,
+    std::vector<std::string> const& params_,  // NOLINT(bugprone-easily-swappable-parameters)
+    std::string_view return_type_
 ) {
-  std::string type_params = "[";
-  for (size_t i = 0; i < a_type_params.size(); ++i) {
+  std::string type_params = "(";
+  for (size_t i = 0; i < type_params_.size(); ++i) {
     if (i > 0) {
-      type_params += ",";
+      type_params += " ";
     }
-    type_params += a_type_params[i];
+    type_params += type_params_[i];
   }
-  type_params += "]";
-  std::string params = "[";
-  for (size_t i = 0; i < a_params.size(); ++i) {
+  type_params += ")";
+  std::string params = "(";
+  for (size_t i = 0; i < params_.size(); ++i) {
     if (i > 0) {
-      params += ",";
+      params += " ";
     }
-    params += a_params[i];
+    params += params_[i];
   }
-  params += "]";
-  return fmt::format(
-      R"({{"Func_Decl":{{"name":"{}","params":{},"return_type":{},"type_params":{}}}}})",
-      a_name,
-      params,
-      a_return_type,
-      type_params
-  );
+  params += ")";
+  return std::format(R"((func_decl "{}" {} {} {}))", name_, type_params, params, return_type_);
 }
 
 // Function definition
-inline std::string func_def(std::string_view a_declaration, std::string_view a_body) {
-  return fmt::format(R"({{"Func_Def":{{"decl":{},"body":{}}}}})", a_declaration, a_body);
+inline std::string func_def(std::string_view declaration_, std::string_view body_) {
+  return std::format("(func_def {} {})", declaration_, body_);
 }
 
-}  // namespace test_json
-
-// Helper to get expected JSON - either from AST object or JSON string
-template <typename Ast_Type>
-std::string get_expected_json(std::variant<Ast_Type, std::string> const& a_expected, int a_indent) {
-  if (std::holds_alternative<Ast_Type>(a_expected)) {
-    return to_json_string(std::get<Ast_Type>(a_expected), a_indent);
+// Enum variant
+inline std::string enum_variant(std::string_view name_, std::vector<std::string> const& fields_ = {}) {
+  if (fields_.empty()) {
+    return std::format(R"((unit_variant "{}"))", name_);
   }
-  // Parse and re-dump JSON string to normalize formatting
-  auto json = nlohmann::json::parse(std::get<std::string>(a_expected));
-  return json.dump(a_indent);
+
+  // Determine variant type based on field content
+  bool const is_struct = !fields_.empty() && fields_[0].starts_with("(field");
+  std::string const variant_type = is_struct ? "struct_variant" : "tuple_variant";
+
+  std::string fields = "(";
+  for (size_t i = 0; i < fields_.size(); ++i) {
+    if (i > 0) {
+      fields += " ";
+    }
+    fields += fields_[i];
+  }
+  fields += ")";
+  return std::format(R"(({} "{}" {}))", variant_type, name_, fields);
 }
 
-#define PARSE_TEST(AstType, fn_name)                                                                           \
-  namespace {                                                                                                  \
-  using AstType##_Params = Parse_Test_Params<AstType>;                                                         \
-  void check_parse(AstType##_Params const& params) {                                                           \
-    auto input_start = params.input.cbegin();                                                                  \
-    auto const input_end = params.input.cend();                                                                \
-    auto const got = life_lang::internal::parse_##fn_name(input_start, input_end);                             \
-    CHECK(params.should_succeed == bool(got));                                                                 \
-    if (params.should_succeed != bool(got)) {                                                                  \
-      if (got) {                                                                                               \
-        UNSCOPED_INFO(to_json_string(*got, 2));                                                                \
-      } else {                                                                                                 \
-        UNSCOPED_INFO(got.error());                                                                            \
-      }                                                                                                        \
-    }                                                                                                          \
-    if (got) {                                                                                                 \
-      bool const has_expected =                                                                                \
-          std::holds_alternative<AstType>(params.expected) || !std::get<std::string>(params.expected).empty(); \
-      if (has_expected) {                                                                                      \
-        auto const expected_json = get_expected_json(params.expected, 2);                                      \
-        auto const actual_json = to_json_string(*got, 2);                                                      \
-        CHECK(expected_json == actual_json);                                                                   \
-      }                                                                                                        \
-    }                                                                                                          \
-  }                                                                                                            \
+// Enum definition
+inline std::string enum_def(
+    std::string_view name_,
+    std::vector<std::string> const& type_params_,
+    std::vector<std::string> const& variants_  // NOLINT(bugprone-easily-swappable-parameters)
+) {
+  std::string type_params = "(";
+  for (size_t i = 0; i < type_params_.size(); ++i) {
+    if (i > 0) {
+      type_params += " ";
+    }
+    type_params += type_params_[i];
+  }
+  type_params += ")";
+
+  std::string variants = "(";
+  for (size_t i = 0; i < variants_.size(); ++i) {
+    if (i > 0) {
+      variants += " ";
+    }
+    variants += variants_[i];
+  }
+  variants += ")";
+
+  return std::format(R"((enum_def "{}" {} {}))", name_, type_params, variants);
+}
+
+// Impl block
+inline std::string impl_block(
+    std::string_view type_name_,
+    std::vector<std::string> const& methods_,
+    std::vector<std::string> const& type_params_ = {}  // NOLINT(bugprone-easily-swappable-parameters)
+) {
+  std::string type_params = "(";
+  for (size_t i = 0; i < type_params_.size(); ++i) {
+    if (i > 0) {
+      type_params += " ";
+    }
+    type_params += type_params_[i];
+  }
+  type_params += ")";
+
+  std::string methods = "(";
+  for (size_t i = 0; i < methods_.size(); ++i) {
+    if (i > 0) {
+      methods += " ";
+    }
+    methods += methods_[i];
+  }
+  methods += ")";
+
+  return std::format("(impl {} {} {})", type_name_, type_params, methods);
+}
+
+// Type alias
+inline std::string
+type_alias(std::string_view name_, std::vector<std::string> const& type_params_, std::string_view aliased_type_) {
+  std::string type_params = "(";
+  for (size_t i = 0; i < type_params_.size(); ++i) {
+    if (i > 0) {
+      type_params += " ";
+    }
+    type_params += type_params_[i];
+  }
+  type_params += ")";
+
+  return std::format(R"((type_alias "{}" {} {}))", name_, type_params, aliased_type_);
+}
+
+// Function type
+inline std::string func_type(std::vector<std::string> const& param_types_, std::string_view return_type_) {
+  std::string params = "(";
+  for (size_t i = 0; i < param_types_.size(); ++i) {
+    if (i > 0) {
+      params += " ";
+    }
+    params += param_types_[i];
+  }
+  params += ")";
+  return std::format("(func_type {} {})", params, return_type_);
+}
+
+}  // namespace test_sexp
+
+// Helper to get expected value - either from AST object or string
+// For S-expression comparison, we accept either AST objects or S-expression strings
+template <typename Ast_Type>
+std::string get_expected_sexp(std::variant<Ast_Type, std::string> const& expected_) {
+  if (std::holds_alternative<Ast_Type>(expected_)) {
+    // Use compact mode (indent=0) for test comparisons
+    return life_lang::ast::to_sexp_string(std::get<Ast_Type>(expected_), 0);
+  }
+  return std::get<std::string>(expected_);
+}
+
+// Helper to normalize whitespace in S-expressions for comparison
+// S-expressions are whitespace-insensitive, so we normalize for easier comparison
+inline std::string normalize_sexp(std::string_view sexp_) {
+  std::string result;
+  result.reserve(sexp_.size());
+  bool in_string = false;
+  bool prev_space = false;
+
+  for (char const c : sexp_) {
+    if (c == '"' && (result.empty() || result.back() != '\\')) {
+      in_string = !in_string;
+      result += c;
+      prev_space = false;
+    } else if (in_string || (std::isspace(static_cast<unsigned char>(c)) == 0)) {
+      // In string mode or non-space character - add as-is
+      result += c;
+      prev_space = false;
+    } else if (std::isspace(static_cast<unsigned char>(c)) != 0) {
+      // Whitespace outside string - normalize to single space
+      if (!prev_space && !result.empty()) {
+        result += ' ';
+        prev_space = true;
+      }
+    }
+  }
+
+  // Trim trailing space
+  if (!result.empty() && result.back() == ' ') {
+    result.pop_back();
+  }
+
+  return result;
+}
+
+#include "parser.hpp"
+
+// Helper to parse using Parser class directly
+// Returns nullopt if parsing fails OR if input is not fully consumed
+template <typename T>
+struct Parse_Helper;
+
+// Macro to define parse helpers for each type
+#define DEFINE_PARSE_HELPER(Type, method)                                       \
+  template <>                                                                   \
+  struct Parse_Helper<life_lang::ast::Type> {                                   \
+    static std::optional<life_lang::ast::Type> parse(std::string_view input_) { \
+      life_lang::parser::Parser parser{input_, "test.life"};                    \
+      auto result = parser.method();                                            \
+      if (!result)                                                              \
+        return std::nullopt;                                                    \
+      if (!parser.is_at_end())                                                  \
+        return std::nullopt;                                                    \
+      return result;                                                            \
+    }                                                                           \
+  };
+
+// Define helpers for expression and statement types
+DEFINE_PARSE_HELPER(Expr, parse_expr)
+DEFINE_PARSE_HELPER(Block, parse_block)
+DEFINE_PARSE_HELPER(If_Expr, parse_if_expr)
+DEFINE_PARSE_HELPER(Match_Expr, parse_match_expr)
+DEFINE_PARSE_HELPER(For_Expr, parse_for_expr)
+DEFINE_PARSE_HELPER(While_Expr, parse_while_expr)
+DEFINE_PARSE_HELPER(Range_Expr, parse_range_expr)
+DEFINE_PARSE_HELPER(Let_Statement, parse_let_statement)
+DEFINE_PARSE_HELPER(Return_Statement, parse_return_statement)
+DEFINE_PARSE_HELPER(Break_Statement, parse_break_statement)
+DEFINE_PARSE_HELPER(Continue_Statement, parse_continue_statement)
+DEFINE_PARSE_HELPER(Func_Def, parse_func_def)
+DEFINE_PARSE_HELPER(Struct_Def, parse_struct_def)
+DEFINE_PARSE_HELPER(Enum_Def, parse_enum_def)
+DEFINE_PARSE_HELPER(Trait_Def, parse_trait_def)
+DEFINE_PARSE_HELPER(Impl_Block, parse_impl_block)
+DEFINE_PARSE_HELPER(Trait_Impl, parse_trait_impl)
+DEFINE_PARSE_HELPER(Type_Alias, parse_type_alias)
+DEFINE_PARSE_HELPER(Function_Type, parse_function_type)
+
+#undef DEFINE_PARSE_HELPER
+
+// Statement and Module need special handling
+template <>
+struct Parse_Helper<life_lang::ast::Statement> {
+  static std::optional<life_lang::ast::Statement> parse(std::string_view input_) {
+    life_lang::parser::Parser parser{input_, "test.life"};
+    auto result = parser.parse_statement();
+    if (!result) {
+      return std::nullopt;
+    }
+    if (!parser.is_at_end()) {
+      return std::nullopt;
+    }
+    return result;
+  }
+};
+
+template <>
+struct Parse_Helper<life_lang::ast::Module> {
+  static life_lang::Expected<life_lang::ast::Module, life_lang::Diagnostic_Engine> parse(std::string_view input_) {
+    life_lang::parser::Parser parser{input_, "test.life"};
+    return parser.parse_module();
+  }
+};
+
+// Visitor to extract a specific type from variant results
+template <typename T>
+struct Extract_From_Expr {
+  Extract_From_Expr() = default;
+
+  std::optional<T> operator()(T const& val_) const { return val_; }
+
+  std::optional<T> operator()(std::shared_ptr<T> const& val_) const { return *val_; }
+
+  template <typename U>
+  std::optional<T> operator()(U const& /*other_*/) const {
+    return std::nullopt;
+  }
+};
+
+// Special handling for types extracted from Expr
+template <typename T>
+std::optional<T> extract_from_expr(life_lang::ast::Expr const& expr_) {
+  return std::visit(Extract_From_Expr<T>{}, expr_);
+}
+
+// Update parse helpers for types that need extraction from Expr
+#define DEFINE_PARSE_HELPER_WITH_EXTRACTION(Type)                               \
+  template <>                                                                   \
+  struct Parse_Helper<life_lang::ast::Type> {                                   \
+    static std::optional<life_lang::ast::Type> parse(std::string_view input_) { \
+      life_lang::parser::Parser parser{input_, "test.life"};                    \
+      auto expr = parser.parse_expr();                                          \
+      if (!expr)                                                                \
+        return std::nullopt;                                                    \
+      if (!parser.is_at_end())                                                  \
+        return std::nullopt;                                                    \
+      return extract_from_expr<life_lang::ast::Type>(*expr);                    \
+    }                                                                           \
+  };
+
+// Types that are parsed as expressions but need extraction
+DEFINE_PARSE_HELPER_WITH_EXTRACTION(Binary_Expr)
+DEFINE_PARSE_HELPER_WITH_EXTRACTION(Unary_Expr)
+DEFINE_PARSE_HELPER_WITH_EXTRACTION(Assignment_Expr)
+DEFINE_PARSE_HELPER_WITH_EXTRACTION(Integer)
+DEFINE_PARSE_HELPER_WITH_EXTRACTION(Float)
+DEFINE_PARSE_HELPER_WITH_EXTRACTION(String)
+DEFINE_PARSE_HELPER_WITH_EXTRACTION(Char)
+
+#undef DEFINE_PARSE_HELPER_WITH_EXTRACTION
+
+#define PARSE_TEST(AstType, fn_name)                                                                \
+  namespace {                                                                                       \
+  using AstType##_Params = Parse_Test_Params<AstType>;                                              \
+  void check_parse(AstType##_Params const& params) {                                                \
+    INFO("Input: ", std::string(params.input));                                                     \
+    auto const result = Parse_Helper<life_lang::ast::AstType>::parse(params.input);                 \
+    if constexpr (std::is_same_v<decltype(result), std::optional<life_lang::ast::AstType> const>) { \
+      CHECK(params.should_succeed == bool(result));                                                 \
+      if (result && params.expected.has_value()) {                                                  \
+        auto const actual_sexp = life_lang::ast::to_sexp_string(*result, 0);                        \
+        auto const expected_sexp = get_expected_sexp(*params.expected);                             \
+        CHECK(normalize_sexp(actual_sexp) == normalize_sexp(expected_sexp));                        \
+      }                                                                                             \
+    } else {                                                                                        \
+      CHECK(params.should_succeed == bool(result));                                                 \
+      if (result && params.expected.has_value()) {                                                  \
+        auto const actual_sexp = life_lang::ast::to_sexp_string(*result, 0);                        \
+        auto const expected_sexp = get_expected_sexp(*params.expected);                             \
+        CHECK(normalize_sexp(actual_sexp) == normalize_sexp(expected_sexp));                        \
+      }                                                                                             \
+    }                                                                                               \
+  }                                                                                                 \
   }  // namespace
 
 template <typename Ast_Type>
 struct Parse_Test_Params {
   std::string_view name;
   std::string input;
-  std::variant<Ast_Type, std::string> expected;  // Can be AST object or JSON string
+  std::optional<std::variant<Ast_Type, std::string>> expected;  // nullopt for should_succeed=false
   bool should_succeed{};
 };
 
-// Catch2 uses operator<< to print test parameters in failure messages
-// Note: Uses indent=-1 for compact single-line JSON output
+// doctest uses operator<< to print test parameters in failure messages
 template <typename T>
-std::ostream& operator<<(std::ostream& a_os, Parse_Test_Params<T> const& a_params) {
-  return a_os << fmt::format(
+std::ostream& operator<<(std::ostream& os_, Parse_Test_Params<T> const& params_) {
+  std::string expected_str = params_.expected.has_value() ? get_expected_sexp(*params_.expected) : "nullopt";
+  return os_ << std::format(
              R"({{.input = "{}", .expected = {}, .shouldSucceed = {}}})",
-             a_params.input,
-             get_expected_json(a_params.expected, -1),
-             a_params.should_succeed
+             params_.input,
+             expected_str,
+             params_.should_succeed
          );
 }

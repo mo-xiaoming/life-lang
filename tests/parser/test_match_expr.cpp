@@ -15,7 +15,12 @@ constexpr auto k_simple_patterns_input = R"(
     other => "other"
   }
 )";
-inline auto const k_simple_patterns_expected = "";
+inline auto const k_simple_patterns_expected = test_sexp::match_expr(
+    test_sexp::var_name("x"),
+    {test_sexp::match_arm(test_sexp::simple_pattern("zero"), test_sexp::string(R"("zero")")),
+     test_sexp::match_arm(test_sexp::simple_pattern("one"), test_sexp::string(R"("one")")),
+     test_sexp::match_arm(test_sexp::simple_pattern("other"), test_sexp::string(R"("other")"))}
+);
 
 // Match with guard conditions
 constexpr auto k_with_guard_should_succeed = true;
@@ -26,7 +31,16 @@ constexpr auto k_with_guard_input = R"(
     other => "pos"
   }
 )";
-inline auto const k_with_guard_expected = "";
+inline auto const k_with_guard_expected = test_sexp::match_expr(
+    test_sexp::var_name("n"),
+    {test_sexp::match_arm_with_guard(
+         test_sexp::simple_pattern("x"),
+         test_sexp::binary_expr("<", test_sexp::var_name("x"), test_sexp::var_name("zero")),
+         test_sexp::string(R"("neg")")
+     ),
+     test_sexp::match_arm(test_sexp::simple_pattern("zero"), test_sexp::string(R"("zero")")),
+     test_sexp::match_arm(test_sexp::simple_pattern("other"), test_sexp::string(R"("pos")"))}
+);
 
 // Match with tuple pattern
 constexpr auto k_tuple_pattern_should_succeed = true;
@@ -36,7 +50,17 @@ constexpr auto k_tuple_pattern_input = R"(
     (x, y) => format(x, y)
   }
 )";
-inline auto const k_tuple_pattern_expected = "";
+inline auto const k_tuple_pattern_expected = test_sexp::match_expr(
+    test_sexp::var_name("pair"),
+    {test_sexp::match_arm(
+         test_sexp::tuple_pattern({test_sexp::simple_pattern("zero"), test_sexp::simple_pattern("zero")}),
+         test_sexp::string(R"("origin")")
+     ),
+     test_sexp::match_arm(
+         test_sexp::tuple_pattern({test_sexp::simple_pattern("x"), test_sexp::simple_pattern("y")}),
+         test_sexp::function_call(test_sexp::var_name("format"), {test_sexp::var_name("x"), test_sexp::var_name("y")})
+     )}
+);
 
 // Match with struct pattern with field values
 constexpr auto k_struct_pattern_should_succeed = true;
@@ -46,28 +70,28 @@ constexpr auto k_struct_pattern_input = R"(
     Point { x: 3, y: 4 } => "specific"
   }
 )";
-inline auto const k_struct_pattern_expected = test_json::match_expr(
-    test_json::var_name("point"),
+inline auto const k_struct_pattern_expected = test_sexp::match_expr(
+    test_sexp::var_name("point"),
     {
-        test_json::match_arm(
-            test_json::struct_pattern(
-                test_json::type_name("Point"),
+        test_sexp::match_arm(
+            test_sexp::struct_pattern(
+                test_sexp::type_name("Point"),
                 {
-                    test_json::field_pattern("x", test_json::literal_pattern(test_json::integer("0"))),
-                    test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("0"))),
+                    test_sexp::field_pattern("x", test_sexp::literal_pattern(test_sexp::integer("0"))),
+                    test_sexp::field_pattern("y", test_sexp::literal_pattern(test_sexp::integer("0"))),
                 }
             ),
-            test_json::string(R"(\"origin\")")
+            test_sexp::string(R"("origin")")
         ),
-        test_json::match_arm(
-            test_json::struct_pattern(
-                test_json::type_name("Point"),
+        test_sexp::match_arm(
+            test_sexp::struct_pattern(
+                test_sexp::type_name("Point"),
                 {
-                    test_json::field_pattern("x", test_json::literal_pattern(test_json::integer("3"))),
-                    test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("4"))),
+                    test_sexp::field_pattern("x", test_sexp::literal_pattern(test_sexp::integer("3"))),
+                    test_sexp::field_pattern("y", test_sexp::literal_pattern(test_sexp::integer("4"))),
                 }
             ),
-            test_json::string(R"(\"specific\")")
+            test_sexp::string(R"("specific")")
         ),
     }
 );
@@ -82,16 +106,13 @@ constexpr auto k_literal_int_input = R"(
     100 => "century"
   }
 )";
-inline auto const k_literal_int_expected = test_json::match_expr(
-    test_json::var_name("x"),
+inline auto const k_literal_int_expected = test_sexp::match_expr(
+    test_sexp::var_name("x"),
     {
-        test_json::match_arm(test_json::literal_pattern(test_json::integer("0")), test_json::string(R"(\"zero\")")),
-        test_json::match_arm(test_json::literal_pattern(test_json::integer("1")), test_json::string(R"(\"one\")")),
-        test_json::match_arm(test_json::literal_pattern(test_json::integer("42")), test_json::string(R"(\"answer\")")),
-        test_json::match_arm(
-            test_json::literal_pattern(test_json::integer("100")),
-            test_json::string(R"(\"century\")")
-        ),
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::integer("0")), test_sexp::string(R"("zero")")),
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::integer("1")), test_sexp::string(R"("one")")),
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::integer("42")), test_sexp::string(R"("answer")")),
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::integer("100")), test_sexp::string(R"("century")")),
     }
 );
 
@@ -104,12 +125,12 @@ constexpr auto k_literal_string_input = R"(
     "Charlie" => 3
   }
 )";
-inline auto const k_literal_string_expected = test_json::match_expr(
-    test_json::var_name("name"),
+inline auto const k_literal_string_expected = test_sexp::match_expr(
+    test_sexp::var_name("name"),
     {
-        test_json::match_arm(test_json::literal_pattern(test_json::string(R"(\"Alice\")")), test_json::integer("1")),
-        test_json::match_arm(test_json::literal_pattern(test_json::string(R"(\"Bob\")")), test_json::integer("2")),
-        test_json::match_arm(test_json::literal_pattern(test_json::string(R"(\"Charlie\")")), test_json::integer("3")),
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::string(R"("Alice")")), test_sexp::integer("1")),
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::string(R"("Bob")")), test_sexp::integer("2")),
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::string(R"("Charlie")")), test_sexp::integer("3")),
     }
 );
 
@@ -122,12 +143,12 @@ constexpr auto k_wildcard_input = R"(
     _ => "other"
   }
 )";
-inline auto const k_wildcard_expected = test_json::match_expr(
-    test_json::var_name("x"),
+inline auto const k_wildcard_expected = test_sexp::match_expr(
+    test_sexp::var_name("x"),
     {
-        test_json::match_arm(test_json::literal_pattern(test_json::integer("0")), test_json::string(R"(\"zero\")")),
-        test_json::match_arm(test_json::literal_pattern(test_json::integer("1")), test_json::string(R"(\"one\")")),
-        test_json::match_arm(test_json::wildcard_pattern(), test_json::string(R"(\"other\")")),
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::integer("0")), test_sexp::string(R"("zero")")),
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::integer("1")), test_sexp::string(R"("one")")),
+        test_sexp::match_arm(test_sexp::wildcard_pattern(), test_sexp::string(R"("other")")),
     }
 );
 
@@ -139,13 +160,13 @@ constexpr auto k_mixed_patterns_input = R"(
     n => add(n, 1)
   }
 )";
-inline auto const k_mixed_patterns_expected = test_json::match_expr(
-    test_json::var_name("x"),
+inline auto const k_mixed_patterns_expected = test_sexp::match_expr(
+    test_sexp::var_name("x"),
     {
-        test_json::match_arm(test_json::literal_pattern(test_json::integer("0")), test_json::string(R"(\"zero\")")),
-        test_json::match_arm(
-            test_json::simple_pattern("n"),
-            test_json::function_call(test_json::var_name("add"), {test_json::var_name("n"), test_json::integer("1")})
+        test_sexp::match_arm(test_sexp::literal_pattern(test_sexp::integer("0")), test_sexp::string(R"("zero")")),
+        test_sexp::match_arm(
+            test_sexp::simple_pattern("n"),
+            test_sexp::function_call(test_sexp::var_name("add"), {test_sexp::var_name("n"), test_sexp::integer("1")})
         ),
     }
 );
@@ -158,15 +179,15 @@ constexpr auto k_wildcard_guard_input = R"(
     _ => "non-neg"
   }
 )";
-inline auto const k_wildcard_guard_expected = test_json::match_expr(
-    test_json::var_name("x"),
+inline auto const k_wildcard_guard_expected = test_sexp::match_expr(
+    test_sexp::var_name("x"),
     {
-        test_json::match_arm_with_guard(
-            test_json::simple_pattern("n"),
-            test_json::binary_expr("<", test_json::var_name("n"), test_json::integer("0")),
-            test_json::string(R"(\"neg\")")
+        test_sexp::match_arm_with_guard(
+            test_sexp::simple_pattern("n"),
+            test_sexp::binary_expr("<", test_sexp::var_name("n"), test_sexp::integer("0")),
+            test_sexp::string(R"("neg")")
         ),
-        test_json::match_arm(test_json::wildcard_pattern(), test_json::string(R"(\"non-neg\")")),
+        test_sexp::match_arm(test_sexp::wildcard_pattern(), test_sexp::string(R"("non-neg")")),
     }
 );
 
@@ -180,31 +201,31 @@ constexpr auto k_literal_in_tuple_input = R"(
     (x, y) => "elsewhere"
   }
 )";
-inline auto const k_literal_in_tuple_expected = test_json::match_expr(
-    test_json::var_name("pair"),
+inline auto const k_literal_in_tuple_expected = test_sexp::match_expr(
+    test_sexp::var_name("pair"),
     {
-        test_json::match_arm(
-            test_json::tuple_pattern(
-                {test_json::literal_pattern(test_json::integer("0")),
-                 test_json::literal_pattern(test_json::integer("0"))}
+        test_sexp::match_arm(
+            test_sexp::tuple_pattern(
+                {test_sexp::literal_pattern(test_sexp::integer("0")),
+                 test_sexp::literal_pattern(test_sexp::integer("0"))}
             ),
-            test_json::string(R"(\"origin\")")
+            test_sexp::string(R"("origin")")
         ),
-        test_json::match_arm(
-            test_json::tuple_pattern(
-                {test_json::literal_pattern(test_json::integer("0")), test_json::simple_pattern("y")}
+        test_sexp::match_arm(
+            test_sexp::tuple_pattern(
+                {test_sexp::literal_pattern(test_sexp::integer("0")), test_sexp::simple_pattern("y")}
             ),
-            test_json::string(R"(\"y-axis\")")
+            test_sexp::string(R"("y-axis")")
         ),
-        test_json::match_arm(
-            test_json::tuple_pattern(
-                {test_json::simple_pattern("x"), test_json::literal_pattern(test_json::integer("0"))}
+        test_sexp::match_arm(
+            test_sexp::tuple_pattern(
+                {test_sexp::simple_pattern("x"), test_sexp::literal_pattern(test_sexp::integer("0"))}
             ),
-            test_json::string(R"(\"x-axis\")")
+            test_sexp::string(R"("x-axis")")
         ),
-        test_json::match_arm(
-            test_json::tuple_pattern({test_json::simple_pattern("x"), test_json::simple_pattern("y")}),
-            test_json::string(R"(\"elsewhere\")")
+        test_sexp::match_arm(
+            test_sexp::tuple_pattern({test_sexp::simple_pattern("x"), test_sexp::simple_pattern("y")}),
+            test_sexp::string(R"("elsewhere")")
         ),
     }
 );
@@ -216,12 +237,12 @@ constexpr auto k_wildcard_in_tuple_input = R"(
     (_, _) => "any point"
   }
 )";
-inline auto const k_wildcard_in_tuple_expected = test_json::match_expr(
-    test_json::var_name("pair"),
+inline auto const k_wildcard_in_tuple_expected = test_sexp::match_expr(
+    test_sexp::var_name("pair"),
     {
-        test_json::match_arm(
-            test_json::tuple_pattern({test_json::wildcard_pattern(), test_json::wildcard_pattern()}),
-            test_json::string(R"(\"any point\")")
+        test_sexp::match_arm(
+            test_sexp::tuple_pattern({test_sexp::wildcard_pattern(), test_sexp::wildcard_pattern()}),
+            test_sexp::string(R"("any point")")
         ),
     }
 );
@@ -235,19 +256,19 @@ constexpr auto k_string_literal_guard_input = R"(
     _ => "unknown"
   }
 )";
-inline auto const k_string_literal_guard_expected = test_json::match_expr(
-    test_json::var_name("x"),
+inline auto const k_string_literal_guard_expected = test_sexp::match_expr(
+    test_sexp::var_name("x"),
     {
-        test_json::match_arm_with_guard(
-            test_json::literal_pattern(test_json::string(R"(\"admin\")")),
-            test_json::var_name("is_verified"),
-            test_json::string(R"(\"ok\")")
+        test_sexp::match_arm_with_guard(
+            test_sexp::literal_pattern(test_sexp::string(R"("admin")")),
+            test_sexp::var_name("is_verified"),
+            test_sexp::string(R"("ok")")
         ),
-        test_json::match_arm(
-            test_json::literal_pattern(test_json::string(R"(\"admin\")")),
-            test_json::string(R"(\"unverified\")")
+        test_sexp::match_arm(
+            test_sexp::literal_pattern(test_sexp::string(R"("admin")")),
+            test_sexp::string(R"("unverified")")
         ),
-        test_json::match_arm(test_json::wildcard_pattern(), test_json::string(R"(\"unknown\")")),
+        test_sexp::match_arm(test_sexp::wildcard_pattern(), test_sexp::string(R"("unknown")")),
     }
 );
 
@@ -260,24 +281,24 @@ constexpr auto k_multiple_wildcards_input = R"(
     (_, _) => "neither"
   }
 )";
-inline auto const k_multiple_wildcards_expected = test_json::match_expr(
-    test_json::var_name("pair"),
+inline auto const k_multiple_wildcards_expected = test_sexp::match_expr(
+    test_sexp::var_name("pair"),
     {
-        test_json::match_arm(
-            test_json::tuple_pattern(
-                {test_json::literal_pattern(test_json::integer("0")), test_json::wildcard_pattern()}
+        test_sexp::match_arm(
+            test_sexp::tuple_pattern(
+                {test_sexp::literal_pattern(test_sexp::integer("0")), test_sexp::wildcard_pattern()}
             ),
-            test_json::string(R"(\"first zero\")")
+            test_sexp::string(R"("first zero")")
         ),
-        test_json::match_arm(
-            test_json::tuple_pattern(
-                {test_json::wildcard_pattern(), test_json::literal_pattern(test_json::integer("0"))}
+        test_sexp::match_arm(
+            test_sexp::tuple_pattern(
+                {test_sexp::wildcard_pattern(), test_sexp::literal_pattern(test_sexp::integer("0"))}
             ),
-            test_json::string(R"(\"second zero\")")
+            test_sexp::string(R"("second zero")")
         ),
-        test_json::match_arm(
-            test_json::tuple_pattern({test_json::wildcard_pattern(), test_json::wildcard_pattern()}),
-            test_json::string(R"(\"neither\")")
+        test_sexp::match_arm(
+            test_sexp::tuple_pattern({test_sexp::wildcard_pattern(), test_sexp::wildcard_pattern()}),
+            test_sexp::string(R"("neither")")
         ),
     }
 );
@@ -290,7 +311,11 @@ constexpr auto k_trailing_comma_input = R"(
     one => "one",
   }
 )";
-inline auto const k_trailing_comma_expected = "";
+inline auto const k_trailing_comma_expected = test_sexp::match_expr(
+    test_sexp::var_name("x"),
+    {test_sexp::match_arm(test_sexp::simple_pattern("zero"), test_sexp::string(R"("zero")")),
+     test_sexp::match_arm(test_sexp::simple_pattern("one"), test_sexp::string(R"("one")"))}
+);
 
 // Single arm
 constexpr auto k_single_arm_should_succeed = true;
@@ -299,7 +324,10 @@ constexpr auto k_single_arm_input = R"(
     any => 42
   }
 )";
-inline auto const k_single_arm_expected = "";
+inline auto const k_single_arm_expected = test_sexp::match_expr(
+    test_sexp::var_name("x"),
+    {test_sexp::match_arm(test_sexp::simple_pattern("any"), test_sexp::integer(42))}
+);
 
 // Nested match
 constexpr auto k_nested_match_should_succeed = true;
@@ -312,7 +340,18 @@ constexpr auto k_nested_match_input = R"(
     other => "c"
   }
 )";
-inline auto const k_nested_match_expected = "";
+inline auto const k_nested_match_expected = test_sexp::match_expr(
+    test_sexp::var_name("x"),
+    {test_sexp::match_arm(
+         test_sexp::simple_pattern("zero"),
+         test_sexp::match_expr(
+             test_sexp::var_name("y"),
+             {test_sexp::match_arm(test_sexp::simple_pattern("one"), test_sexp::string(R"("a")")),
+              test_sexp::match_arm(test_sexp::simple_pattern("other"), test_sexp::string(R"("b")"))}
+         )
+     ),
+     test_sexp::match_arm(test_sexp::simple_pattern("other"), test_sexp::string(R"("c")"))}
+);
 
 // Struct pattern with identifier bindings
 constexpr auto k_struct_with_bindings_should_succeed = true;
@@ -321,18 +360,18 @@ constexpr auto k_struct_with_bindings_input = R"(
     Point { x: px, y: py } => add(px, py)
   }
 )";
-inline auto const k_struct_with_bindings_expected = test_json::match_expr(
-    test_json::var_name("point"),
+inline auto const k_struct_with_bindings_expected = test_sexp::match_expr(
+    test_sexp::var_name("point"),
     {
-        test_json::match_arm(
-            test_json::struct_pattern(
-                test_json::type_name("Point"),
+        test_sexp::match_arm(
+            test_sexp::struct_pattern(
+                test_sexp::type_name("Point"),
                 {
-                    test_json::field_pattern("x", test_json::simple_pattern("px")),
-                    test_json::field_pattern("y", test_json::simple_pattern("py")),
+                    test_sexp::field_pattern("x", test_sexp::simple_pattern("px")),
+                    test_sexp::field_pattern("y", test_sexp::simple_pattern("py")),
                 }
             ),
-            test_json::function_call(test_json::var_name("add"), {test_json::var_name("px"), test_json::var_name("py")})
+            test_sexp::function_call(test_sexp::var_name("add"), {test_sexp::var_name("px"), test_sexp::var_name("py")})
         ),
     }
 );
@@ -344,18 +383,18 @@ constexpr auto k_struct_with_wildcard_input = R"(
     Point { x: _, y: 0 } => "on x-axis"
   }
 )";
-inline auto const k_struct_with_wildcard_expected = test_json::match_expr(
-    test_json::var_name("point"),
+inline auto const k_struct_with_wildcard_expected = test_sexp::match_expr(
+    test_sexp::var_name("point"),
     {
-        test_json::match_arm(
-            test_json::struct_pattern(
-                test_json::type_name("Point"),
+        test_sexp::match_arm(
+            test_sexp::struct_pattern(
+                test_sexp::type_name("Point"),
                 {
-                    test_json::field_pattern("x", test_json::wildcard_pattern()),
-                    test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("0"))),
+                    test_sexp::field_pattern("x", test_sexp::wildcard_pattern()),
+                    test_sexp::field_pattern("y", test_sexp::literal_pattern(test_sexp::integer("0"))),
                 }
             ),
-            test_json::string(R"(\"on x-axis\")")
+            test_sexp::string(R"("on x-axis")")
         ),
     }
 );
@@ -367,27 +406,27 @@ constexpr auto k_nested_struct_input = R"(
     Line { start: Point { x: 0, y: 0 }, end: p } => process(p)
   }
 )";
-inline auto const k_nested_struct_expected = test_json::match_expr(
-    test_json::var_name("line"),
+inline auto const k_nested_struct_expected = test_sexp::match_expr(
+    test_sexp::var_name("line"),
     {
-        test_json::match_arm(
-            test_json::struct_pattern(
-                test_json::type_name("Line"),
+        test_sexp::match_arm(
+            test_sexp::struct_pattern(
+                test_sexp::type_name("Line"),
                 {
-                    test_json::field_pattern(
+                    test_sexp::field_pattern(
                         "start",
-                        test_json::struct_pattern(
-                            test_json::type_name("Point"),
+                        test_sexp::struct_pattern(
+                            test_sexp::type_name("Point"),
                             {
-                                test_json::field_pattern("x", test_json::literal_pattern(test_json::integer("0"))),
-                                test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("0"))),
+                                test_sexp::field_pattern("x", test_sexp::literal_pattern(test_sexp::integer("0"))),
+                                test_sexp::field_pattern("y", test_sexp::literal_pattern(test_sexp::integer("0"))),
                             }
                         )
                     ),
-                    test_json::field_pattern("end", test_json::simple_pattern("p")),
+                    test_sexp::field_pattern("end", test_sexp::simple_pattern("p")),
                 }
             ),
-            test_json::function_call(test_json::var_name("process"), {test_json::var_name("p")})
+            test_sexp::function_call(test_sexp::var_name("process"), {test_sexp::var_name("p")})
         ),
     }
 );
@@ -399,18 +438,18 @@ constexpr auto k_struct_shorthand_input = R"(
     Point { x, y } => add(x, y)
   }
 )";
-inline auto const k_struct_shorthand_expected = test_json::match_expr(
-    test_json::var_name("point"),
+inline auto const k_struct_shorthand_expected = test_sexp::match_expr(
+    test_sexp::var_name("point"),
     {
-        test_json::match_arm(
-            test_json::struct_pattern(
-                test_json::type_name("Point"),
+        test_sexp::match_arm(
+            test_sexp::struct_pattern(
+                test_sexp::type_name("Point"),
                 {
-                    test_json::field_pattern("x", test_json::simple_pattern("x")),
-                    test_json::field_pattern("y", test_json::simple_pattern("y")),
+                    test_sexp::field_pattern("x", test_sexp::simple_pattern("x")),
+                    test_sexp::field_pattern("y", test_sexp::simple_pattern("y")),
                 }
             ),
-            test_json::function_call(test_json::var_name("add"), {test_json::var_name("x"), test_json::var_name("y")})
+            test_sexp::function_call(test_sexp::var_name("add"), {test_sexp::var_name("x"), test_sexp::var_name("y")})
         ),
     }
 );
@@ -423,28 +462,28 @@ constexpr auto k_struct_mixed_input = R"(
     Point { x: 0, y } => "on y-axis"
   }
 )";
-inline auto const k_struct_mixed_expected = test_json::match_expr(
-    test_json::var_name("point"),
+inline auto const k_struct_mixed_expected = test_sexp::match_expr(
+    test_sexp::var_name("point"),
     {
-        test_json::match_arm(
-            test_json::struct_pattern(
-                test_json::type_name("Point"),
+        test_sexp::match_arm(
+            test_sexp::struct_pattern(
+                test_sexp::type_name("Point"),
                 {
-                    test_json::field_pattern("x", test_json::simple_pattern("x")),
-                    test_json::field_pattern("y", test_json::literal_pattern(test_json::integer("0"))),
+                    test_sexp::field_pattern("x", test_sexp::simple_pattern("x")),
+                    test_sexp::field_pattern("y", test_sexp::literal_pattern(test_sexp::integer("0"))),
                 }
             ),
-            test_json::string(R"(\"on x-axis\")")
+            test_sexp::string(R"("on x-axis")")
         ),
-        test_json::match_arm(
-            test_json::struct_pattern(
-                test_json::type_name("Point"),
+        test_sexp::match_arm(
+            test_sexp::struct_pattern(
+                test_sexp::type_name("Point"),
                 {
-                    test_json::field_pattern("x", test_json::literal_pattern(test_json::integer("0"))),
-                    test_json::field_pattern("y", test_json::simple_pattern("y")),
+                    test_sexp::field_pattern("x", test_sexp::literal_pattern(test_sexp::integer("0"))),
+                    test_sexp::field_pattern("y", test_sexp::simple_pattern("y")),
                 }
             ),
-            test_json::string(R"(\"on y-axis\")")
+            test_sexp::string(R"("on y-axis")")
         ),
     }
 );
@@ -457,7 +496,19 @@ constexpr auto k_complex_guard_input = R"(
     other => "other"
   }
 )";
-inline auto const k_complex_guard_expected = "";
+inline auto const k_complex_guard_expected = test_sexp::match_expr(
+    test_sexp::var_name("n"),
+    {test_sexp::match_arm_with_guard(
+         test_sexp::simple_pattern("x"),
+         test_sexp::binary_expr(
+             "&&",
+             test_sexp::binary_expr(">", test_sexp::var_name("x"), test_sexp::var_name("zero")),
+             test_sexp::binary_expr("<", test_sexp::var_name("x"), test_sexp::var_name("ten"))
+         ),
+         test_sexp::string(R"("single")")
+     ),
+     test_sexp::match_arm(test_sexp::simple_pattern("other"), test_sexp::string(R"("other")"))}
+);
 
 // Invalid: missing arrow
 constexpr auto k_missing_arrow_should_succeed = false;
@@ -487,65 +538,119 @@ inline auto const k_missing_brace_expected = "";
 
 }  // namespace
 
-TEST_CASE("Parse Match_Expr", "[parser]") {
-  auto const params = GENERATE(
-      Catch::Generators::values<Expr_Params>({
-          // Basic patterns
-          {"simple patterns", k_simple_patterns_input, k_simple_patterns_expected, k_simple_patterns_should_succeed},
-          {"with guard", k_with_guard_input, k_with_guard_expected, k_with_guard_should_succeed},
-          {"tuple pattern", k_tuple_pattern_input, k_tuple_pattern_expected, k_tuple_pattern_should_succeed},
-          {"struct pattern", k_struct_pattern_input, k_struct_pattern_expected, k_struct_pattern_should_succeed},
-          {"struct with bindings",
-           k_struct_with_bindings_input,
-           k_struct_with_bindings_expected,
-           k_struct_with_bindings_should_succeed},
-          {"struct with wildcard",
-           k_struct_with_wildcard_input,
-           k_struct_with_wildcard_expected,
-           k_struct_with_wildcard_should_succeed},
-          {"nested struct", k_nested_struct_input, k_nested_struct_expected, k_nested_struct_should_succeed},
-          {"struct shorthand",
-           k_struct_shorthand_input,
-           k_struct_shorthand_expected,
-           k_struct_shorthand_should_succeed},
-          {"struct mixed", k_struct_mixed_input, k_struct_mixed_expected, k_struct_mixed_should_succeed},
-          {"trailing comma", k_trailing_comma_input, k_trailing_comma_expected, k_trailing_comma_should_succeed},
-          {"single arm", k_single_arm_input, k_single_arm_expected, k_single_arm_should_succeed},
-          {"nested match", k_nested_match_input, k_nested_match_expected, k_nested_match_should_succeed},
-          {"complex guard", k_complex_guard_input, k_complex_guard_expected, k_complex_guard_should_succeed},
+TEST_CASE("Parse Match_Expr") {
+  std::vector<Expr_Params> const params_list = {
+      // Basic patterns
+      {.name = "simple patterns",
+       .input = k_simple_patterns_input,
+       .expected = k_simple_patterns_expected,
+       .should_succeed = k_simple_patterns_should_succeed},
+      {.name = "with guard",
+       .input = k_with_guard_input,
+       .expected = k_with_guard_expected,
+       .should_succeed = k_with_guard_should_succeed},
+      {.name = "tuple pattern",
+       .input = k_tuple_pattern_input,
+       .expected = k_tuple_pattern_expected,
+       .should_succeed = k_tuple_pattern_should_succeed},
+      {.name = "struct pattern",
+       .input = k_struct_pattern_input,
+       .expected = k_struct_pattern_expected,
+       .should_succeed = k_struct_pattern_should_succeed},
+      {.name = "struct with bindings",
+       .input = k_struct_with_bindings_input,
+       .expected = k_struct_with_bindings_expected,
+       .should_succeed = k_struct_with_bindings_should_succeed},
+      {.name = "struct with wildcard",
+       .input = k_struct_with_wildcard_input,
+       .expected = k_struct_with_wildcard_expected,
+       .should_succeed = k_struct_with_wildcard_should_succeed},
+      {.name = "nested struct",
+       .input = k_nested_struct_input,
+       .expected = k_nested_struct_expected,
+       .should_succeed = k_nested_struct_should_succeed},
+      {.name = "struct shorthand",
+       .input = k_struct_shorthand_input,
+       .expected = k_struct_shorthand_expected,
+       .should_succeed = k_struct_shorthand_should_succeed},
+      {.name = "struct mixed",
+       .input = k_struct_mixed_input,
+       .expected = k_struct_mixed_expected,
+       .should_succeed = k_struct_mixed_should_succeed},
+      {.name = "trailing comma",
+       .input = k_trailing_comma_input,
+       .expected = k_trailing_comma_expected,
+       .should_succeed = k_trailing_comma_should_succeed},
+      {.name = "single arm",
+       .input = k_single_arm_input,
+       .expected = k_single_arm_expected,
+       .should_succeed = k_single_arm_should_succeed},
+      {.name = "nested match",
+       .input = k_nested_match_input,
+       .expected = k_nested_match_expected,
+       .should_succeed = k_nested_match_should_succeed},
+      {.name = "complex guard",
+       .input = k_complex_guard_input,
+       .expected = k_complex_guard_expected,
+       .should_succeed = k_complex_guard_should_succeed},
 
-          // Literal patterns
-          {"literal integers", k_literal_int_input, k_literal_int_expected, k_literal_int_should_succeed},
-          {"literal strings", k_literal_string_input, k_literal_string_expected, k_literal_string_should_succeed},
-          {"mixed patterns", k_mixed_patterns_input, k_mixed_patterns_expected, k_mixed_patterns_should_succeed},
-          {"literal in tuple",
-           k_literal_in_tuple_input,
-           k_literal_in_tuple_expected,
-           k_literal_in_tuple_should_succeed},
-          {"string literal with guard",
-           k_string_literal_guard_input,
-           k_string_literal_guard_expected,
-           k_string_literal_guard_should_succeed},
+      // Literal patterns
+      {.name = "literal integers",
+       .input = k_literal_int_input,
+       .expected = k_literal_int_expected,
+       .should_succeed = k_literal_int_should_succeed},
+      {.name = "literal strings",
+       .input = k_literal_string_input,
+       .expected = k_literal_string_expected,
+       .should_succeed = k_literal_string_should_succeed},
+      {.name = "mixed patterns",
+       .input = k_mixed_patterns_input,
+       .expected = k_mixed_patterns_expected,
+       .should_succeed = k_mixed_patterns_should_succeed},
+      {.name = "literal in tuple",
+       .input = k_literal_in_tuple_input,
+       .expected = k_literal_in_tuple_expected,
+       .should_succeed = k_literal_in_tuple_should_succeed},
+      {.name = "string literal with guard",
+       .input = k_string_literal_guard_input,
+       .expected = k_string_literal_guard_expected,
+       .should_succeed = k_string_literal_guard_should_succeed},
 
-          // Wildcard patterns
-          {"wildcard", k_wildcard_input, k_wildcard_expected, k_wildcard_should_succeed},
-          {"wildcard with guard", k_wildcard_guard_input, k_wildcard_guard_expected, k_wildcard_guard_should_succeed},
-          {"wildcard in tuple",
-           k_wildcard_in_tuple_input,
-           k_wildcard_in_tuple_expected,
-           k_wildcard_in_tuple_should_succeed},
-          {"multiple wildcards",
-           k_multiple_wildcards_input,
-           k_multiple_wildcards_expected,
-           k_multiple_wildcards_should_succeed},
+      // Wildcard patterns
+      {.name = "wildcard",
+       .input = k_wildcard_input,
+       .expected = k_wildcard_expected,
+       .should_succeed = k_wildcard_should_succeed},
+      {.name = "wildcard with guard",
+       .input = k_wildcard_guard_input,
+       .expected = k_wildcard_guard_expected,
+       .should_succeed = k_wildcard_guard_should_succeed},
+      {.name = "wildcard in tuple",
+       .input = k_wildcard_in_tuple_input,
+       .expected = k_wildcard_in_tuple_expected,
+       .should_succeed = k_wildcard_in_tuple_should_succeed},
+      {.name = "multiple wildcards",
+       .input = k_multiple_wildcards_input,
+       .expected = k_multiple_wildcards_expected,
+       .should_succeed = k_multiple_wildcards_should_succeed},
 
-          // Invalid cases
-          {"missing arrow", k_missing_arrow_input, k_missing_arrow_expected, k_missing_arrow_should_succeed},
-          {"missing result", k_missing_result_input, k_missing_result_expected, k_missing_result_should_succeed},
-          {"missing brace", k_missing_brace_input, k_missing_brace_expected, k_missing_brace_should_succeed},
-      })
-  );
-  DYNAMIC_SECTION(params.name) {
-    check_parse(params);
+      // Invalid cases
+      {.name = "missing arrow",
+       .input = k_missing_arrow_input,
+       .expected = k_missing_arrow_expected,
+       .should_succeed = k_missing_arrow_should_succeed},
+      {.name = "missing result",
+       .input = k_missing_result_input,
+       .expected = k_missing_result_expected,
+       .should_succeed = k_missing_result_should_succeed},
+      {.name = "missing brace",
+       .input = k_missing_brace_input,
+       .expected = k_missing_brace_expected,
+       .should_succeed = k_missing_brace_should_succeed},
+  };
+  for (auto const& params : params_list) {
+    SUBCASE(std::string(params.name).c_str()) {
+      check_parse(params);
+    }
   }
 }

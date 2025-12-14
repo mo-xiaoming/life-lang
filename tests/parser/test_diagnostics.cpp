@@ -1,4 +1,4 @@
-#include <catch2/catch_test_macros.hpp>
+#include <doctest/doctest.h>
 #include <sstream>
 
 #include "diagnostics.hpp"
@@ -10,7 +10,7 @@ using life_lang::Source_Range;
 // Source Line Retrieval Tests
 // ============================================================================
 
-TEST_CASE("Diagnostic Source Line Retrieval", "[parser][diagnostics][source]") {
+TEST_CASE("Diagnostic Source Line Retrieval") {
   std::string const source =
       "line 1\n"
       "line 2\n"
@@ -30,8 +30,8 @@ TEST_CASE("Diagnostic Source Line Retrieval", "[parser][diagnostics][source]") {
 // Range Highlighting Tests
 // ============================================================================
 
-TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]") {
-  SECTION("Single-line error with specific range") {
+TEST_CASE("Diagnostic Range Highlighting") {
+  SUBCASE("Single-line error with specific range") {
     std::string const source = "fn main() { bad_syntax }";
     Diagnostic_Engine diag("test.life", source);
 
@@ -52,7 +52,7 @@ TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]"
     CHECK(output == expected);
   }
 
-  SECTION("Single-character error") {
+  SUBCASE("Single-character error") {
     std::string const source = "x + y";
     Diagnostic_Engine diag("simple.life", source);
 
@@ -72,7 +72,7 @@ TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]"
     CHECK(output == expected);
   }
 
-  SECTION("Multi-line error range") {
+  SUBCASE("Multi-line error range") {
     std::string const source =
         "fn main() {\n"
         "    let x = very_long +\n"
@@ -103,7 +103,7 @@ TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]"
     CHECK(output == expected);
   }
 
-  SECTION("Multi(>2)-line error") {
+  SUBCASE("Multi(>2)-line error") {
     std::string const source =
         "line 1 content\n"
         "line 2 content\n"
@@ -133,7 +133,7 @@ TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]"
     CHECK(output == expected);
   }
 
-  SECTION("Error at line start") {
+  SUBCASE("Error at line start") {
     std::string const source = "invalid_token\nfn main(): I32 { return 0; }";
     Diagnostic_Engine diag("start.life", source);
 
@@ -159,7 +159,7 @@ TEST_CASE("Diagnostic Range Highlighting", "[parser][diagnostics][highlighting]"
 // Multiple Diagnostics Tests
 // ============================================================================
 
-TEST_CASE("Multiple Diagnostics", "[parser][diagnostics][multiple]") {
+TEST_CASE("Multiple Diagnostics") {
   std::string const source =
       "error1\n"
       "error2\n"
@@ -199,8 +199,8 @@ TEST_CASE("Multiple Diagnostics", "[parser][diagnostics][multiple]") {
 // Diagnostic State Tests
 // ============================================================================
 
-TEST_CASE("Diagnostic State Management", "[parser][diagnostics][state]") {
-  SECTION("Empty diagnostic engine has no errors") {
+TEST_CASE("Diagnostic State Management") {
+  SUBCASE("Empty diagnostic engine has no errors") {
     std::string const source = "some source code";
     Diagnostic_Engine const diag("test.life", source);
 
@@ -208,7 +208,7 @@ TEST_CASE("Diagnostic State Management", "[parser][diagnostics][state]") {
     CHECK(diag.diagnostics().empty());
   }
 
-  SECTION("Adding error sets has_errors") {
+  SUBCASE("Adding error sets has_errors") {
     std::string const source = "some source code";
     Diagnostic_Engine diag("test.life", source);
 
@@ -218,7 +218,7 @@ TEST_CASE("Diagnostic State Management", "[parser][diagnostics][state]") {
     CHECK(diag.diagnostics().size() == 1);
   }
 
-  SECTION("Adding warning does not set has_errors") {
+  SUBCASE("Adding warning does not set has_errors") {
     std::string const source = "some source code";
     Diagnostic_Engine diag("test.life", source);
 
@@ -228,14 +228,14 @@ TEST_CASE("Diagnostic State Management", "[parser][diagnostics][state]") {
     CHECK(diag.diagnostics().size() == 1);
   }
 
-  SECTION("Filename stored correctly") {
+  SUBCASE("Filename stored correctly") {
     std::string const source = "source";
     Diagnostic_Engine const diag("custom.life", source);
 
     CHECK(diag.filename() == "custom.life");
   }
 
-  SECTION("Anonymous filename") {
+  SUBCASE("Anonymous filename") {
     std::string const source = "source";
     Diagnostic_Engine const diag("<input>", source);
 
