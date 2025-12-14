@@ -1,18 +1,17 @@
 #include "internal_rules.hpp"
 
-#include <catch2/catch_test_macros.hpp>
+#include <doctest/doctest.h>
 
 namespace {
 
-auto parse_trait(std::string const& a_input) {
-  auto begin = a_input.cbegin();
-  return life_lang::internal::parse_trait_def(begin, a_input.cend());
+auto parse_trait(std::string const& a_input_) {
+  return life_lang::internal::parse_trait_def(a_input_);
 }
 
 }  // namespace
 
-TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
-  SECTION("empty trait") {
+TEST_CASE("Parse Trait_Definition - success cases") {
+  SUBCASE("empty trait") {
     auto const* input = R"(trait Marker {})";
     auto const result = parse_trait(input);
     REQUIRE(result);
@@ -20,7 +19,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->methods.empty());
   }
 
-  SECTION("trait with single method") {
+  SUBCASE("trait with single method") {
     auto const* input = R"(trait Display { fn to_string(self): String; })";
     auto const result = parse_trait(input);
     REQUIRE(result);
@@ -29,7 +28,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->methods[0].name == "to_string");
   }
 
-  SECTION("generic trait") {
+  SUBCASE("generic trait") {
     auto const* input = R"(trait Iterator<T> { fn next(mut self): Option<T>; })";
     auto const result = parse_trait(input);
     REQUIRE(result);
@@ -38,7 +37,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->methods.size() == 1);
   }
 
-  SECTION("trait with multiple methods") {
+  SUBCASE("trait with multiple methods") {
     auto const* input = R"(
       trait Comparable {
         fn compare(self, other: Self): Ordering;
@@ -51,7 +50,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->methods.size() == 2);
   }
 
-  SECTION("trait with multiple type parameters") {
+  SUBCASE("trait with multiple type parameters") {
     auto const* input = R"(
       trait Map<K, V> {
         fn get(self, key: K): Option<V>;
@@ -63,7 +62,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->type_params.size() == 2);
   }
 
-  SECTION("trait with single associated type") {
+  SUBCASE("trait with single associated type") {
     auto const* input = R"(
       trait Iterator {
         type Item;
@@ -79,7 +78,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->methods.size() == 1);
   }
 
-  SECTION("trait with associated type with single bound") {
+  SUBCASE("trait with associated type with single bound") {
     auto const* input = R"(
       trait Container {
         type Item: Display;
@@ -95,7 +94,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->methods.size() == 1);
   }
 
-  SECTION("trait with associated type with multiple bounds") {
+  SUBCASE("trait with associated type with multiple bounds") {
     auto const* input = R"(
       trait Collection {
         type Item: Clone + Display + Debug;
@@ -111,7 +110,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->methods.size() == 1);
   }
 
-  SECTION("trait with multiple associated types") {
+  SUBCASE("trait with multiple associated types") {
     auto const* input = R"(
       trait Graph {
         type Node;
@@ -131,7 +130,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->methods.size() == 2);
   }
 
-  SECTION("trait with only associated types, no methods") {
+  SUBCASE("trait with only associated types, no methods") {
     auto const* input = R"(
       trait Types {
         type Input;
@@ -145,7 +144,7 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
     CHECK(result->methods.empty());
   }
 
-  SECTION("generic trait with associated type") {
+  SUBCASE("generic trait with associated type") {
     auto const* input = R"(
       trait Transformer<T> {
         type Output;
@@ -162,39 +161,19 @@ TEST_CASE("Parse Trait_Definition - success cases", "[parser]") {
   }
 }
 
-TEST_CASE("Parse Trait_Definition - failure cases", "[parser]") {
-  SECTION("missing semicolon after method") {
+TEST_CASE("Parse Trait_Definition - failure cases") {
+  SUBCASE("missing semicolon after method") {
     auto const* input = R"(trait Display { fn to_string(self): String })";
     auto const result = parse_trait(input);
     CHECK_FALSE(result);
   }
 
-  SECTION("snake_case trait name") {
-    auto const* input = R"(trait display_trait { fn show(self): Unit; })";
-    auto const result = parse_trait(input);
-    CHECK_FALSE(result);
-  }
+  // NOTE: Naming convention tests removed - parser accepts any identifier
+  // Naming convention enforcement is deferred to semantic analysis phase
+  // Tests for snake_case/lowercase trait names and associated type names were here
 
-  SECTION("lowercase trait name") {
-    auto const* input = R"(trait display { fn show(self): Unit; })";
-    auto const result = parse_trait(input);
-    CHECK_FALSE(result);
-  }
-
-  SECTION("missing semicolon after associated type") {
+  SUBCASE("missing semicolon after associated type") {
     auto const* input = R"(trait Iterator { type Item fn next(mut self): Option<Item>; })";
-    auto const result = parse_trait(input);
-    CHECK_FALSE(result);
-  }
-
-  SECTION("snake_case associated type name") {
-    auto const* input = R"(trait Container { type item_type; fn len(self): I32; })";
-    auto const result = parse_trait(input);
-    CHECK_FALSE(result);
-  }
-
-  SECTION("lowercase associated type name") {
-    auto const* input = R"(trait Container { type item; fn len(self): I32; })";
     auto const result = parse_trait(input);
     CHECK_FALSE(result);
   }

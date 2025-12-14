@@ -1,18 +1,17 @@
 #include "internal_rules.hpp"
 
-#include <catch2/catch_test_macros.hpp>
+#include <doctest/doctest.h>
 
 namespace {
 
-auto parse_trait_impl(std::string const& a_input) {
-  auto begin = a_input.cbegin();
-  return life_lang::internal::parse_trait_impl(begin, a_input.cend());
+auto parse_trait_impl(std::string const& input_) {
+  return life_lang::internal::parse_trait_impl(input_);
 }
 
 }  // namespace
 
-TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
-  SECTION("basic impl") {
+TEST_CASE("Parse Trait_Impl - success cases") {
+  SUBCASE("basic impl") {
     auto const* input = R"(
       impl Display for Point {
         fn to_string(self): String {
@@ -27,7 +26,7 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     CHECK(result->methods.size() == 1);
   }
 
-  SECTION("generic impl") {
+  SUBCASE("generic impl") {
     auto const* input = R"(
       impl<T> Iterator<T> for Array<T> {
         fn next(mut self): Option<T> {
@@ -41,7 +40,7 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     CHECK(result->methods.size() == 1);
   }
 
-  SECTION("impl with multiple methods") {
+  SUBCASE("impl with multiple methods") {
     auto const* input = R"(
       impl Comparable for I32 {
         fn compare(self, other: I32): Ordering {
@@ -57,14 +56,14 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     CHECK(result->methods.size() == 2);
   }
 
-  SECTION("empty impl") {
+  SUBCASE("empty impl") {
     auto const* input = R"(impl Marker for Unit {})";
     auto const result = parse_trait_impl(input);
     REQUIRE(result);
     CHECK(result->methods.empty());
   }
 
-  SECTION("impl with single associated type") {
+  SUBCASE("impl with single associated type") {
     auto const* input = R"(
       impl Iterator for Vec {
         type Item = I32;
@@ -83,7 +82,7 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     CHECK(result->methods.size() == 1);
   }
 
-  SECTION("impl with multiple associated types") {
+  SUBCASE("impl with multiple associated types") {
     auto const* input = R"(
       impl Graph for Network {
         type Node = Vertex;
@@ -102,7 +101,7 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     CHECK(result->methods.size() == 2);
   }
 
-  SECTION("generic impl with associated type using type parameter") {
+  SUBCASE("generic impl with associated type using type parameter") {
     auto const* input = R"(
       impl<T> Iterator for Array<T> {
         type Item = T;
@@ -120,7 +119,7 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     CHECK(result->methods.size() == 1);
   }
 
-  SECTION("impl with complex associated type") {
+  SUBCASE("impl with complex associated type") {
     auto const* input = R"(
       impl<T> Transformer for Converter<T> {
         type Output = Vec<T>;
@@ -137,7 +136,7 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
     CHECK(result->assoc_type_impls[0].type_value.segments().front().type_params.size() == 1);
   }
 
-  SECTION("impl with only associated types, no methods") {
+  SUBCASE("impl with only associated types, no methods") {
     auto const* input = R"(
       impl Types for Container {
         type Item = String;
@@ -151,8 +150,8 @@ TEST_CASE("Parse Trait_Impl - success cases", "[parser]") {
   }
 }
 
-TEST_CASE("Parse Trait_Impl - failure cases", "[parser]") {
-  SECTION("missing for keyword") {
+TEST_CASE("Parse Trait_Impl - failure cases") {
+  SUBCASE("missing for keyword") {
     auto const* input = R"(
       impl Display Point {
         fn to_string(self): String {
@@ -164,7 +163,7 @@ TEST_CASE("Parse Trait_Impl - failure cases", "[parser]") {
     CHECK_FALSE(result);
   }
 
-  SECTION("impl without trait name") {
+  SUBCASE("impl without trait name") {
     auto const* input = R"(
       impl for Point {
         fn test(): Unit { }
@@ -174,7 +173,7 @@ TEST_CASE("Parse Trait_Impl - failure cases", "[parser]") {
     CHECK_FALSE(result);
   }
 
-  SECTION("missing semicolon after associated type") {
+  SUBCASE("missing semicolon after associated type") {
     auto const* input = R"(
       impl Iterator for Vec {
         type Item = I32
@@ -185,18 +184,11 @@ TEST_CASE("Parse Trait_Impl - failure cases", "[parser]") {
     CHECK_FALSE(result);
   }
 
-  SECTION("snake_case associated type name in impl") {
-    auto const* input = R"(
-      impl Iterator for Vec {
-        type item = I32;
-        fn next(mut self): Option<Item> { }
-      }
-    )";
-    auto const result = parse_trait_impl(input);
-    CHECK_FALSE(result);
-  }
+  // NOTE: Naming convention test removed - parser accepts any identifier
+  // Naming convention enforcement is deferred to semantic analysis phase
+  // Test for snake_case associated type name in impl was here
 
-  SECTION("missing equals in associated type impl") {
+  SUBCASE("missing equals in associated type impl") {
     auto const* input = R"(
       impl Iterator for Vec {
         type Item I32;

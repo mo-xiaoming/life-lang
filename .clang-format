@@ -1,4 +1,5 @@
 BasedOnStyle: Chromium
+AccessModifierOffset: -2
 QualifierAlignment: Right
 ColumnLimit: 120
 AlignAfterOpenBracket: BlockIndent

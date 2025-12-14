@@ -20,6 +20,7 @@ Checks: >
   -misc-no-recursion,
   -misc-include-cleaner,
   -bugprone-chained-comparison,
+  -misc-non-private-member-variables-in-classes,
   -clang-analyzer-cplusplus.NewDelete
 HeaderFilterRegex: '(src|tests)/.*\.(hpp|cpp)$'
 CheckOptions:
@@ -33,8 +34,8 @@ CheckOptions:
     value: Camel_Snake_Case
   - key: readability-identifier-naming.PrivateMemberPrefix
     value: m_
-  - key: readability-identifier-naming.ParameterPrefix
-    value: a_
+  - key: readability-identifier-naming.ParameterSuffix
+    value: _
   - key: readability-identifier-naming.FunctionCase
     value: lower_case
   - key: readability-identifier-naming.VariableCase

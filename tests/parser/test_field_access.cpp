@@ -26,7 +26,7 @@ constexpr auto k_chained_two_levels_input = "p.x.y";
 constexpr auto k_chained_three_levels_should_succeed = true;
 constexpr auto k_chained_three_levels_input = "obj.inner.data.value";
 
-constexpr auto k_with_trailing_content_should_succeed = true;
+constexpr auto k_with_trailing_content_should_succeed = false;  // New parser requires full consumption
 constexpr auto k_with_trailing_content_input = "p.x other";
 
 constexpr auto k_struct_literal_access_should_succeed = true;
@@ -54,45 +54,59 @@ constexpr auto k_invalid_empty_input = "";
 // Paths can have uppercase segments (like Std.String), so this is expected behavior
 }  // namespace
 
-TEST_CASE("Parse Field Access", "[parser]") {
-  auto const test = GENERATE(
-      Catch::Generators::values<Test_Case>({
-          // Valid cases - just verify they parse successfully
-          {"simple path access", k_simple_path_access_input, k_simple_path_access_should_succeed},
-          {"variable_name access", k_var_name_access_input, k_var_name_access_should_succeed},
-          {"chained two levels", k_chained_two_levels_input, k_chained_two_levels_should_succeed},
-          {"chained three levels", k_chained_three_levels_input, k_chained_three_levels_should_succeed},
-          {"with trailing content", k_with_trailing_content_input, k_with_trailing_content_should_succeed},
-          {"struct literal access", k_struct_literal_access_input, k_struct_literal_access_should_succeed},
+TEST_CASE("Parse Field Access") {
+  std::vector<Test_Case> const test_list = {
+      // Valid cases - just verify they parse successfully
+      {.name = "simple path access",
+       .input = k_simple_path_access_input,
+       .should_succeed = k_simple_path_access_should_succeed},
+      {.name = "variable_name access",
+       .input = k_var_name_access_input,
+       .should_succeed = k_var_name_access_should_succeed},
+      {.name = "chained two levels",
+       .input = k_chained_two_levels_input,
+       .should_succeed = k_chained_two_levels_should_succeed},
+      {.name = "chained three levels",
+       .input = k_chained_three_levels_input,
+       .should_succeed = k_chained_three_levels_should_succeed},
+      {.name = "with trailing content",
+       .input = k_with_trailing_content_input,
+       .should_succeed = k_with_trailing_content_should_succeed},
+      {.name = "struct literal access",
+       .input = k_struct_literal_access_input,
+       .should_succeed = k_struct_literal_access_should_succeed},
 
-          // Plain expressions (not field access)
-          {"not field access - just path", k_not_field_access_path_input, k_not_field_access_path_should_succeed},
-          {"not field access - just integer",
-           k_not_field_access_integer_input,
-           k_not_field_access_integer_should_succeed},
-          {"not field access - range expression",
-           k_valid_range_not_field_access_input,
-           k_valid_range_not_field_access_should_succeed},
+      // Plain expressions (not field access)
+      {.name = "not field access - just path",
+       .input = k_not_field_access_path_input,
+       .should_succeed = k_not_field_access_path_should_succeed},
+      {.name = "not field access - just integer",
+       .input = k_not_field_access_integer_input,
+       .should_succeed = k_not_field_access_integer_should_succeed},
+      {.name = "not field access - range expression",
+       .input = k_valid_range_not_field_access_input,
+       .should_succeed = k_valid_range_not_field_access_should_succeed},
 
-          // Invalid cases
-          {"invalid - missing field name after dot",
-           k_invalid_missing_field_name_input,
-           k_invalid_missing_field_name_should_succeed},
-          {"invalid - empty", k_invalid_empty_input, k_invalid_empty_should_succeed},
-      })
-  );
+      // Invalid cases
+      {.name = "invalid - missing field name after dot",
+       .input = k_invalid_missing_field_name_input,
+       .should_succeed = k_invalid_missing_field_name_should_succeed},
+      {.name = "invalid - empty", .input = k_invalid_empty_input, .should_succeed = k_invalid_empty_should_succeed},
+  };
+  for (auto const& test : test_list) {
+    SUBCASE(std::string(test.name).c_str()) {
+      // For field access tests, we skip the JSON comparison since constructing expected values is complex
+      // Just verify parse succeeds/fails correctly and rest is correct
+      auto const got = life_lang::internal::parse_expr(test.input);
 
-  DYNAMIC_SECTION(test.name) {
-    // For field access tests, we skip the JSON comparison since constructing expected values is complex
-    // Just verify parse succeeds/fails correctly and rest is correct
-    auto input_start = test.input.cbegin();
-    auto const input_end = test.input.cend();
-    auto const got = life_lang::internal::parse_expr(input_start, input_end);
+      CHECK(test.should_succeed == bool(got));
 
-    CHECK(test.should_succeed == bool(got));
-
-    if (!test.should_succeed && !got) {
-      INFO("Error (expected): " << got.error().diagnostics().front().message);
+      if (!test.should_succeed && !got) {
+        // Only access diagnostics if they exist (new parser may not always generate them)
+        if (!got.error().diagnostics().empty()) {
+          INFO("Error (expected): " << got.error().diagnostics().front().message);
+        }
+      }
     }
   }
 }

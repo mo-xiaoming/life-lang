@@ -6,14 +6,12 @@
 // When updating README.md example, update this test file accordingly.
 // When this test fails, it means we need to add parser support for the README example.
 
-#include <catch2/catch_test_macros.hpp>
+#include <doctest/doctest.h>
 #include <iostream>
 
-#include "rules.hpp"
+#include "parser.hpp"
 
-using life_lang::parser::parse_module;
-
-TEST_CASE("Parse README example code", "[integration][readme]") {
+TEST_CASE("Parse README example code") {
   // *** EXACT COPY FROM README.md - DO NOT MODIFY WITHOUT UPDATING README ***
   auto const* const k_readme_example = R"life_code(
 // Generic Result type with struct variants
@@ -79,12 +77,13 @@ fn main(args: Array<String>): I32 {
 }
 )life_code";
 
-  auto const result = parse_module(k_readme_example, "readme_example.life");
+  life_lang::parser::Parser parser{k_readme_example, "readme_example.life"};
+  auto const result = parser.parse_module();
 
   // If parsing fails, print diagnostics for debugging
   if (!result) {
     INFO("Parse failed with diagnostics:");
-    result.error().print(std::cerr);
+    std::move(parser).get_diagnostics().print(std::cerr);
   }
 
   // Verify successful parse

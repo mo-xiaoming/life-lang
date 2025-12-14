@@ -12,16 +12,16 @@ namespace life_lang {
 
 // Position in source code
 struct Source_Position {
-  std::size_t line{1};    // NOLINT(misc-non-private-member-variables-in-classes)
-  std::size_t column{1};  // NOLINT(misc-non-private-member-variables-in-classes)
+  std::size_t line{1};
+  std::size_t column{1};
 
   [[nodiscard]] auto operator<=>(Source_Position const&) const = default;
 };
 
 // Source range for highlighting
 struct Source_Range {
-  Source_Position start{};  // NOLINT(misc-non-private-member-variables-in-classes)
-  Source_Position end{};    // NOLINT(misc-non-private-member-variables-in-classes) - Exclusive
+  Source_Position start{};
+  Source_Position end{};
 
   [[nodiscard]] bool is_single_line() const { return start.line == end.line; }
   [[nodiscard]] std::size_t line_count() const { return end.line - start.line + 1; }
@@ -42,31 +42,29 @@ struct Diagnostic {
 
 // Collection of diagnostics with source text access
 class Diagnostic_Engine {
- public:
-  explicit Diagnostic_Engine(std::string a_filename = "<input>", std::string a_source = "")
-      : m_filename(std::move(a_filename)), m_source(std::move(a_source)) {
+public:
+  explicit Diagnostic_Engine(std::string filename_ = "<input>", std::string source_ = "")
+      : m_filename(std::move(filename_)), m_source(std::move(source_)) {
     // Pre-compute line offsets for fast line lookup
     build_line_index();
   }
 
   // Add a diagnostic
-  void add_error(Source_Range a_range, std::string a_message) {
+  void add_error(Source_Range range_, std::string message_) {
     m_diagnostics.push_back(
-        Diagnostic{.level = Diagnostic_Level::Error, .range = a_range, .message = std::move(a_message), .notes = {}}
+        Diagnostic{.level = Diagnostic_Level::Error, .range = range_, .message = std::move(message_), .notes = {}}
     );
   }
 
-  void add_warning(Source_Range a_range, std::string a_message) {
+  void add_warning(Source_Range range_, std::string message_) {
     m_diagnostics.push_back(
-        Diagnostic{.level = Diagnostic_Level::Warning, .range = a_range, .message = std::move(a_message), .notes = {}}
+        Diagnostic{.level = Diagnostic_Level::Warning, .range = range_, .message = std::move(message_), .notes = {}}
     );
   }
 
   // Check if any errors were reported
   [[nodiscard]] bool has_errors() const {
-    return std::ranges::any_of(m_diagnostics, [](auto const& a_diag) {
-      return a_diag.level == Diagnostic_Level::Error;
-    });
+    return std::ranges::any_of(m_diagnostics, [](auto const& diag_) { return diag_.level == Diagnostic_Level::Error; });
   }
 
   [[nodiscard]] std::vector<Diagnostic> const& diagnostics() const { return m_diagnostics; }
@@ -74,12 +72,12 @@ class Diagnostic_Engine {
   [[nodiscard]] std::string const& source() const { return m_source; }
 
   // Get source line by line number (1-indexed)
-  [[nodiscard]] std::string_view get_line(std::size_t a_line_number) const {
-    if (a_line_number == 0 || a_line_number > m_line_offsets.size()) {
+  [[nodiscard]] std::string_view get_line(std::size_t line_number_) const {
+    if (line_number_ == 0 || line_number_ > m_line_offsets.size()) {
       return "";
     }
-    std::size_t const start = m_line_offsets[a_line_number - 1];
-    std::size_t const end = (a_line_number < m_line_offsets.size()) ? m_line_offsets[a_line_number] : m_source.size();
+    std::size_t const start = m_line_offsets[line_number_ - 1];
+    std::size_t const end = (line_number_ < m_line_offsets.size()) ? m_line_offsets[line_number_] : m_source.size();
 
     // Trim trailing newline if present
     std::size_t length = end - start;
@@ -90,14 +88,14 @@ class Diagnostic_Engine {
   }
 
   // Format all diagnostics in clang style
-  void print(std::ostream& a_out) const;
+  void print(std::ostream& out_) const;
 
-  friend std::ostream& operator<<(std::ostream& a_out, Diagnostic_Engine const& a_engine) {
-    a_engine.print(a_out);
-    return a_out;
+  friend std::ostream& operator<<(std::ostream& out_, Diagnostic_Engine const& engine_) {
+    engine_.print(out_);
+    return out_;
   }
 
- private:
+private:
   std::string m_filename;
   std::string m_source;
   std::vector<Diagnostic> m_diagnostics;
@@ -125,7 +123,7 @@ class Diagnostic_Engine {
   }
 
   // Print single diagnostic
-  void print_diagnostic(std::ostream& a_out, Diagnostic const& a_diag) const;
+  void print_diagnostic(std::ostream& out_, Diagnostic const& diag_) const;
 };
 
 }  // namespace life_lang

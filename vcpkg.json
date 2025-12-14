@@ -1,9 +1,5 @@
 {
   "dependencies": [
-    "boost-spirit",
-    "fmt",
-    "catch2",
-    "nlohmann-json",
-    "tl-expected"
+    "doctest"
   ]
 }
