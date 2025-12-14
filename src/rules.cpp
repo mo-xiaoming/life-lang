@@ -50,11 +50,14 @@
 // ============================================================================
 //
 // type_name ::= <function_type>
+//             | <tuple_type>
 //             | <path_type>
 //
 // path_type ::= <type_name_segment> {'.' <type_name_segment>}
 //
 // type_name_segment ::= <Camel_Snake_Case> ['<' <type_name> {, <type_name>} '>']
+//
+// tuple_type ::= '(' [<type_name> {, <type_name>}] ')'
 //
 // function_type ::= 'fn' '(' [<type_name> {, <type_name>}] ')' [':' <type_name>]
 //
@@ -415,10 +418,12 @@ BOOST_SPIRIT_INSTANTIATE(decltype(k_segment_name), Iterator_Type, Context_Type)
 struct Type_Name_Tag : x3::annotate_on_success, Error_Handler {};
 struct Path_Type_Tag : x3::annotate_on_success, Error_Handler {};
 struct Function_Type_Tag : x3::annotate_on_success, Error_Handler {};
+struct Tuple_Type_Tag : x3::annotate_on_success, Error_Handler {};
 struct Type_Name_Segment_Tag : x3::annotate_on_success, Error_Handler {};
 x3::rule<Type_Name_Tag, ast::Type_Name> const k_type_name_rule = "type name";
 x3::rule<Path_Type_Tag, ast::Path_Type> const k_path_type_rule = "path type";
 x3::rule<Function_Type_Tag, ast::Function_Type> const k_function_type_rule = "function type";
+x3::rule<Tuple_Type_Tag, ast::Tuple_Type> const k_tuple_type_rule = "tuple type";
 x3::rule<Type_Name_Segment_Tag, ast::Type_Name_Segment> const k_type_name_segment_rule = "type name segment";
 
 // Parse type arguments: angle-bracketed comma-separated type names (for type instantiation)
@@ -586,9 +591,20 @@ auto const k_function_type_rule_def =
 BOOST_SPIRIT_DEFINE(k_function_type_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_function_type_rule), Iterator_Type, Context_Type)
 
+// === Tuple Type Rules ===
+// Examples: (I32, String), (I32, I32, I32), () for unit type
+// Note: () as a type represents a zero-element tuple (unit type)
+auto const k_tuple_type_rule_def = ('(' >> -(k_type_name_rule % ',') >> ')')[([](auto& a_ctx) {
+  auto& opt_types = x3::_attr(a_ctx);
+  x3::_val(a_ctx) = ast::make_tuple_type(unwrap_optional_vector(opt_types));
+})];
+BOOST_SPIRIT_DEFINE(k_tuple_type_rule)
+BOOST_SPIRIT_INSTANTIATE(decltype(k_tuple_type_rule), Iterator_Type, Context_Type)
+
 // === Type Name Rules (Variant) ===
-// Type_Name is a variant that can be either Path_Type or Function_Type
-auto const k_type_name_rule_def = k_function_type_rule | k_path_type_rule;
+// Type_Name is a variant that can be either Path_Type, Tuple_Type, or Function_Type
+// Order: function type first (has 'fn' keyword), then tuple (has '('), then path (identifier)
+auto const k_type_name_rule_def = k_function_type_rule | k_tuple_type_rule | k_path_type_rule;
 BOOST_SPIRIT_DEFINE(k_type_name_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_type_name_rule), Iterator_Type, Context_Type)
 
@@ -1588,15 +1604,16 @@ auto const k_enum_pattern_rule_def = (k_type_name_rule >> -('(' > (k_pattern_rul
 BOOST_SPIRIT_DEFINE(k_enum_pattern_rule)
 BOOST_SPIRIT_INSTANTIATE(decltype(k_enum_pattern_rule), Iterator_Type, Context_Type)
 
-// Pattern: try in order - struct, enum, tuple, wildcard, literal, simple
+// Pattern: try in order - struct, tuple, enum, wildcard, literal, simple
 // Order matters:
 //   - struct before enum (both start with type_name, struct has '{')
+//   - tuple before enum (both start with '(', but tuple is for pattern not enum variant)
 //   - enum before simple (enum can be just type_name, but takes precedence)
 //   - literals before simple (to match numbers)
 auto const k_pattern_rule_def =
     (k_struct_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
-    (k_enum_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
     (k_tuple_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
+    (k_enum_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
     (k_wildcard_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
     (k_literal_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]) |
     (k_simple_pattern_rule[([](auto& a_ctx) { x3::_val(a_ctx) = ast::make_pattern(std::move(x3::_attr(a_ctx))); })]);
@@ -2207,6 +2224,7 @@ PARSE_FN_IMPL(Enum_Def, enum_def)            // NOLINT(misc-use-internal-linkage
 PARSE_FN_IMPL(Impl_Block, impl_block)        // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Trait_Def, trait_def)          // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Trait_Impl, trait_impl)        // NOLINT(misc-use-internal-linkage)
+PARSE_FN_IMPL(Tuple_Type, tuple_type)        // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Type_Alias, type_alias)        // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Statement, statement)          // NOLINT(misc-use-internal-linkage)
 PARSE_FN_IMPL(Block, block)                  // NOLINT(misc-use-internal-linkage)

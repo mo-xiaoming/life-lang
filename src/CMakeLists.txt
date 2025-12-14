@@ -6,7 +6,7 @@ configure_file(
 )
 
 # Library with public headers
-add_library(life-lang rules.cpp diagnostics.cpp)
+add_library(life-lang rules.cpp diagnostics.cpp symbol_table.cpp semantic_analyzer.cpp)
 target_sources(life-lang
   PUBLIC FILE_SET HEADERS
   BASE_DIRS
@@ -16,6 +16,8 @@ target_sources(life-lang
     ast.hpp
     rules.hpp
     diagnostics.hpp
+    symbol_table.hpp
+    semantic_analyzer.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/version.hpp
 )
 target_link_libraries(life-lang

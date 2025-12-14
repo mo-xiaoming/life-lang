@@ -7,6 +7,10 @@ add_executable(tests)
 
 target_sources(tests
     PRIVATE
+        # Semantic analysis tests
+        semantic/test_symbol_table.cpp
+    semantic/test_declaration_collection.cpp
+        
         # Unit tests - test semantic boundaries only (11 exposed rules)
         parser/test_assignment.cpp
         parser/test_binary_expr.cpp
@@ -57,4 +61,5 @@ target_link_libraries(tests
         fmt::fmt
 )
 
+# Reuse precompiled headers from life-lang library
 catch_discover_tests(tests)

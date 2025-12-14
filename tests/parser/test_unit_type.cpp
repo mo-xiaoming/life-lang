@@ -10,11 +10,35 @@ namespace {
 // Function with unit return type
 constexpr auto k_unit_return_should_succeed = true;
 constexpr auto k_unit_return_input = "fn test(): () { return (); }";
-inline auto const k_unit_return_expected = test_json::func_def(
-    test_json::func_decl("test", {}, {}, test_json::type_name("()")),
-    test_json::block({test_json::return_statement(R"({"Unit_Literal": {}})")})
-);
-
+inline auto const k_unit_return_expected = R"({
+  "Func_Def": {
+    "decl": {
+      "Func_Decl": {
+        "name": "test",
+        "type_params": [],
+        "params": [],
+        "return_type": {
+          "Tuple_Type": {
+            "element_types": []
+          }
+        }
+      }
+    },
+    "body": {
+      "Block": {
+        "statements": [
+          {
+            "Return_Statement": {
+              "expr": {
+                "Unit_Literal": {}
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+})";
 }  // namespace
 
 TEST_CASE("Parse Unit Type", "[parser]") {

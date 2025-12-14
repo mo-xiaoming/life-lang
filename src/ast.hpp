@@ -19,6 +19,7 @@ namespace life_lang::ast {
 struct Type_Name_Segment;
 struct Type_Name;
 struct Function_Type;
+struct Tuple_Type;
 struct Trait_Bound;
 struct Type_Param;
 struct Where_Predicate;
@@ -51,6 +52,13 @@ struct Let_Statement;
 // Type Name System (for type annotations)
 // ============================================================================
 
+// Tuple type: (T, U, V)
+// Examples: (I32, String), (I32, I32, I32), () for unit type
+struct Tuple_Type : boost::spirit::x3::position_tagged {
+  static constexpr std::string_view k_name = "Tuple_Type";
+  std::vector<boost::spirit::x3::forward_ast<Type_Name>> element_types;  // Element types
+};
+
 // Function type: fn(T, U): R
 // Examples: fn(I32): Bool, fn(String, I32): Result<T, E>
 struct Function_Type : boost::spirit::x3::position_tagged {
@@ -66,11 +74,12 @@ struct Path_Type : boost::spirit::x3::position_tagged {
   std::vector<Type_Name_Segment> segments;
 };
 
-// Type name: either a path-based type or a function type
-// Examples: I32, Vec<T>, Std.String, fn(I32): Bool
-struct Type_Name : boost::spirit::x3::variant<Path_Type, Function_Type>, boost::spirit::x3::position_tagged {
+// Type name: either a path-based type, tuple type, or a function type
+// Examples: I32, Vec<T>, Std.String, (I32, String), fn(I32): Bool
+struct Type_Name : boost::spirit::x3::variant<Path_Type, Tuple_Type, Function_Type>,
+                   boost::spirit::x3::position_tagged {
   static constexpr std::string_view k_name = "Type_Name";
-  using Base_Type = boost::spirit::x3::variant<Path_Type, Function_Type>;
+  using Base_Type = boost::spirit::x3::variant<Path_Type, Tuple_Type, Function_Type>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 
@@ -805,8 +814,6 @@ inline Path_Type make_path_type(Args&&... a_args) {
   } else {
     std::vector<Type_Name_Segment> segments;
     segments.reserve(sizeof...(a_args));
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    // Intentional: Template accepts string literals for ergonomic API
     (
         [&] {
           if constexpr (std::same_as<std::remove_cvref_t<Args>, Type_Name_Segment>) {
@@ -817,7 +824,6 @@ inline Path_Type make_path_type(Args&&... a_args) {
         }(),
         ...
     );
-    // NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     return Path_Type{{}, std::move(segments)};
   }
 }
@@ -858,13 +864,22 @@ inline Type_Name make_type_name(Args&&... a_args) {
 
 // Function_Type helpers
 inline Function_Type make_function_type(std::vector<Type_Name> a_param_types, Type_Name&& a_return_type) {
-  // Convert Type_Name vector to forward_ast vector
   std::vector<boost::spirit::x3::forward_ast<Type_Name>> param_types;
   param_types.reserve(a_param_types.size());
   for (auto& param : a_param_types) {
     param_types.emplace_back(std::move(param));
   }
   return Function_Type{{}, std::move(param_types), std::move(a_return_type)};
+}
+
+// Tuple_Type helpers
+inline Tuple_Type make_tuple_type(std::vector<Type_Name> a_element_types) {
+  std::vector<boost::spirit::x3::forward_ast<Type_Name>> element_types;
+  element_types.reserve(a_element_types.size());
+  for (auto& elem : a_element_types) {
+    element_types.emplace_back(std::move(elem));
+  }
+  return Tuple_Type{{}, std::move(element_types)};
 }
 
 // Var_Name helpers
@@ -1342,6 +1357,7 @@ inline Module make_module(std::vector<Statement>&& a_statements) {
 void to_json(nlohmann::json& a_json, Type_Name_Segment const& a_segment);
 void to_json(nlohmann::json& a_json, Path_Type const& a_path_type);
 void to_json(nlohmann::json& a_json, Function_Type const& a_func_type);
+void to_json(nlohmann::json& a_json, Tuple_Type const& a_tuple_type);
 void to_json(nlohmann::json& a_json, Trait_Bound const& a_bound);
 void to_json(nlohmann::json& a_json, Type_Param const& a_param);
 void to_json(nlohmann::json& a_json, Where_Predicate const& a_predicate);
@@ -1473,6 +1489,22 @@ inline void to_json(nlohmann::json& a_json, Function_Type const& a_func_type) {
   obj["return_type"] = return_type_json;
 
   a_json[Function_Type::k_name] = obj;
+}
+
+// Tuple_Type serialization
+inline void to_json(nlohmann::json& a_json, Tuple_Type const& a_tuple_type) {
+  nlohmann::json obj;
+
+  // Element types
+  nlohmann::json element_types = nlohmann::json::array();
+  for (auto const& element_type : a_tuple_type.element_types) {
+    nlohmann::json element_json;
+    to_json(element_json, element_type.get());
+    element_types.push_back(element_json);
+  }
+  obj["element_types"] = element_types;
+
+  a_json[Tuple_Type::k_name] = obj;
 }
 
 // Type_Name serialization (variant)

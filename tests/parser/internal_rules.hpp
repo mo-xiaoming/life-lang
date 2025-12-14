@@ -37,6 +37,7 @@ PARSE_FN_DECL(Block, block);
 PARSE_FN_DECL(Expr, expr);
 
 // Type references
+PARSE_FN_DECL(Tuple_Type, tuple_type);
 PARSE_FN_DECL(Type_Name, type_name);
 PARSE_FN_DECL(Function_Type, function_type);
 

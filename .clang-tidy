@@ -20,7 +20,13 @@ Checks: >
   -misc-no-recursion,
   -misc-include-cleaner,
   -bugprone-chained-comparison,
-  -clang-analyzer-cplusplus.NewDelete
+  -clang-analyzer-cplusplus.NewDelete,
+  -cppcoreguidelines-avoid-c-arrays,
+  -hicpp-avoid-c-arrays,
+  -modernize-avoid-c-arrays,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -hicpp-no-array-decay,
+  -misc-non-private-member-variables-in-classes
 HeaderFilterRegex: '(src|tests)/.*\.(hpp|cpp)$'
 CheckOptions:
   - key: readability-identifier-naming.StructCase

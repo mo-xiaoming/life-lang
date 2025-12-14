@@ -18,7 +18,10 @@ Prescriptive guide for working on this C++20 compiler using Boost.Spirit X3.
 - **src/rules.cpp**: Spirit X3 parser definitions + **EBNF grammar documentation (lines 12-276)**
 - **src/rules.hpp**: Parser function declarations
 - **src/diagnostics.cpp**: Error reporting (clang-style diagnostics)
-- **tests/parser/**: Comprehensive parser tests (56 test files, 998 assertions)
+- **src/symbol_table.{hpp,cpp}**: Symbol table for semantic analysis
+- **src/semantic_analyzer.{hpp,cpp}**: Semantic analysis (declaration collection, name resolution)
+- **tests/parser/**: Comprehensive parser tests (57 test files, 1093 assertions)
+- **tests/semantic/**: Semantic analysis tests
 
 ### ⚠️ CRITICAL: EBNF Grammar Synchronization
 **MANDATORY WORKFLOW when modifying parser rules:**
@@ -42,7 +45,7 @@ Prescriptive guide for working on this C++20 compiler using Boost.Spirit X3.
 ### Type System
 - **Value semantics**: Immutable by default
 - **Primitives**: `I32`, `I64`, `F32`, `F64`, `Bool`, `Char`, `String`, etc.
-- **Unit type**: `()` - represents "no value"
+- **Unit type**: `()` - zero-element tuple type
 - **Structs**: Named fields, public by default
   ```rust
   struct Point { x: I32, y: I32 }
@@ -52,7 +55,8 @@ Prescriptive guide for working on this C++20 compiler using Boost.Spirit X3.
   ```rust
   enum Option<T> { Some(T), None }
   ```
-- **Tuples**: Ordered product types `(I32, String, Bool)`
+- **Tuples**: Ordered product types `(I32, String, Bool)`, `(Vec<T>, Map<K, V>)`, `()` for unit
+- **Function types**: `fn(I32, String): Bool`, `fn(): ()`, `fn(fn(I32): Bool): Bool`
 
 ### Functions and Methods
 ```rust
@@ -103,6 +107,15 @@ for (key, value) in map { /* ... */ }
 ---
 
 ## C++ Implementation Patterns
+
+### Code Style
+- **Return types**: Use standard syntax `RetType func()`, not trailing `auto func() -> RetType`
+- **String conversion**: Use free functions `std::string to_string(Type const&)`, not member functions
+- **Simple structs**: Prefer aggregate initialization, avoid unnecessary constructors
+- **NOLINT Policy**: Do not add NOLINT suppressions without explicit user approval. Fix the underlying issue instead. Only use NOLINT for unavoidable cases:
+  - Intentional design decisions (e.g., reference members by design)
+  - False positives where the code is correct but clang-tidy misinterprets it
+- **C-array warnings**: Suppressed globally in `.clang-tidy` - string literals naturally use C-arrays, no NOLINT needed
 
 ### AST Node Structure
 Every AST node:
@@ -332,12 +345,14 @@ BOOST_SPIRIT_DEBUG(k_my_rule)
 
 ## Next Phase: Semantic Analysis
 
-Parser is complete. Next steps:
-1. **Symbol table**: Track declarations (functions, types, variables)
-2. **Name resolution**: Resolve identifiers to declarations
-3. **Type checking**: Verify type correctness
-4. **Trait resolution**: Check trait bounds, impl blocks
-5. **Borrow checking**: Validate lifetime rules (future)
+**Status**: Symbol table and declaration collection implemented. Name resolution in progress.
+
+Completed:
+1. ✅ **Symbol table**: Tracks declarations (functions, types, variables) with scope management
+2. ⏳ **Name resolution**: Resolve identifiers to declarations (in progress)
+3. ❌ **Type checking**: Verify type correctness (TODO)
+4. ❌ **Trait resolution**: Check trait bounds, impl blocks (TODO)
+5. ❌ **Borrow checking**: Validate lifetime rules (future)
 
 Key considerations:
 - Preserve position information for error reporting

@@ -16,15 +16,8 @@ inline auto const k_no_params_expected = R"JSON({
   "Function_Type": {
     "param_types": [],
     "return_type": {
-      "Path_Type": {
-        "segments": [
-          {
-            "Type_Name_Segment": {
-              "value": "()",
-              "type_params": []
-            }
-          }
-        ]
+      "Tuple_Type": {
+        "element_types": []
       }
     }
   }

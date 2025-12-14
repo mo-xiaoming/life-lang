@@ -12,16 +12,16 @@ namespace life_lang {
 
 // Position in source code
 struct Source_Position {
-  std::size_t line{1};    // NOLINT(misc-non-private-member-variables-in-classes)
-  std::size_t column{1};  // NOLINT(misc-non-private-member-variables-in-classes)
+  std::size_t line{1};
+  std::size_t column{1};
 
   [[nodiscard]] auto operator<=>(Source_Position const&) const = default;
 };
 
 // Source range for highlighting
 struct Source_Range {
-  Source_Position start{};  // NOLINT(misc-non-private-member-variables-in-classes)
-  Source_Position end{};    // NOLINT(misc-non-private-member-variables-in-classes) - Exclusive
+  Source_Position start{};
+  Source_Position end{};  // Exclusive
 
   [[nodiscard]] bool is_single_line() const { return start.line == end.line; }
   [[nodiscard]] std::size_t line_count() const { return end.line - start.line + 1; }
