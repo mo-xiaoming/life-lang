@@ -10,7 +10,7 @@ This document provides the formal EBNF grammar for the life-lang programming lan
 ```ebnf
 keyword = "fn" | "struct" | "enum" | "impl" | "trait" | "let" | "mut" 
         | "if" | "else" | "match" | "for" | "in" | "while" | "break" | "continue"
-        | "return" | "type" | "where" | "self" | "Self" ;
+        | "return" | "type" | "where" | "self" | "Self" | "pub" | "import" | "as" ;
 ```
 
 ### Identifiers
@@ -37,16 +37,32 @@ comment = "//" { any_char - newline } newline
 ## Module Structure
 
 ```ebnf
-module = { item } ;
+module = { import_statement | item } ;
 
-item = func_def
-     | struct_def  
-     | enum_def
-     | impl_block
-     | trait_def
-     | trait_impl
-     | type_alias ;
+import_statement = "import" module_path "." "{" import_item_list "}" ";" ;
+
+module_path = type_name { "." type_name } ;
+
+import_item_list = import_item { "," import_item } ;
+import_item = identifier [ "as" identifier ] ;
+identifier = var_name | type_name ;
+
+item = [ "pub" ] ( func_def
+                 | struct_def  
+                 | enum_def
+                 | impl_block
+                 | trait_def
+                 | trait_impl
+                 | type_alias ) ;
 ```
+
+**Notes:**
+- Import statements must appear before items (conventional ordering)
+- The `pub` modifier makes items visible outside the module
+- Module path uses `.` separator (e.g., `Geometry.Shapes`)
+- Dot before `{` indicates "from this module, import these items" (similar to Rust's `::`)
+- Identifier list allows importing both types and functions
+- Name conflicts: Importing the same name from multiple modules is an error (semantic analysis phase)
 
 ## Declarations
 
@@ -58,12 +74,14 @@ param_list = func_param { "," func_param } ;
 func_param = [ "mut" ] var_name ":" type_name ;
 ```
 
+**Note:** The optional `pub` modifier is specified at the item level (see Module Structure).
+
 ### Struct Definitions
 ```ebnf
 struct_def = "struct" type_name [ template_params ] [ where_clause ] "{" [ field_list ] "}" ;
 
 field_list = struct_field { "," struct_field } ;
-struct_field = var_name ":" type_name ;
+struct_field = [ "pub" ] var_name ":" type_name ;
 ```
 
 ### Enum Definitions
@@ -76,7 +94,8 @@ enum_variant = type_name [ "(" type_name { "," type_name } ")" ] ;
 
 ### Impl Blocks
 ```ebnf
-impl_block = "impl" [ template_params ] type_name [ where_clause ] "{" { func_def } "}" ;
+impl_block = "impl" [ template_params ] type_name [ where_clause ] "{" { impl_method } "}" ;
+impl_method = [ "pub" ] func_def ;
 ```
 
 ### Trait Definitions

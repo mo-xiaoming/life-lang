@@ -392,8 +392,8 @@ inline std::string unary_expr(std::string_view op_, std::string_view operand_) {
 }
 
 // Struct field
-inline std::string struct_field(std::string_view name_, std::string_view type_) {
-  return std::format(R"((field "{}" {}))", name_, type_);
+inline std::string struct_field(std::string_view name_, std::string_view type_, bool is_pub_ = false) {
+  return std::format(R"((field {} "{}" {}))", is_pub_ ? "true" : "false", name_, type_);
 }
 
 // Struct definition
@@ -473,8 +473,8 @@ inline std::string func_decl(
 }
 
 // Function definition
-inline std::string func_def(std::string_view declaration_, std::string_view body_) {
-  return std::format("(func_def {} {})", declaration_, body_);
+inline std::string func_def(std::string_view declaration_, std::string_view body_, bool is_pub_ = false) {
+  return std::format("(func_def {} {} {})", is_pub_ ? "true" : "false", declaration_, body_);
 }
 
 // Enum variant

@@ -596,8 +596,10 @@ struct Func_Decl {
 };
 
 // Example: fn main(args: Std.Array<String>): I32 { Std.print("Hi"); return 0; }
+// Example: pub fn distance(self): F64 { ... } in impl block
 struct Func_Def {
   static constexpr std::string_view k_name = "Func_Def";
+  bool is_pub{false};  // true if prefixed with 'pub' (for impl methods)
   Func_Decl declaration;
   Block body;
 };
@@ -606,9 +608,10 @@ struct Func_Def {
 // Struct Types
 // ============================================================================
 
-// Example: items: Std.Vec<T> in struct definition
+// Example: pub x: I32 or y: I32 in struct definition
 struct Struct_Field {
   static constexpr std::string_view k_name = "Struct_Field";
+  bool is_pub{false};  // true if prefixed with 'pub'
   std::string name;
   Type_Name type;
 };
@@ -743,10 +746,36 @@ struct Type_Alias {
 // Module Types
 // ============================================================================
 
-// Example: Top-level container with struct defs, function defs, and statements
+// Import statement: import Module.Path.{Item1, Item2 as Alias};
+// Example: import Geometry.{Point, Circle};
+// Example: import Geometry.{Point as P, Circle as C};
+// Example: import Geometry.Shapes.{Polygon, Triangle as Tri};
+struct Import_Item {
+  static constexpr std::string_view k_name = "Import_Item";
+  std::string name;                  // Original name in the module
+  std::optional<std::string> alias;  // Optional alias (if 'as' used)
+};
+
+struct Import_Statement {
+  static constexpr std::string_view k_name = "Import_Statement";
+  std::vector<std::string> module_path;  // ["Geometry", "Shapes"]
+  std::vector<Import_Item> items;        // [{"Point", "P"}, {"Circle", std::nullopt}]
+};
+
+// Item wrapper that includes visibility
+// Example: pub struct Point { ... }
+// Example: fn helper() { ... } (no pub = module-internal)
+struct Item {
+  static constexpr std::string_view k_name = "Item";
+  bool is_pub{};   // true if prefixed with 'pub'
+  Statement item;  // The actual item (func_def, struct_def, etc.)
+};
+
+// Example: Top-level container with imports and items
 struct Module {
   static constexpr std::string_view k_name = "Module";
-  std::vector<Statement> statements;
+  std::vector<Import_Statement> imports;  // Import statements
+  std::vector<Item> items;                // Top-level items (functions, structs, etc.)
 };
 
 // ============================================================================
@@ -1221,13 +1250,13 @@ inline Func_Decl make_func_decl(
   };
 }
 
-inline Func_Def make_func_def(Func_Decl&& decl_, Block&& body_) {
-  return Func_Def{.declaration = std::move(decl_), .body = std::move(body_)};
+inline Func_Def make_func_def(Func_Decl&& decl_, Block&& body_, bool is_pub_ = false) {
+  return Func_Def{.is_pub = is_pub_, .declaration = std::move(decl_), .body = std::move(body_)};
 }
 
 // Struct helpers
-inline Struct_Field make_struct_field(std::string&& name_, Type_Name&& type_) {
-  return Struct_Field{.name = std::move(name_), .type = std::move(type_)};
+inline Struct_Field make_struct_field(std::string&& name_, Type_Name&& type_, bool is_pub_ = false) {
+  return Struct_Field{.is_pub = is_pub_, .name = std::move(name_), .type = std::move(type_)};
 }
 
 inline Struct_Def make_struct_def(
@@ -1365,8 +1394,25 @@ inline Type_Alias make_type_alias(std::string&& name_, Type_Name&& aliased_type_
 }
 
 // Module helpers
-inline Module make_module(std::vector<Statement>&& statements_) {
-  return Module{.statements = std::move(statements_)};
+inline Import_Item make_import_item(std::string&& name_, std::optional<std::string>&& alias_ = std::nullopt) {
+  return Import_Item{.name = std::move(name_), .alias = std::move(alias_)};
+}
+
+inline Import_Statement
+make_import_statement(std::vector<std::string>&& module_path_, std::vector<Import_Item>&& items_) {
+  return Import_Statement{.module_path = std::move(module_path_), .items = std::move(items_)};
+}
+
+inline Item make_item(bool is_pub_, Statement&& item_) {
+  return Item{.is_pub = is_pub_, .item = std::move(item_)};
+}
+
+inline Module make_module(std::vector<Import_Statement>&& imports_, std::vector<Item>&& items_) {
+  return Module{.imports = std::move(imports_), .items = std::move(items_)};
+}
+
+inline Module make_module(std::vector<Item>&& items_) {
+  return Module{.imports = {}, .items = std::move(items_)};
 }
 
 }  // namespace life_lang::ast

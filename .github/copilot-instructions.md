@@ -6,7 +6,8 @@ Prescriptive guide for working on this C++20 compiler.
 ## Project Overview
 
 **Current Status**: Hand-written recursive descent parser complete, AST definitions complete  
-**Next Phase**: Implementing semantic analysis (type checking, name resolution)
+**Parser Features**: Full language syntax including `pub` visibility and `import` statements  
+**Next Phase**: Implementing semantic analysis (type checking, name resolution, module system)
 
 ### Build Presets
 - `dev`: Fast iteration, clang-tidy disabled
@@ -41,20 +42,20 @@ This project values **fast iteration** - every second saved in compile/analyze t
 - **src/ast.hpp**: AST node definitions with JSON serialization
 - **src/diagnostics.cpp**: Error reporting infrastructure (clang-style diagnostics)
 - **tests/**: Test infrastructure using doctest (lightweight test framework)
-- **GRAMMAR.md**: Formal EBNF grammar specification (authoritative source of truth)
+- **doc/GRAMMAR.md**: Formal EBNF grammar specification (authoritative source of truth)
 
 ### Parser/Grammar Synchronization
-⚠️ **CRITICAL**: Parser implementation must match GRAMMAR.md exactly
+⚠️ **CRITICAL**: Parser implementation must match doc/GRAMMAR.md exactly
 
 **When modifying the parser:**
-1. Check GRAMMAR.md first - it defines what's valid
+1. Check doc/GRAMMAR.md first - it defines what's valid
 2. Update parser.cpp to implement the grammar rules
-3. Update GRAMMAR.md if adding/changing language features
+3. Update doc/GRAMMAR.md if adding/changing language features
 4. Add tests in tests/parser/ for the grammar rule
 5. Add integration tests in tests/integration/ for complete workflows
 
 **When modifying the grammar:**
-1. Update GRAMMAR.md with new/changed EBNF rules
+1. Update doc/GRAMMAR.md with new/changed EBNF rules
 2. Update parser.cpp parse_* methods to match
 3. Update ast.hpp if new AST nodes are needed
 4. Add corresponding tests
@@ -72,7 +73,7 @@ This project values **fast iteration** - every second saved in compile/analyze t
 - **Value semantics**: Immutable by default
 - **Primitives**: `I32`, `I64`, `F32`, `F64`, `Bool`, `Char`, `String`, etc.
 - **Unit type**: `()` - represents "no value"
-- **Structs**: Named fields, public by default
+- **Structs**: Named fields with value semantics
   ```rust
   struct Point { x: I32, y: I32 }
   let p = Point { x: 1, y: 2 };
@@ -129,7 +130,23 @@ for (key, value) in map { /* ... */ }
 | Types, structs, modules | `Camel_Snake_Case` | `Point`, `User_Profile` |
 | Constants | Use functions | `fn max_size(): I32 { return 100; }` |
 
-**Note**: See `GRAMMAR.md` for the complete EBNF grammar specification of the life-lang language.
+**Note**: See `doc/GRAMMAR.md` for the complete EBNF grammar specification of the life-lang language.
+
+### Module System
+- **Folder = module**: All `.life` files in a folder form one module
+- **Visibility**: `pub` keyword for exports, no modifier for module-internal items
+- **Imports**: Explicit imports from other modules using dot-separated paths
+- **See `doc/MODULE_SYSTEM.md`** for complete design specification
+
+**Current status:** Not yet implemented (parser phase complete, semantic analysis next)
+
+### Memory Management
+- **Value semantics**: Small types (primitives, simple structs) copied by value
+- **Reference counting**: Heap types (recursive structures, large objects) automatically ref counted
+- **Immutable by default**: Enables safe sharing, thread-safe ref counting
+- **No manual memory management**: No `new`, `delete`, `malloc`, `free`
+- **Cycle handling**: Rare in practice; weak references may be added in future phases if needed
+- **Design goal**: User-friendly with good performance, not zero-cost abstractions
 
 ---
 
@@ -208,7 +225,7 @@ std::cout << to_sexp_string(*module, 0) << '\n';
 
 **Rationale**: S-expressions are more compact and readable than JSON, with no heavyweight dependencies.
 
-**Grammar**: See `SEXP_GRAMMAR.md` for complete S-expression syntax specification.
+**Grammar**: See `doc/SEXP_GRAMMAR.md` for complete S-expression syntax specification.
 
 ---
 
@@ -252,13 +269,16 @@ a_json = {
 ## Next Phase: Semantic Analysis
 
 Parser is complete. Next steps:
-1. **Symbol table**: Track declarations (functions, types, variables)
-2. **Name resolution**: Resolve identifiers to declarations
-3. **Type checking**: Verify type correctness
-4. **Trait resolution**: Check trait bounds, impl blocks
-5. **Borrow checking**: Validate lifetime rules (future)
+1. **Module system**: Implement folder-based modules with `pub` visibility (see `doc/MODULE_SYSTEM.md`)
+2. **Symbol table**: Track declarations (functions, types, variables) across modules
+3. **Name resolution**: Resolve identifiers to declarations, handle imports
+4. **Type checking**: Verify type correctness, check visibility consistency
+5. **Trait resolution**: Check trait bounds, impl blocks
+6. **Memory model**: Design ref counting semantics for heap-allocated types (future)
 
 Key considerations:
 - Preserve position information for error reporting
-- Build on existing JSON serialization for IR output
+- Implement visibility leak checking (pub fields require pub types)
+- Build module dependency graph for compilation order
 - Maintain value semantics throughout
+- Reference counting over borrow checking: simpler, user-friendly, good performance

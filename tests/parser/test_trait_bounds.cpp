@@ -9,7 +9,6 @@ using life_lang::ast::Func_Def;
 PARSE_TEST(Func_Def, func_def)
 
 namespace {
-// Basic case
 constexpr auto k_single_bound_should_succeed = true;
 constexpr auto k_single_bound_input = "fn foo<T: Display>(x: T): I32 { return 0; }";
 inline auto const k_single_bound_expected = test_sexp::func_def(
@@ -22,7 +21,6 @@ inline auto const k_single_bound_expected = test_sexp::func_def(
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
 );
 
-// Backward compatibility: No trait bound (ensure existing code still works)
 constexpr auto k_no_bound_should_succeed = true;
 constexpr auto k_no_bound_input = "fn foo<T>(x: T): I32 { return 0; }";
 inline auto const k_no_bound_expected = test_sexp::func_def(

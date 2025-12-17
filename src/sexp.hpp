@@ -29,7 +29,7 @@ namespace life_lang::ast {
 //       ((return
 //         (integer "42")))))
 //
-// Grammar documentation: See SEXP_GRAMMAR.md
+// Grammar documentation: See doc/SEXP_GRAMMAR.md
 
 namespace detail {
 
@@ -727,6 +727,8 @@ inline void print_sexp(Sexp_Printer& p_, Func_Decl const& decl_) {
 inline void print_sexp(Sexp_Printer& p_, Func_Def const& def_) {
   p_.begin_list("func_def");
   p_.space();
+  p_.write_bool(def_.is_pub);
+  p_.space();
   print_sexp(p_, def_.declaration);
   p_.space();
   print_sexp(p_, def_.body);
@@ -736,6 +738,8 @@ inline void print_sexp(Sexp_Printer& p_, Func_Def const& def_) {
 // Struct definition S-expression printers
 inline void print_sexp(Sexp_Printer& p_, Struct_Field const& field_) {
   p_.begin_list("field");
+  p_.space();
+  p_.write_bool(field_.is_pub);
   p_.space();
   p_.write_quoted(field_.name);
   p_.space();
@@ -913,13 +917,90 @@ inline void print_sexp(Sexp_Printer& p_, Statement const& stmt_) {
   );
 }
 
+// Import_Item S-expression printer
+inline void print_sexp(Sexp_Printer& p_, Import_Item const& item_) {
+  if (item_.alias.has_value()) {
+    p_.begin_list("as");
+    p_.space();
+    p_.write_quoted(item_.name);
+    p_.space();
+    p_.write_quoted(*item_.alias);
+    p_.end_list();
+  } else {
+    p_.write_quoted(item_.name);
+  }
+}
+
+// Import_Statement S-expression printer
+inline void print_sexp(Sexp_Printer& p_, Import_Statement const& import_) {
+  p_.begin_list("import");
+  p_.space();
+
+  // Print module path as list of strings
+  p_.begin_list("path");
+  for (std::size_t i = 0; i < import_.module_path.size(); ++i) {
+    if (i > 0) {
+      p_.space();
+    }
+    p_.write_quoted(import_.module_path[i]);
+  }
+  p_.end_list();
+
+  p_.space();
+
+  // Print items as list (with optional aliases)
+  p_.begin_list("items");
+  for (std::size_t i = 0; i < import_.items.size(); ++i) {
+    if (i > 0) {
+      p_.space();
+    }
+    print_sexp(p_, import_.items[i]);
+  }
+  p_.end_list();
+
+  p_.end_list();
+}
+
+// Item S-expression printer
+inline void print_sexp(Sexp_Printer& p_, Item const& item_) {
+  p_.begin_list("item");
+  p_.space();
+  p_.write_bool(item_.is_pub);
+  p_.space();
+  print_sexp(p_, item_.item);
+  p_.end_list();
+}
+
 // Module S-expression printer
 inline void print_sexp(Sexp_Printer& p_, Module const& mod_) {
   p_.begin_list("module");
-  if (!mod_.statements.empty()) {
+
+  // Print imports
+  if (!mod_.imports.empty()) {
     p_.space();
-    p_.write_vector(mod_.statements, [&](auto const& s_) { print_sexp(p_, s_); });
+    p_.begin_list("imports");
+    for (std::size_t i = 0; i < mod_.imports.size(); ++i) {
+      if (i > 0) {
+        p_.space();
+      }
+      print_sexp(p_, mod_.imports[i]);
+    }
+    p_.end_list();
   }
+
+  // Print items
+  if (!mod_.items.empty()) {
+    p_.space();
+    p_.begin_list("items");
+    for (std::size_t i = 0; i < mod_.items.size(); ++i) {
+      if (i > 0) {
+        p_.space();
+      }
+      print_sexp(p_, mod_.items[i]);
+    }
+    p_.end_list();
+  }
+
   p_.end_list();
 }
 

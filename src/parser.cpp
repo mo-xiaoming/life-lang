@@ -1,11 +1,11 @@
 // Parser Implementation for life-lang
 //
-// CRITICAL: This parser must implement the grammar defined in GRAMMAR.md exactly.
+// CRITICAL: This parser must implement the grammar defined in doc/GRAMMAR.md exactly.
 //
 // Grammar Synchronization Rules:
-// 1. GRAMMAR.md is the authoritative source of truth for language syntax
-// 2. Every parse_* method corresponds to a grammar rule in GRAMMAR.md
-// 3. When adding/modifying parse_* methods, update GRAMMAR.md accordingly
+// 1. doc/GRAMMAR.md is the authoritative source of truth for language syntax
+// 2. Every parse_* method corresponds to a grammar rule in doc/GRAMMAR.md
+// 3. When adding/modifying parse_* methods, update doc/GRAMMAR.md accordingly
 // 4. When changing grammar rules, update corresponding parse_* methods
 // 5. Parser must NOT accept inputs that violate the grammar
 //
@@ -15,7 +15,7 @@
 // - Error recovery: Parser attempts to continue after errors for better diagnostics
 // - Diagnostics: All errors recorded in m_diagnostics with source positions
 //
-// See GRAMMAR.md for the complete EBNF specification.
+// See doc/GRAMMAR.md for the complete EBNF specification.
 
 #include "parser.hpp"
 
@@ -23,6 +23,27 @@
 #include <format>
 
 namespace life_lang::parser {
+
+// Keywords that cannot be used as identifiers or pattern bindings
+static constexpr std::array<std::string_view, 17> k_keywords = {
+    "fn",
+    "struct",
+    "enum",
+    "trait",
+    "impl",
+    "type",
+    "let",
+    "return",
+    "break",
+    "continue",
+    "if",
+    "else",
+    "while",
+    "for",
+    "match",
+    "in",
+    "as"
+};
 
 Parser::Parser(std::string_view source_, std::string filename_)
     : m_source(source_), m_diagnostics(std::move(filename_), std::string(source_)) {}
@@ -232,8 +253,10 @@ bool Parser::is_identifier_continue(char ch_) {
 Expected<ast::Module, Diagnostic_Engine> Parser::parse_module() {
   skip_whitespace_and_comments();
 
-  std::vector<ast::Statement> statements;
+  std::vector<ast::Import_Statement> imports;
+  std::vector<ast::Item> items;
 
+  // Parse import statements
   while (m_pos < m_source.size()) {
     skip_whitespace_and_comments();
 
@@ -241,11 +264,44 @@ Expected<ast::Module, Diagnostic_Engine> Parser::parse_module() {
       break;
     }
 
-    // Module-level items must start with a keyword (fn, struct, enum, impl, trait, type)
-    // Reject arbitrary expressions/statements at module level
+    // Check if this is an import statement
+    if (!lookahead("import")) {
+      break;  // No more imports, move to items phase
+    }
+
+    auto import_stmt = parse_import_statement();
+    if (!import_stmt) {
+      if (m_diagnostics.has_errors()) {
+        return unexpected(std::move(m_diagnostics));
+      }
+      error("Failed to parse import statement", make_range(current_position()));
+      return unexpected(std::move(m_diagnostics));
+    }
+
+    imports.push_back(std::move(*import_stmt));
+  }
+
+  // Parse items (with optional pub modifier)
+  while (m_pos < m_source.size()) {
+    skip_whitespace_and_comments();
+
+    if (m_pos >= m_source.size()) {
+      break;
+    }
+
     auto const start_pos = current_position();
+
+    // Check for optional 'pub' modifier
+    bool is_pub = false;
+    if (match_keyword("pub")) {
+      is_pub = true;
+      skip_whitespace_and_comments();
+    }
+
     auto const start_char = peek();
 
+    // Module-level items must start with a keyword (fn, struct, enum, impl, trait, type)
+    // Reject arbitrary expressions/statements at module level
     if (start_char != '\0' && !lookahead("fn") && !lookahead("struct") && !lookahead("enum") && !lookahead("impl") &&
         !lookahead("trait") && !lookahead("type")) {
       error(
@@ -264,7 +320,7 @@ Expected<ast::Module, Diagnostic_Engine> Parser::parse_module() {
       return unexpected(std::move(m_diagnostics));
     }
 
-    statements.push_back(std::move(*stmt));
+    items.push_back(ast::make_item(is_pub, std::move(*stmt)));
     skip_whitespace_and_comments();
   }
 
@@ -272,10 +328,151 @@ Expected<ast::Module, Diagnostic_Engine> Parser::parse_module() {
     return unexpected(std::move(m_diagnostics));
   }
 
-  ast::Module result;
-  result.statements = std::move(statements);
+  return ast::make_module(std::move(imports), std::move(items));
+}
 
-  return result;
+std::optional<ast::Import_Statement> Parser::parse_import_statement() {
+  skip_whitespace_and_comments();
+
+  auto const start_pos = current_position();
+
+  // Expect 'import' keyword
+  if (!match_keyword("import")) {
+    error("Expected 'import' keyword", make_range(start_pos));
+    return std::nullopt;
+  }
+
+  skip_whitespace_and_comments();
+
+  // Parse module path: Geometry.Shapes.Advanced or just Geometry
+  std::vector<std::string> module_path;
+
+  while (true) {
+    // Parse type name (module names use Camel_Snake_Case)
+    if (!is_identifier_start(peek()) || (std::isupper(static_cast<unsigned char>(peek())) == 0)) {
+      error("Expected module name (must start with uppercase letter)", make_range(current_position()));
+      return std::nullopt;
+    }
+
+    std::string segment;
+    segment += advance();
+    while (is_identifier_continue(peek())) {
+      segment += advance();
+    }
+
+    module_path.push_back(std::move(segment));
+
+    skip_whitespace_and_comments();
+
+    // Check for '.' - either continues path or precedes '{'
+    if (peek() == '.') {
+      advance();  // consume '.'
+      skip_whitespace_and_comments();
+
+      // If next char is '{', we're done with path
+      if (peek() == '{') {
+        break;
+      }
+
+      // Otherwise, continue parsing path segments
+      continue;
+    }
+
+    // No dot found - error, we need either another segment or .{items}
+    error("Expected '.' in import statement", make_range(current_position()));
+    return std::nullopt;
+  }
+
+  skip_whitespace_and_comments();
+
+  // Expect '{'
+  if (peek() != '{') {
+    error("Expected '{' after module path in import statement", make_range(current_position()));
+    return std::nullopt;
+  }
+  advance();  // consume '{'
+
+  skip_whitespace_and_comments();
+
+  // Parse import item list: {Item1, Item2 as Alias, item3}
+  std::vector<ast::Import_Item> items;
+
+  while (true) {
+    if (peek() == '}') {
+      break;  // Empty list or end of list
+    }
+
+    // Parse identifier (can be type name or function name)
+    if (!is_identifier_start(peek())) {
+      error("Expected identifier in import list", make_range(current_position()));
+      return std::nullopt;
+    }
+
+    std::string item_name;
+    item_name += advance();
+    while (is_identifier_continue(peek())) {
+      item_name += advance();
+    }
+
+    skip_whitespace_and_comments();
+
+    // Check for optional 'as' alias
+    std::optional<std::string> alias;
+    if (match_keyword("as")) {
+      skip_whitespace_and_comments();
+
+      // Parse alias identifier
+      if (!is_identifier_start(peek())) {
+        error("Expected identifier after 'as'", make_range(current_position()));
+        return std::nullopt;
+      }
+
+      std::string alias_name;
+      alias_name += advance();
+      while (is_identifier_continue(peek())) {
+        alias_name += advance();
+      }
+
+      alias = std::move(alias_name);
+      skip_whitespace_and_comments();
+    }
+
+    items.push_back(ast::make_import_item(std::move(item_name), std::move(alias)));
+
+    skip_whitespace_and_comments();
+
+    // Check for ',' to continue or '}' to end
+    if (peek() == ',') {
+      advance();  // consume ','
+      skip_whitespace_and_comments();
+      continue;
+    }
+
+    if (peek() == '}') {
+      break;
+    }
+
+    error("Expected ',' or '}' in import list", make_range(current_position()));
+    return std::nullopt;
+  }
+
+  // Expect '}'
+  if (peek() != '}') {
+    error("Expected '}' to close import list", make_range(current_position()));
+    return std::nullopt;
+  }
+  advance();  // consume '}'
+
+  skip_whitespace_and_comments();
+
+  // Expect ';'
+  if (peek() != ';') {
+    error("Expected ';' after import statement", make_range(current_position()));
+    return std::nullopt;
+  }
+  advance();  // consume ';'
+
+  return ast::make_import_statement(std::move(module_path), std::move(items));
 }
 
 std::optional<ast::Integer> Parser::parse_integer() {
@@ -746,25 +943,7 @@ std::optional<ast::Var_Name> Parser::parse_variable_name() {
   }
 
   // Check if it's a keyword (keywords can't be used as variable names)
-  static std::array<std::string_view, 16> const keywords = {
-      "fn",
-      "struct",
-      "enum",
-      "trait",
-      "impl",
-      "type",
-      "let",
-      "return",
-      "break",
-      "continue",
-      "if",
-      "else",
-      "while",
-      "for",
-      "match",
-      "in"
-  };
-  for (auto const& kw : keywords) {
+  for (auto const& kw : k_keywords) {
     if (name == kw) {
       error(std::format("Cannot use keyword '{}' as variable name", name), make_range(start_pos));
       return std::nullopt;
@@ -2043,25 +2222,7 @@ std::optional<ast::Expr> Parser::parse_func_call() {
 
   // Validate that simple patterns are not keywords
   if (auto* simple = std::get_if<ast::Simple_Pattern>(&*pattern)) {
-    static std::array<std::string_view, 16> const keywords = {
-        "fn",
-        "struct",
-        "enum",
-        "trait",
-        "impl",
-        "type",
-        "let",
-        "return",
-        "break",
-        "continue",
-        "if",
-        "else",
-        "while",
-        "for",
-        "match",
-        "in"
-    };
-    for (auto const& kw : keywords) {
+    for (auto const& kw : k_keywords) {
       if (simple->name == kw) {
         error("Cannot use keyword '" + simple->name + "' as pattern binding", make_range(start_pos));
         return std::nullopt;
@@ -2721,6 +2882,12 @@ std::optional<ast::Expr> Parser::parse_func_call() {
 
   auto const start_pos = current_position();
 
+  // Check for optional 'pub' keyword
+  bool const is_pub = match_keyword("pub");
+  if (is_pub) {
+    skip_whitespace_and_comments();
+  }
+
   auto name = parse_variable_name();
   if (!name) {
     return std::nullopt;
@@ -2740,6 +2907,7 @@ std::optional<ast::Expr> Parser::parse_func_call() {
   }
 
   ast::Struct_Field result;
+  result.is_pub = is_pub;
   result.name = std::move(name->segments[0].value);
   result.type = std::move(*type);
 
@@ -3418,11 +3586,18 @@ std::optional<ast::Expr> Parser::parse_func_call() {
 
   std::vector<ast::Func_Def> methods;
   while (peek() != '}' && m_pos < m_source.size()) {
+    // Check for optional 'pub' keyword for methods
+    bool const is_pub = match_keyword("pub");
+    if (is_pub) {
+      skip_whitespace_and_comments();
+    }
+
     auto method = parse_func_def();
     if (!method) {
       error("Expected method definition in impl block", make_range(current_position()));
       return std::nullopt;
     }
+    method->is_pub = is_pub;
     methods.push_back(std::move(*method));
     skip_whitespace_and_comments();
   }
