@@ -4,8 +4,8 @@
 
 namespace {
 
-auto parse_trait(std::string const& a_input_) {
-  return life_lang::internal::parse_trait_def(a_input_);
+auto parse_trait(std::string const& input_) {
+  return life_lang::internal::parse_trait_def(input_);
 }
 
 }  // namespace

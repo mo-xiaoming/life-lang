@@ -1,12 +1,10 @@
 #include <doctest/doctest.h>
 #include <iostream>
-#include <sstream>
 
 #include "internal_rules.hpp"
 
 // NOTE: Previous tests checked Spirit X3-specific error messages.
 // Since we've replaced Spirit X3 with a hand-written parser that has different
-// grammar rules (e.g., parameter types are optional), those tests are obsolete.
 //
 // Error reporting is tested through:
 // - Integration tests that verify end-to-end error reporting

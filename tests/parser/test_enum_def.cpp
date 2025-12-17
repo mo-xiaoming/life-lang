@@ -143,7 +143,6 @@ inline auto const k_missing_name_expected = "";
 
 TEST_CASE("Parse Enum_Def") {
   std::vector<Enum_Def_Params> const params_list = {
-      // NOLINT(modernize-use-designated-initializers,modernize-raw-string-literal)
       {.name = "unit single",
        .input = k_unit_single_input,
        .expected = k_unit_single_expected,

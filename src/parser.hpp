@@ -82,7 +82,9 @@ public:
   // Parsing Functions - Public API for testing individual constructs
   // ============================================================================
 
-  // Phase 2: Simple nodes
+  std::optional<ast::Import_Statement> parse_import_statement();
+
+  // Simple nodes
   std::optional<ast::Integer> parse_integer();
   std::optional<ast::Float> parse_float();
   std::optional<ast::String> parse_string();
@@ -93,13 +95,13 @@ public:
   std::optional<ast::Var_Name> parse_qualified_variable_name();  // Multi-segment paths for function calls
   std::optional<ast::Type_Name> parse_type_name();
 
-  // Phase 3: Type system
+  // Type system
   std::optional<ast::Path_Type> parse_path_type();
   std::optional<ast::Function_Type> parse_function_type();
   std::optional<ast::Type_Param> parse_type_param();
   std::optional<ast::Where_Clause> parse_where_clause();
 
-  // Phase 4: Expressions
+  // Expressions
   std::optional<ast::Expr> parse_expr();
   std::optional<ast::Expr> parse_primary_expr();
   std::optional<ast::Expr> parse_postfix_expr();
@@ -114,7 +116,7 @@ public:
   std::optional<ast::Range_Expr> parse_range_expr();
   std::optional<ast::Block> parse_block();
 
-  // Phase 5: Statements
+  // Statements
   std::optional<ast::Pattern> parse_pattern();
   std::optional<ast::Statement> parse_statement();
   std::optional<ast::Let_Statement> parse_let_statement();
@@ -123,7 +125,7 @@ public:
   std::optional<ast::Break_Statement> parse_break_statement();
   std::optional<ast::Continue_Statement> parse_continue_statement();
 
-  // Phase 6: Declarations
+  // Declarations
   std::optional<ast::Func_Param> parse_func_param();
   std::optional<ast::Func_Decl> parse_func_decl();
   std::optional<ast::Func_Def> parse_func_def();
