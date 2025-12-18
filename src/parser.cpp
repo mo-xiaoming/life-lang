@@ -510,6 +510,34 @@ std::optional<ast::Integer> Parser::parse_integer() {
       return std::nullopt;
     }
   }
+  // Check for binary literal (0b prefix)
+  else if (peek() == '0' && (peek(1) == 'b' || peek(1) == 'B')) {
+    advance();  // consume '0'
+    advance();  // consume 'b' or 'B'
+
+    // Must have at least one binary digit after 0b
+    if (peek() != '0' && peek() != '1') {
+      error("Invalid binary literal: expected binary digit after '0b'", make_range(start_pos));
+      return std::nullopt;
+    }
+
+    // Collect binary digits and underscores
+    value = "0b";
+    char last_char = peek();
+    while (peek() == '0' || peek() == '1' || peek() == '_') {
+      last_char = peek();
+      char const ch = advance();
+      if (ch != '_') {
+        value += ch;
+      }
+    }
+
+    // Check for trailing underscore
+    if (last_char == '_') {
+      error("Invalid binary literal: trailing underscore not allowed", make_range(start_pos));
+      return std::nullopt;
+    }
+  }
   // Check for leading zero (only "0" is allowed, not "01", "02", etc.)
   else if (peek() == '0') {
     if (std::isdigit(static_cast<unsigned char>(peek(1))) != 0 || peek(1) == '_') {
