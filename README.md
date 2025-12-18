@@ -3,7 +3,26 @@
 [![CI Build and Test](https://github.com/mo-xiaoming/life-lang/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/mo-xiaoming/life-lang/actions/workflows/build-and-test.yml)
 [![codecov](https://codecov.io/gh/mo-xiaoming/life-lang/branch/master/graph/badge.svg)](https://codecov.io/gh/mo-xiaoming/life-lang)
 
-A (yet another) programming language with value semantics, (maybe) Rust-style traits.
+A programming language with value semantics, guided by three core principles:
+
+## Design Philosophy
+
+1. **Consistent behavior** across all build modes (debug, release, optimized)
+   - Same code always produces same results
+   - No hidden surprises between development and production
+   - Test once, deploy with confidence
+
+2. **Fail fast** on programmer errors
+   - Overflow, underflow, division by zero → immediate panic
+   - Detect bugs early rather than propagate incorrect values
+   - Explicit alternatives available when needed (`checked_*`, `wrapping_*`, `saturating_*`)
+
+3. **Predictable results**
+   - No undefined behavior
+   - No silent data corruption
+   - Clear, documented semantics for all operations
+
+These principles prioritize **correctness and user-friendliness over raw performance**. When maximum performance is needed, explicit opt-in mechanisms are provided.
 
 ## Language Overview
 

@@ -4,6 +4,27 @@ This document provides the formal EBNF grammar for the life-lang programming lan
 
 **⚠️ IMPORTANT**: This grammar is the authoritative source of truth. The parser implementation in `src/parser.cpp` MUST match these rules exactly. When modifying this grammar, update the corresponding `parse_*` methods in the parser.
 
+## Design Philosophy
+
+life-lang is guided by three core principles:
+
+1. **Consistent behavior** across all build modes (debug, release, optimized)
+   - Same code always produces same results
+   - No hidden surprises between development and production
+   - Test once, deploy with confidence
+
+2. **Fail fast** on programmer errors
+   - Overflow, underflow, division by zero → immediate panic
+   - Detect bugs early rather than propagate incorrect values
+   - Explicit alternatives available when needed (`checked_*`, `wrapping_*`, `saturating_*`)
+
+3. **Predictable results**
+   - No undefined behavior
+   - No silent data corruption
+   - Clear, documented semantics for all operations
+
+These principles prioritize **correctness and user-friendliness over raw performance**. When maximum performance is needed, explicit opt-in mechanisms are provided.
+
 ## Lexical Elements
 
 ### Keywords
@@ -230,6 +251,58 @@ binary_expr = expr binary_op expr ;
 binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">=" 
           | "&&" | "||" | "&" | "|" | "^" | "<<" | ">>" | "as" ;
 ```
+
+**Arithmetic Overflow and Error Behavior:**
+
+**Design Philosophy:**
+- **Consistent behavior** across all build modes (debug, release, optimized)
+- **Fail fast** on programmer errors (division by zero, overflow)
+- **Predictable results** - same code always produces same behavior
+- Prioritizes correctness and user-friendliness over raw performance
+
+**Integer Arithmetic (`+`, `-`, `*`):**
+- **Always panics on overflow/underflow** (all build modes)
+- Examples:
+  - `I32::MAX + 1` → panic
+  - `I32::MIN - 1` → panic
+  - `I32::MAX * 2` → panic
+- **Rationale**: Overflow is a logic error; wrapping silently can cause security bugs and incorrect results
+
+**Division and Modulo (`/`, `%`):**
+- **Division by zero**: Always panics
+  - Integer: `x / 0` → panic, `x % 0` → panic
+  - Float: `x / 0.0` → `Infinity` or `-Infinity` (IEEE 754 standard, no panic)
+- **Integer overflow cases**: Always panic
+  - `I32::MIN / -1` → panic (would overflow to `I32::MAX + 1`)
+  - `I32::MIN % -1` → panic (for consistency)
+- **Rationale**: Division by zero is always a logic error
+
+**Bitwise Shift (`<<`, `>>`):**
+- **Shift amount ≥ bit width**: Always panics
+  - `1u32 << 32` → panic
+  - `1i64 >> 64` → panic
+- **Negative shift amount**: Always panics
+  - `x << -1` → panic
+- **Rationale**: Shift overflow often indicates a bug; results are architecture-dependent
+
+**Explicit Overflow Handling (Future):**
+When overflow is intentional or needs special handling:
+- `wrapping_add()`, `wrapping_mul()` → explicit wrap-around (two's complement)
+- `saturating_add()`, `saturating_mul()` → clamp to min/max
+- `checked_add()`, `checked_mul()` → `Option<T>` (None on overflow, avoids panic)
+- `overflowing_add()` → `(T, Bool)` (result and overflow flag)
+
+**Float Arithmetic:**
+- Follows IEEE 754: `NaN`, `Infinity`, `-Infinity`, denormals
+- No panics: `1.0 / 0.0` → `Infinity`, `0.0 / 0.0` → `NaN`
+- Use `is_nan()`, `is_infinite()` to check for special values
+
+**Comparison with Other Languages:**
+- **Rust**: Debug=panic, Release=wrap (inconsistent, requires testing both)
+- **Swift**: Always traps on overflow (consistent, like life-lang)
+- **Python/Java**: No overflow on arbitrary-precision/BigInt types
+- **C/C++**: Undefined behavior (dangerous)
+- **life-lang**: Always panic (consistent, safe, predictable)
 
 **Operator Precedence** (highest to lowest):
 1. Field access, method calls, indexing: `.`, `()`, `[]`
