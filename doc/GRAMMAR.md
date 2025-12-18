@@ -21,18 +21,30 @@ type_name = upper { letter | digit | "_" } ;
 
 ### Literals
 ```ebnf
-integer = decimal_int | hex_int | binary_int ;
+integer = ( decimal_int | hex_int | binary_int ) [ int_suffix ] ;
 decimal_int = digit { digit | "_" } ;
 hex_int = "0x" hex_digit { hex_digit | "_" } ;
 binary_int = "0b" binary_digit { binary_digit | "_" } ;
 hex_digit = digit | "a" | "b" | "c" | "d" | "e" | "f" | "A" | "B" | "C" | "D" | "E" | "F" ;
 binary_digit = "0" | "1" ;
-float = digit { digit } "." digit { digit } ;
+int_suffix = "I8" | "I16" | "I32" | "I64" | "U8" | "U16" | "U32" | "U64" ;
+float = digit { digit | "_" } "." digit { digit | "_" } [ exponent ] [ float_suffix ]
+      | digit { digit | "_" } exponent [ float_suffix ] ;
+exponent = ( "e" | "E" ) [ "+" | "-" ] digit { digit | "_" } ;
+float_suffix = "F32" | "F64" ;
 bool_literal = "true" | "false" ;
 string = '"' { any_char - '"' | escape_sequence } '"' ;
 char = "'" ( any_char - "'" | escape_sequence ) "'" ;
 unit_literal = "(" ")" ;
 ```
+
+**Notes:**
+- Integers support decimal, hexadecimal (0x prefix), and binary (0b prefix) formats
+- Underscores can be used for readability: `1_000_000`, `0xFF_FF`, `0b1111_0000`
+- Type suffixes specify exact numeric type: `42I32`, `255U8`, `3.14F32`
+- Leading zeros not allowed in decimal integers (except standalone `0`)
+- Floats support scientific notation: `1.5e10`, `3.14E-5`
+- Floats require either a decimal point or exponent (or both)
 
 ### Comments
 ```ebnf
@@ -220,17 +232,24 @@ binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
 **Operator Precedence** (highest to lowest):
 1. Field access, method calls, indexing: `.`, `()`, `[]`
 2. **Type cast**: `as`
-3. Unary: `-`, `!`, `&`, `*`
+3. Unary: `-`, `!`, `~`
 4. Multiplicative: `*`, `/`, `%`
 5. Additive: `+`, `-`
 6. Shift: `<<`, `>>`
-7. Bitwise AND: `&`
-8. Bitwise XOR: `^`
-9. Bitwise OR: `|`
-10. Comparison: `==`, `!=`, `<`, `>`, `<=`, `>=`
-11. Logical AND: `&&`
-12. Logical OR: `||`
-13. Range: `..`, `..=`
+7. Comparison: `<`, `>`, `<=`, `>=`
+8. Equality: `==`, `!=`
+9. Bitwise AND: `&`
+10. Bitwise XOR: `^`
+11. Bitwise OR: `|`
+12. Logical AND: `&&`
+13. Logical OR: `||`
+14. Range: `..`, `..=`
+
+**Notes:**
+- Precedence follows standard C/Rust conventions
+- Logical operators have lower precedence than bitwise operators
+- Within bitwise operators: AND binds tighter than XOR, XOR tighter than OR
+- Higher precedence = tighter binding (evaluates first)
 
 **Type Cast Semantics:**
 - `expr as Type` - Explicit type conversion
@@ -245,8 +264,14 @@ binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
 
 ```ebnf
 unary_expr = unary_op expr ;
-unary_op = "-" | "!" | "&" | "*" ;
+unary_op = "-" | "+" | "!" | "~" ;
 ```
+
+**Notes:**
+- `-`: Arithmetic negation (e.g., `-5`, `-x`)
+- `+`: Arithmetic positive/identity (e.g., `+5`, `+x`)
+- `!`: Logical NOT (e.g., `!flag`, `!condition`)
+- `~`: Bitwise NOT (e.g., `~bits`, `~0xFF`)
 
 ### Range Expressions
 

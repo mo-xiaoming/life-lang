@@ -12,6 +12,7 @@ target_sources(tests
         parser/test_array_type.cpp
         parser/test_assignment.cpp
         parser/test_binary_expr.cpp
+        parser/test_bitwise_ops.cpp
         parser/test_block.cpp
         parser/test_bool_literal.cpp
         parser/test_break_statement.cpp
@@ -58,6 +59,7 @@ target_sources(tests
         # Integration tests - test complete parse_module workflows
         integration/test_array_type_in_functions.cpp
         integration/test_binary_literals.cpp
+        integration/test_bitwise_ops.cpp
         integration/test_bool_literals.cpp
         integration/test_hex_literals.cpp
         integration/test_parse_module_integration.cpp
