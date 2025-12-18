@@ -2,6 +2,7 @@
 #include "utils.hpp"
 
 using namespace std::string_literals;
+using namespace test_sexp;
 
 TEST_SUITE("Parser - Cast Expression") {
   // ========================================================================
@@ -15,7 +16,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected = R"((cast (var ((var_segment "x"))) (path ((type_segment "I64")))))";
+      auto const expected = cast_expr(var_name("x"), type_name("I64"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -27,7 +28,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected = R"((cast (integer "42") (path ((type_segment "F32"))))";
+      auto const expected = cast_expr(integer("42"), type_name("F32"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -39,8 +40,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((cast (var ((var_segment "value"))) (path ((type_segment "Std") (type_segment "Option"))))";
+      auto const expected = cast_expr(var_name("value"), type_name("Std", "Option"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -52,8 +52,8 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((cast (var ((var_segment "data"))) (path ((type_segment "Vec" ((path ((type_segment "I32"))))))))";
+      auto const expected =
+          cast_expr(var_name("data"), R"((path ((type_segment "Vec" ((path ((type_segment "I32"))))))))");
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -65,7 +65,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected = R"((cast (var ((var_segment "ptr"))) (path ((type_segment "U64"))))";
+      auto const expected = cast_expr(var_name("ptr"), type_name("U64"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -74,30 +74,28 @@ TEST_SUITE("Parser - Cast Expression") {
   // Precedence Tests
   // ========================================================================
 
-  TEST_CASE("Cast has higher precedence than addition") {
-    // x + y as I64 => x + (y as I64)
+  TEST_CASE("Cast has lower precedence than addition") {
+    // x + y as I64 => x + (y as I64) because 'as' binds tighter than '+'
     auto const input = "x + y as I64"s;
     auto const result = Parse_Helper<life_lang::ast::Expr>::parse(input);
 
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((binary + (var ((var_segment "x"))) (cast (var ((var_segment "y"))) (path ((type_segment "I64")))))";
+      auto const expected = binary_expr("+", var_name("x"), cast_expr(var_name("y"), type_name("I64")));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
 
-  TEST_CASE("Cast has higher precedence than multiplication") {
-    // a * b as F64 => a * (b as F64)
+  TEST_CASE("Cast has lower precedence than multiplication") {
+    // a * b as F64 => a * (b as F64) because 'as' binds tighter than '*'
     auto const input = "a * b as F64"s;
     auto const result = Parse_Helper<life_lang::ast::Expr>::parse(input);
 
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((binary * (var ((var_segment "a"))) (cast (var ((var_segment "b"))) (path ((type_segment "F64")))))";
+      auto const expected = binary_expr("*", var_name("a"), cast_expr(var_name("b"), type_name("F64")));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -110,8 +108,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((cast (field_access (var ((var_segment "obj"))) "field") (path ((type_segment "I32"))))";
+      auto const expected = cast_expr(field_access(var_name("obj"), "field"), type_name("I32"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -124,7 +121,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected = R"((cast (call (var ((var_segment "func"))) ()) (path ((type_segment "Bool"))))";
+      auto const expected = cast_expr(function_call(var_name("func"), {}), type_name("Bool"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -137,8 +134,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((cast (index (var ((var_segment "arr"))) (integer "0")) (path ((type_segment "U8"))))";
+      auto const expected = cast_expr(R"((index (var ((var_segment "arr"))) (integer "0")))", type_name("U8"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -151,8 +147,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((cast (cast (var ((var_segment "x"))) (path ((type_segment "I32")))) (path ((type_segment "I64"))))";
+      auto const expected = cast_expr(cast_expr(var_name("x"), type_name("I32")), type_name("I64"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -165,8 +160,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((cast (binary + (var ((var_segment "x"))) (var ((var_segment "y")))) (path ((type_segment "I64"))))";
+      auto const expected = cast_expr(binary_expr("+", var_name("x"), var_name("y")), type_name("I64"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -176,15 +170,15 @@ TEST_SUITE("Parser - Cast Expression") {
   // ========================================================================
 
   TEST_CASE("Cast in binary expression context") {
-    // result = x as I64 + y as I64
+    // x as I64 + y as I64 => (x as I64) + (y as I64)
     auto const input = "x as I64 + y as I64"s;
     auto const result = Parse_Helper<life_lang::ast::Expr>::parse(input);
 
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((binary + (cast (var ((var_segment "x"))) (path ((type_segment "I64")))) (cast (var ((var_segment "y"))) (path ((type_segment "I64")))))";
+      auto const expected =
+          binary_expr("+", cast_expr(var_name("x"), type_name("I64")), cast_expr(var_name("y"), type_name("I64")));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -197,8 +191,8 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((cast (field_access (call (var ((var_segment "obj") (var_segment "method"))) ()) "value") (path ((type_segment "String"))))";
+      auto const expected =
+          cast_expr(field_access(function_call(var_name_path({"obj", "method"}), {}), "value"), type_name("String"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -210,8 +204,10 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"foo(cast (var ((var_segment "value"))) (tuple_type ((path ((type_segment "I32"))) (path ((type_segment "String"))))))foo";
+      auto const expected = cast_expr(
+          var_name("value"),
+          R"((tuple_type ((path ((type_segment "I32"))) (path ((type_segment "String"))))))"
+      );
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -223,8 +219,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((cast (var ((var_segment "list"))) (array_type (path ((type_segment "I32"))) "10"))";
+      auto const expected = cast_expr(var_name("list"), array_type(type_name("I32"), "10"));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -236,8 +231,7 @@ TEST_SUITE("Parser - Cast Expression") {
     REQUIRE(result.has_value());
     if (result.has_value()) {
       auto const& value = *result;
-      std::string const expected =
-          R"((cast (var ((var_segment "callback"))) (func_type ((path ((type_segment "I32")))) (path ((type_segment "Bool")))))";
+      auto const expected = cast_expr(var_name("callback"), func_type({type_name("I32")}, type_name("Bool")));
       CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
     }
   }
@@ -263,20 +257,21 @@ TEST_CASE("'as' is only keyword when followed by type") {
   REQUIRE(result.has_value());
   if (result.has_value()) {
     auto const& value = *result;
-    CHECK(life_lang::ast::to_sexp_string(value, 0) == R"(var ((var_segment "as_value")))");
+    auto const expected = var_name("as_value");
+    CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
   }
 }
 
 TEST_CASE("Cast in comparison context") {
-  // x as I64 == y as I64
+  // x as I64 == y as I64 => (x as I64) == (y as I64)
   auto const input = "x as I64 == y as I64"s;
   auto const result = Parse_Helper<life_lang::ast::Expr>::parse(input);
 
   REQUIRE(result.has_value());
   if (result.has_value()) {
     auto const& value = *result;
-    std::string const expected =
-        R"((binary == (cast (var ((var_segment "x"))) (path ((type_segment "I64")))) (cast (var ((var_segment "y"))) (path ((type_segment "I64")))))";
+    auto const expected =
+        binary_expr("==", cast_expr(var_name("x"), type_name("I64")), cast_expr(var_name("y"), type_name("I64")));
     CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
   }
 }
@@ -289,35 +284,34 @@ TEST_CASE("Cast in function call argument") {
   REQUIRE(result.has_value());
   if (result.has_value()) {
     auto const& value = *result;
-    std::string const expected =
-        R"((call (var ((var_segment "print"))) ((cast (var ((var_segment "value"))) (path ((type_segment "String"))))))";
+    auto const expected = function_call(var_name("print"), {cast_expr(var_name("value"), type_name("String"))});
     CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
   }
 }
 
 TEST_CASE("Unary negation with cast") {
-  // -x as I64 => -(x as I64) (cast has higher precedence than unary)
+  // -x as I64 => (-x) as I64 (cast has lower precedence than unary)
   auto const input = "-x as I64"s;
   auto const result = Parse_Helper<life_lang::ast::Expr>::parse(input);
 
   REQUIRE(result.has_value());
   if (result.has_value()) {
     auto const& value = *result;
-    std::string const expected = R"((cast (unary - (var ((var_segment "x")))) (path ((type_segment "I64"))))";
+    auto const expected = cast_expr(unary_expr("-", var_name("x")), type_name("I64"));
     CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
   }
 }
 
 TEST_CASE("Cast with range expression") {
-  // 0 as U32..100 as U32
+  // 0 as U32..100 as U32 => (0 as U32)..(100 as U32)
   auto const input = "0 as U32..100 as U32"s;
   auto const result = Parse_Helper<life_lang::ast::Expr>::parse(input);
 
   REQUIRE(result.has_value());
   if (result.has_value()) {
     auto const& value = *result;
-    std::string const expected =
-        R"((range (cast (integer "0") (path ((type_segment "U32")))) (cast (integer "100") (path ((type_segment "U32"))))))";
+    auto const expected =
+        range_expr(cast_expr(integer("0"), type_name("U32")), cast_expr(integer("100"), type_name("U32")), false);
     CHECK(life_lang::ast::to_sexp_string(value, 0) == expected);
   }
 }

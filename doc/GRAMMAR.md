@@ -21,11 +21,13 @@ type_name = upper { letter | digit | "_" } ;
 
 ### Literals
 ```ebnf
-integer = ( decimal_int | hex_int | binary_int ) [ int_suffix ] ;
+integer = ( decimal_int | hex_int | octal_int | binary_int ) [ int_suffix ] ;
 decimal_int = digit { digit | "_" } ;
 hex_int = "0x" hex_digit { hex_digit | "_" } ;
+octal_int = "0o" octal_digit { octal_digit | "_" } ;
 binary_int = "0b" binary_digit { binary_digit | "_" } ;
 hex_digit = digit | "a" | "b" | "c" | "d" | "e" | "f" | "A" | "B" | "C" | "D" | "E" | "F" ;
+octal_digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" ;
 binary_digit = "0" | "1" ;
 int_suffix = "I8" | "I16" | "I32" | "I64" | "U8" | "U16" | "U32" | "U64" ;
 float = digit { digit | "_" } "." digit { digit | "_" } [ exponent ] [ float_suffix ]
@@ -39,8 +41,8 @@ unit_literal = "(" ")" ;
 ```
 
 **Notes:**
-- Integers support decimal, hexadecimal (0x prefix), and binary (0b prefix) formats
-- Underscores can be used for readability: `1_000_000`, `0xFF_FF`, `0b1111_0000`
+- Integers support decimal, hexadecimal (0x prefix), octal (0o prefix), and binary (0b prefix) formats
+- Underscores can be used for readability: `1_000_000`, `0xFF_FF`, `0o755`, `0b1111_0000`
 - Type suffixes specify exact numeric type: `42I32`, `255U8`, `3.14F32`
 - Leading zeros not allowed in decimal integers (except standalone `0`)
 - Floats support scientific notation: `1.5e10`, `3.14E-5`

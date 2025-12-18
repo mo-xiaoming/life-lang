@@ -62,6 +62,7 @@ target_sources(tests
         integration/test_bitwise_ops.cpp
         integration/test_bool_literals.cpp
         integration/test_hex_literals.cpp
+        integration/test_octal_literals.cpp
         integration/test_parse_module_integration.cpp
         integration/test_readme_example.cpp
         integration/test_tuple_types_and_literals.cpp

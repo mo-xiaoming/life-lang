@@ -229,6 +229,105 @@ std::cout << to_sexp_string(*module, 0) << '\n';
 
 ---
 
+## Testing Practices
+
+### S-expression Test Expectations
+
+**CRITICAL**: Always use exact S-expression matching, never substring search.
+
+#### When to Use Helper Functions vs Raw Strings
+
+**✅ USE HELPER FUNCTIONS (from `tests/parser/utils.hpp`)** - For complex expressions:
+```cpp
+#include "utils.hpp"
+using namespace test_sexp;
+
+TEST_CASE("Complex expression") {
+  Parser parser("x + y as I64");
+  auto const expr = parser.parse_expr();
+  REQUIRE(expr.has_value());
+  // GOOD: Helper functions are reliable, readable, maintainable
+  auto const expected = binary_expr(
+      "+",
+      var_name("x"),
+      cast_expr(var_name("y"), type_name("I64"))
+  );
+  CHECK(to_sexp_string(*expr, 0) == expected);
+}
+```
+
+**✅ USE RAW STRINGS** - Only for very short, simple S-expressions:
+```cpp
+TEST_CASE("Simple literal") {
+  Parser parser("42");
+  auto const expr = parser.parse_expr();
+  REQUIRE(expr.has_value());
+  // GOOD: Very short, unlikely to have mistakes
+  CHECK(to_sexp_string(*expr, 0) == "(integer \"42\")");
+}
+```
+
+**❌ WRONG - Raw strings for complex expressions (error-prone)**:
+```cpp
+TEST_CASE("Bad test") {
+  Parser parser("x + y as I64");
+  auto const expr = parser.parse_expr();
+  REQUIRE(expr.has_value());
+  // BAD: Long raw strings are error-prone (wrong paren counts, typos)
+  std::string const expected = R"((binary + (var ((var_segment "x"))) (cast (var ((var_segment "y"))) (path ((type_segment "I64")))))";
+  CHECK(to_sexp_string(*expr, 0) == expected);  // Likely has errors!
+}
+```
+
+**❌ WRONG - Substring search (incomplete validation)**:
+```cpp
+TEST_CASE("Bad test") {
+  Parser parser("fn main(): I32 { return 0o755; }");
+  auto const module = parser.parse_module();
+  REQUIRE(module);
+  // BAD: Only checks if substring exists, doesn't validate structure
+  CHECK(to_sexp_string(*module, 0).find("(integer \"0o755\")") != std::string::npos);
+}
+```
+
+#### Available Helper Functions
+
+See `tests/parser/utils.hpp` for complete list. Common helpers:
+- `var_name("x")` - variable reference
+- `type_name("I32")` - type reference
+- `integer("42")`, `string("hello")`, `char_literal("'a'")` - literals
+- `binary_expr("+", lhs, rhs)` - binary operations
+- `cast_expr(expr, type)` - type casts
+- `function_call(func, {arg1, arg2})` - function calls
+- `field_access(obj, "field")` - field access
+- `block({stmt1, stmt2})` - code blocks
+
+#### Guidelines
+
+1. **Prefer helpers** for any S-expression with:
+   - Multiple nested levels
+   - More than ~40 characters
+   - Complex structure (binary ops, casts, calls, etc.)
+2. **Use raw strings** only for:
+   - Single literals: `(integer "42")`, `(bool true)`
+   - Simple references: `(var ((var_segment "x")))`
+   - Very short expressions
+3. **Always exact matching**: Complete AST validation, not substring search
+4. **Focus tests**: Use `parse_expr()`, `parse_statement()` instead of `parse_module()`
+
+**Why this matters:**
+- Helper functions eliminate manual parenthesis counting errors
+- Raw strings are only safe when trivially short
+- Exact matching catches structural regressions immediately
+- Clear expectations make tests self-documenting
+
+**Reference examples**:
+- `tests/parser/test_cast_expr.cpp` - Uses helpers throughout
+- `tests/integration/test_octal_literals.cpp` - Mix of helpers and short raw strings
+- `tests/parser/test_binary_expr.cpp` - Helper function patterns
+
+---
+
 ## Naming Conventions
 
 ### C++ Code (Enforced by `.clang-tidy`)

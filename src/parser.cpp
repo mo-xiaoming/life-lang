@@ -510,6 +510,34 @@ std::optional<ast::Integer> Parser::parse_integer() {
       return std::nullopt;
     }
   }
+  // Check for octal literal (0o prefix)
+  else if (peek() == '0' && (peek(1) == 'o' || peek(1) == 'O')) {
+    advance();  // consume '0'
+    advance();  // consume 'o' or 'O'
+
+    // Must have at least one octal digit after 0o
+    if (peek() < '0' || peek() > '7') {
+      error("Invalid octal literal: expected octal digit after '0o'", make_range(start_pos));
+      return std::nullopt;
+    }
+
+    // Collect octal digits and underscores
+    value = "0o";
+    char last_char = peek();
+    while ((peek() >= '0' && peek() <= '7') || peek() == '_') {
+      last_char = peek();
+      char const ch = advance();
+      if (ch != '_') {
+        value += ch;
+      }
+    }
+
+    // Check for trailing underscore
+    if (last_char == '_') {
+      error("Invalid octal literal: trailing underscore not allowed", make_range(start_pos));
+      return std::nullopt;
+    }
+  }
   // Check for binary literal (0b prefix)
   else if (peek() == '0' && (peek(1) == 'b' || peek(1) == 'B')) {
     advance();  // consume '0'
@@ -2208,10 +2236,11 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     skip_whitespace_and_comments();
 
     // Check for 'as' cast operator before other operators
-    // Cast has precedence 7 (higher than multiplicative, lower than postfix)
+    // Cast has precedence 11 (just below postfix operators like ., (), [])
+    // Grammar: x + y as I64 * z => x + ((y as I64) * z)
     if (lookahead("as") && (peek(2) == ' ' || peek(2) == '\t' || peek(2) == '\n' || peek(2) == '\r' ||
                             (std::isupper(static_cast<unsigned char>(peek(2))) != 0))) {
-      int const cast_precedence = 7;  // Higher than multiplicative (6)
+      int const cast_precedence = 11;  // Just below postfix (highest), above unary and multiplicative
       if (cast_precedence < min_precedence_) {
         break;
       }
