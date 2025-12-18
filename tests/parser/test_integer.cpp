@@ -123,6 +123,52 @@ constexpr auto k_hex_uppercase_x_should_succeed = true;
 constexpr auto k_hex_uppercase_x_input = "0XFF";
 constexpr auto k_hex_uppercase_x_expected = R"((integer "0xFF"))";
 
+// Binary literals
+constexpr auto k_binary_simple_should_succeed = true;
+constexpr auto k_binary_simple_input = "0b1010";
+constexpr auto k_binary_simple_expected = R"((integer "0b1010"))";
+
+constexpr auto k_binary_all_ones_should_succeed = true;
+constexpr auto k_binary_all_ones_input = "0b11111111";
+constexpr auto k_binary_all_ones_expected = R"((integer "0b11111111"))";
+
+constexpr auto k_binary_all_zeros_should_succeed = true;
+constexpr auto k_binary_all_zeros_input = "0b00000000";
+constexpr auto k_binary_all_zeros_expected = R"((integer "0b00000000"))";
+
+constexpr auto k_binary_with_underscores_should_succeed = true;
+constexpr auto k_binary_with_underscores_input = "0b1111_0000_1010_0101";
+constexpr auto k_binary_with_underscores_expected = R"((integer "0b1111000010100101"))";
+
+constexpr auto k_binary_single_digit_should_succeed = true;
+constexpr auto k_binary_single_digit_input = "0b1";
+constexpr auto k_binary_single_digit_expected = R"((integer "0b1"))";
+
+constexpr auto k_binary_with_suffix_should_succeed = true;
+constexpr auto k_binary_with_suffix_input = "0b11111111U8";
+constexpr auto k_binary_with_suffix_expected = R"((integer "0b11111111" "U8"))";
+
+constexpr auto k_binary_uppercase_b_should_succeed = true;
+constexpr auto k_binary_uppercase_b_input = "0B1010";
+constexpr auto k_binary_uppercase_b_expected = R"((integer "0b1010"))";
+
+constexpr auto k_binary_byte_should_succeed = true;
+constexpr auto k_binary_byte_input = "0b1010_1100";
+constexpr auto k_binary_byte_expected = R"((integer "0b10101100"))";
+
+// Invalid binary cases
+constexpr auto k_binary_no_digits_should_succeed = false;
+constexpr auto k_binary_no_digits_input = "0b";
+
+constexpr auto k_binary_invalid_digit_should_succeed = false;
+constexpr auto k_binary_invalid_digit_input = "0b102";
+
+constexpr auto k_binary_trailing_underscore_should_succeed = false;
+constexpr auto k_binary_trailing_underscore_input = "0b1010_";
+
+constexpr auto k_binary_leading_underscore_should_succeed = false;
+constexpr auto k_binary_leading_underscore_input = "0b_1010";
+
 }  // namespace
 
 TEST_CASE("Parse Integer") {
@@ -250,6 +296,56 @@ TEST_CASE("Parse Integer") {
        .input = k_hex_uppercase_x_input,
        .expected = k_hex_uppercase_x_expected,
        .should_succeed = k_hex_uppercase_x_should_succeed},
+      // Binary literals
+      {.name = "binary simple",
+       .input = k_binary_simple_input,
+       .expected = k_binary_simple_expected,
+       .should_succeed = k_binary_simple_should_succeed},
+      {.name = "binary all ones",
+       .input = k_binary_all_ones_input,
+       .expected = k_binary_all_ones_expected,
+       .should_succeed = k_binary_all_ones_should_succeed},
+      {.name = "binary all zeros",
+       .input = k_binary_all_zeros_input,
+       .expected = k_binary_all_zeros_expected,
+       .should_succeed = k_binary_all_zeros_should_succeed},
+      {.name = "binary with underscores",
+       .input = k_binary_with_underscores_input,
+       .expected = k_binary_with_underscores_expected,
+       .should_succeed = k_binary_with_underscores_should_succeed},
+      {.name = "binary single digit",
+       .input = k_binary_single_digit_input,
+       .expected = k_binary_single_digit_expected,
+       .should_succeed = k_binary_single_digit_should_succeed},
+      {.name = "binary with suffix",
+       .input = k_binary_with_suffix_input,
+       .expected = k_binary_with_suffix_expected,
+       .should_succeed = k_binary_with_suffix_should_succeed},
+      {.name = "binary uppercase B",
+       .input = k_binary_uppercase_b_input,
+       .expected = k_binary_uppercase_b_expected,
+       .should_succeed = k_binary_uppercase_b_should_succeed},
+      {.name = "binary byte",
+       .input = k_binary_byte_input,
+       .expected = k_binary_byte_expected,
+       .should_succeed = k_binary_byte_should_succeed},
+      // Invalid binary cases
+      {.name = "binary no digits",
+       .input = k_binary_no_digits_input,
+       .expected = std::nullopt,
+       .should_succeed = k_binary_no_digits_should_succeed},
+      {.name = "binary invalid digit",
+       .input = k_binary_invalid_digit_input,
+       .expected = std::nullopt,
+       .should_succeed = k_binary_invalid_digit_should_succeed},
+      {.name = "binary trailing underscore",
+       .input = k_binary_trailing_underscore_input,
+       .expected = std::nullopt,
+       .should_succeed = k_binary_trailing_underscore_should_succeed},
+      {.name = "binary leading underscore",
+       .input = k_binary_leading_underscore_input,
+       .expected = std::nullopt,
+       .should_succeed = k_binary_leading_underscore_should_succeed},
   };
   for (auto const& params : params_list) {
     SUBCASE(std::string(params.name).c_str()) {
