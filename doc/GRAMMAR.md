@@ -255,12 +255,23 @@ binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
 
 **Type Cast Semantics:**
 - `expr as Type` - Explicit type conversion
+- **Never panics** - truncates, wraps, or saturates on overflow
 - Allowed conversions (enforced in semantic analysis):
-  - Numeric primitives: `I32 as I64`, `I32 as F64`, etc.
-  - Pointer to integer: `&x as U64`
+  - **Integer to integer**:
+    - Same size (e.g., `I32 as U32`): no-op, reinterprets bits (2's complement)
+    - Larger to smaller (e.g., `I64 as I32`): truncates to lower bits, wraps around
+    - Smaller to larger (e.g., `I32 as I64`): zero-extends if unsigned, sign-extends if signed
+  - **Float to integer**:
+    - Rounds toward zero
+    - `NaN` becomes `0`
+    - Values exceeding range saturate to `min`/`max` (no overflow panic)
+  - **Integer to float**: produces closest representable value
+  - **Float to float**: `F32 as F64` is lossless, `F64 as F32` rounds to nearest
+  - Pointer to integer: `&x as U64` (implementation-defined size)
   - Integer to pointer: `0 as *T` (unsafe context only)
   - Enum variant to discriminant: `Color.Red as I32`
 - Examples: `x + y as I64 * z` parses as `x + ((y as I64) * z)`
+- **Design rationale**: Following Rust's semantics - explicit casts never panic, programmer takes responsibility for correctness
 
 ### Unary Operations
 
