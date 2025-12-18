@@ -58,6 +58,7 @@ target_sources(tests
         # Integration tests - test complete parse_module workflows
         integration/test_array_type_in_functions.cpp
         integration/test_bool_literals.cpp
+        integration/test_hex_literals.cpp
         integration/test_parse_module_integration.cpp
         integration/test_readme_example.cpp
         integration/test_tuple_types_and_literals.cpp
