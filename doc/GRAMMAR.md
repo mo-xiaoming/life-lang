@@ -138,7 +138,8 @@ where_predicate = type_name ":" trait_bound_list ;
 ```ebnf
 type_name = path_type
           | function_type
-          | tuple_type ;
+          | tuple_type
+          | array_type ;
 
 path_type = type_name_segment { "." type_name_segment } ;
 type_name_segment = type_name [ "<" type_name { "," type_name } ">" ] ;
@@ -146,6 +147,8 @@ type_name_segment = type_name [ "<" type_name { "," type_name } ">" ] ;
 function_type = "fn" "(" [ type_name { "," type_name } ] ")" [ ":" type_name ] ;
 
 tuple_type = "(" type_name { "," type_name } ")" ;
+
+array_type = "[" type_name ";" integer "]" ;
 ```
 
 ## Statements
@@ -231,6 +234,8 @@ primary_expr = literal
              | var_name
              | func_call
              | struct_literal
+             | array_literal
+             | index_expr
              | field_access
              | tuple_literal
              | "(" expr ")" ;
@@ -239,6 +244,10 @@ func_call = expr "(" [ expr { "," expr } ] ")" ;
 
 struct_literal = type_name "{" [ field_init { "," field_init } ] "}" ;
 field_init = var_name ":" expr ;
+
+array_literal = "[" [ expr { "," expr } ] "]" ;
+
+index_expr = expr "[" expr "]" ;
 
 field_access = expr "." var_name ;
 

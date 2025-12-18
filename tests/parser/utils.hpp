@@ -580,6 +580,11 @@ inline std::string func_type(std::vector<std::string> const& param_types_, std::
   return std::format("(func_type {} {})", params, return_type_);
 }
 
+// Array type
+inline std::string array_type(std::string_view element_type_, std::string_view size_) {
+  return std::format("(array_type {} \"{}\")", element_type_, size_);
+}
+
 }  // namespace test_sexp
 
 // Helper to get expected value - either from AST object or string
@@ -669,6 +674,7 @@ DEFINE_PARSE_HELPER(Impl_Block, parse_impl_block)
 DEFINE_PARSE_HELPER(Trait_Impl, parse_trait_impl)
 DEFINE_PARSE_HELPER(Type_Alias, parse_type_alias)
 DEFINE_PARSE_HELPER(Function_Type, parse_function_type)
+DEFINE_PARSE_HELPER(Array_Type, parse_array_type)
 
 #undef DEFINE_PARSE_HELPER
 
