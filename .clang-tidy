@@ -19,6 +19,7 @@ Checks: >
   -readability-identifier-length,
   -misc-no-recursion,
   -misc-include-cleaner,
+  -google-build-using-namespace,
   -bugprone-chained-comparison,
   -misc-non-private-member-variables-in-classes,
   -clang-analyzer-cplusplus.NewDelete

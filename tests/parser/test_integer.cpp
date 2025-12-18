@@ -169,6 +169,48 @@ constexpr auto k_binary_trailing_underscore_input = "0b1010_";
 constexpr auto k_binary_leading_underscore_should_succeed = false;
 constexpr auto k_binary_leading_underscore_input = "0b_1010";
 
+// Octal literals
+constexpr auto k_octal_simple_should_succeed = true;
+constexpr auto k_octal_simple_input = "0o755";
+constexpr auto k_octal_simple_expected = R"((integer "0o755"))";
+
+constexpr auto k_octal_lowercase_o_should_succeed = true;
+constexpr auto k_octal_lowercase_o_input = "0o644";
+constexpr auto k_octal_lowercase_o_expected = R"((integer "0o644"))";
+
+constexpr auto k_octal_uppercase_o_should_succeed = true;
+constexpr auto k_octal_uppercase_o_input = "0O777";
+constexpr auto k_octal_uppercase_o_expected = R"((integer "0o777"))";
+
+constexpr auto k_octal_with_underscores_should_succeed = true;
+constexpr auto k_octal_with_underscores_input = "0o7_5_5";
+constexpr auto k_octal_with_underscores_expected = R"((integer "0o755"))";
+
+constexpr auto k_octal_zero_should_succeed = true;
+constexpr auto k_octal_zero_input = "0o0";
+constexpr auto k_octal_zero_expected = R"((integer "0o0"))";
+
+constexpr auto k_octal_max_digit_should_succeed = true;
+constexpr auto k_octal_max_digit_input = "0o777";
+constexpr auto k_octal_max_digit_expected = R"((integer "0o777"))";
+
+constexpr auto k_octal_with_suffix_should_succeed = true;
+constexpr auto k_octal_with_suffix_input = "0o644U16";
+constexpr auto k_octal_with_suffix_expected = R"((integer "0o644" "U16"))";
+
+// Invalid octal cases
+constexpr auto k_octal_no_digits_should_succeed = false;
+constexpr auto k_octal_no_digits_input = "0o";
+
+constexpr auto k_octal_invalid_digit_should_succeed = false;
+constexpr auto k_octal_invalid_digit_input = "0o778";
+
+constexpr auto k_octal_trailing_underscore_should_succeed = false;
+constexpr auto k_octal_trailing_underscore_input = "0o755_";
+
+constexpr auto k_octal_leading_underscore_should_succeed = false;
+constexpr auto k_octal_leading_underscore_input = "0o_755";
+
 }  // namespace
 
 TEST_CASE("Parse Integer") {
@@ -346,6 +388,52 @@ TEST_CASE("Parse Integer") {
        .input = k_binary_leading_underscore_input,
        .expected = std::nullopt,
        .should_succeed = k_binary_leading_underscore_should_succeed},
+      // Octal literals
+      {.name = "octal simple",
+       .input = k_octal_simple_input,
+       .expected = k_octal_simple_expected,
+       .should_succeed = k_octal_simple_should_succeed},
+      {.name = "octal lowercase o",
+       .input = k_octal_lowercase_o_input,
+       .expected = k_octal_lowercase_o_expected,
+       .should_succeed = k_octal_lowercase_o_should_succeed},
+      {.name = "octal uppercase O",
+       .input = k_octal_uppercase_o_input,
+       .expected = k_octal_uppercase_o_expected,
+       .should_succeed = k_octal_uppercase_o_should_succeed},
+      {.name = "octal with underscores",
+       .input = k_octal_with_underscores_input,
+       .expected = k_octal_with_underscores_expected,
+       .should_succeed = k_octal_with_underscores_should_succeed},
+      {.name = "octal zero",
+       .input = k_octal_zero_input,
+       .expected = k_octal_zero_expected,
+       .should_succeed = k_octal_zero_should_succeed},
+      {.name = "octal max digit",
+       .input = k_octal_max_digit_input,
+       .expected = k_octal_max_digit_expected,
+       .should_succeed = k_octal_max_digit_should_succeed},
+      {.name = "octal with suffix",
+       .input = k_octal_with_suffix_input,
+       .expected = k_octal_with_suffix_expected,
+       .should_succeed = k_octal_with_suffix_should_succeed},
+      // Invalid octal cases
+      {.name = "octal no digits",
+       .input = k_octal_no_digits_input,
+       .expected = std::nullopt,
+       .should_succeed = k_octal_no_digits_should_succeed},
+      {.name = "octal invalid digit",
+       .input = k_octal_invalid_digit_input,
+       .expected = std::nullopt,
+       .should_succeed = k_octal_invalid_digit_should_succeed},
+      {.name = "octal trailing underscore",
+       .input = k_octal_trailing_underscore_input,
+       .expected = std::nullopt,
+       .should_succeed = k_octal_trailing_underscore_should_succeed},
+      {.name = "octal leading underscore",
+       .input = k_octal_leading_underscore_input,
+       .expected = std::nullopt,
+       .should_succeed = k_octal_leading_underscore_should_succeed},
   };
   for (auto const& params : params_list) {
     SUBCASE(std::string(params.name).c_str()) {

@@ -452,6 +452,11 @@ inline std::string unary_expr(std::string_view op_, std::string_view operand_) {
   return std::format("(unary {} {})", op_, operand_);
 }
 
+// Cast expression
+inline std::string cast_expr(std::string_view expr_, std::string_view target_type_) {
+  return std::format("(cast {} {})", expr_, target_type_);
+}
+
 // Struct field
 inline std::string struct_field(std::string_view name_, std::string_view type_, bool is_pub_ = false) {
   return std::format(R"((field {} "{}" {}))", is_pub_ ? "true" : "false", name_, type_);
