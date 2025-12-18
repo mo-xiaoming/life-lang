@@ -229,14 +229,15 @@ TEST_CASE("Complete function with boolean literals") {
   life_lang::parser::Parser parser(input);
   auto const func = parser.parse_func_def();
   REQUIRE(func.has_value());
+  if (func.has_value()) {
+    // Verify structure: function with Bool parameters, Bool return type, and boolean literal returns
+    CHECK(func->declaration.name == "is_valid");
+    CHECK(func->declaration.func_params.size() == 2);
 
-  // Verify structure: function with Bool parameters, Bool return type, and boolean literal returns
-  CHECK(func->declaration.name == "is_valid");
-  CHECK(func->declaration.func_params.size() == 2);
-
-  auto const sexp = life_lang::ast::to_sexp_string(*func, 0);
-  // Full exact match would be too brittle for this complex case, but verify it contains proper boolean literals
-  // in the return statements (not variables)
-  CHECK(sexp.find("(return (bool true))") != std::string::npos);
-  CHECK(sexp.find("(return (bool false))") != std::string::npos);
+    auto const sexp = life_lang::ast::to_sexp_string(*func, 0);
+    // Full exact match would be too brittle for this complex case, but verify it contains proper boolean literals
+    // in the return statements (not variables)
+    CHECK(sexp.find("(return (bool true))") != std::string::npos);
+    CHECK(sexp.find("(return (bool false))") != std::string::npos);
+  }
 }

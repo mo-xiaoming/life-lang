@@ -21,7 +21,10 @@ type_name = upper { letter | digit | "_" } ;
 
 ### Literals
 ```ebnf
-integer = digit { digit } ;
+integer = decimal_int | hex_int ;
+decimal_int = digit { digit | "_" } ;
+hex_int = "0x" hex_digit { hex_digit | "_" } ;
+hex_digit = digit | "a" | "b" | "c" | "d" | "e" | "f" | "A" | "B" | "C" | "D" | "E" | "F" ;
 float = digit { digit } "." digit { digit } ;
 bool_literal = "true" | "false" ;
 string = '"' { any_char - '"' | escape_sequence } '"' ;

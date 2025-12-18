@@ -482,8 +482,36 @@ std::optional<ast::Integer> Parser::parse_integer() {
   std::string value;
   std::optional<std::string> suffix;
 
+  // Check for hexadecimal literal (0x prefix)
+  if (peek() == '0' && (peek(1) == 'x' || peek(1) == 'X')) {
+    advance();  // consume '0'
+    advance();  // consume 'x' or 'X'
+
+    // Must have at least one hex digit after 0x
+    if (std::isxdigit(static_cast<unsigned char>(peek())) == 0) {
+      error("Invalid hexadecimal literal: expected hex digit after '0x'", make_range(start_pos));
+      return std::nullopt;
+    }
+
+    // Collect hex digits and underscores
+    value = "0x";
+    char last_char = peek();
+    while (std::isxdigit(static_cast<unsigned char>(peek())) != 0 || peek() == '_') {
+      last_char = peek();
+      char const ch = advance();
+      if (ch != '_') {
+        value += ch;
+      }
+    }
+
+    // Check for trailing underscore
+    if (last_char == '_') {
+      error("Invalid hexadecimal literal: trailing underscore not allowed", make_range(start_pos));
+      return std::nullopt;
+    }
+  }
   // Check for leading zero (only "0" is allowed, not "01", "02", etc.)
-  if (peek() == '0') {
+  else if (peek() == '0') {
     if (std::isdigit(static_cast<unsigned char>(peek(1))) != 0 || peek(1) == '_') {
       error("Invalid integer: leading zero not allowed (except standalone '0')", make_range(start_pos));
       return std::nullopt;

@@ -69,6 +69,60 @@ constexpr auto k_invalid_empty_input = "";
 constexpr auto k_invalid_letter_should_succeed = false;
 constexpr auto k_invalid_letter_input = "abc";
 
+// Hexadecimal literals
+constexpr auto k_hex_lowercase_should_succeed = true;
+constexpr auto k_hex_lowercase_input = "0xff";
+constexpr auto k_hex_lowercase_expected = R"((integer "0xff"))";
+
+constexpr auto k_hex_uppercase_should_succeed = true;
+constexpr auto k_hex_uppercase_input = "0xFF";
+constexpr auto k_hex_uppercase_expected = R"((integer "0xFF"))";
+
+constexpr auto k_hex_mixed_case_should_succeed = true;
+constexpr auto k_hex_mixed_case_input = "0xDeadBeef";
+constexpr auto k_hex_mixed_case_expected = R"((integer "0xDeadBeef"))";
+
+constexpr auto k_hex_with_underscores_should_succeed = true;
+constexpr auto k_hex_with_underscores_input = "0xDEAD_BEEF";
+constexpr auto k_hex_with_underscores_expected = R"((integer "0xDEADBEEF"))";
+
+constexpr auto k_hex_single_digit_should_succeed = true;
+constexpr auto k_hex_single_digit_input = "0xF";
+constexpr auto k_hex_single_digit_expected = R"((integer "0xF"))";
+
+constexpr auto k_hex_all_digits_should_succeed = true;
+constexpr auto k_hex_all_digits_input = "0x1234567890";
+constexpr auto k_hex_all_digits_expected = R"((integer "0x1234567890"))";
+
+constexpr auto k_hex_all_letters_should_succeed = true;
+constexpr auto k_hex_all_letters_input = "0xABCDEF";
+constexpr auto k_hex_all_letters_expected = R"((integer "0xABCDEF"))";
+
+constexpr auto k_hex_with_suffix_should_succeed = true;
+constexpr auto k_hex_with_suffix_input = "0xFFU32";
+constexpr auto k_hex_with_suffix_expected = R"((integer "0xFF" "U32"))";
+
+constexpr auto k_hex_large_value_should_succeed = true;
+constexpr auto k_hex_large_value_input = "0x1234_5678_90AB_CDEF";
+constexpr auto k_hex_large_value_expected = R"((integer "0x1234567890ABCDEF"))";
+
+// Invalid hexadecimal cases
+constexpr auto k_hex_no_digits_should_succeed = false;
+constexpr auto k_hex_no_digits_input = "0x";
+
+constexpr auto k_hex_invalid_char_should_succeed = false;
+constexpr auto k_hex_invalid_char_input = "0xGG";
+
+constexpr auto k_hex_trailing_underscore_should_succeed = false;
+constexpr auto k_hex_trailing_underscore_input = "0xFF_";
+
+constexpr auto k_hex_leading_underscore_should_succeed = false;
+constexpr auto k_hex_leading_underscore_input = "0x_FF";
+
+constexpr auto k_hex_uppercase_x_should_succeed = true;
+constexpr auto k_hex_uppercase_x_input = "0XFF";
+constexpr auto k_hex_uppercase_x_expected = R"((integer "0xFF"))";
+
 }  // namespace
 
 TEST_CASE("Parse Integer") {
@@ -134,10 +188,68 @@ TEST_CASE("Parse Integer") {
        .input = k_invalid_empty_input,
        .expected = std::nullopt,
        .should_succeed = k_invalid_empty_should_succeed},
-      {.name = "invalid - letter",
+      {.name = "invalid letter",
        .input = k_invalid_letter_input,
        .expected = std::nullopt,
        .should_succeed = k_invalid_letter_should_succeed},
+      // Hexadecimal literals
+      {.name = "hex lowercase",
+       .input = k_hex_lowercase_input,
+       .expected = k_hex_lowercase_expected,
+       .should_succeed = k_hex_lowercase_should_succeed},
+      {.name = "hex uppercase",
+       .input = k_hex_uppercase_input,
+       .expected = k_hex_uppercase_expected,
+       .should_succeed = k_hex_uppercase_should_succeed},
+      {.name = "hex mixed case",
+       .input = k_hex_mixed_case_input,
+       .expected = k_hex_mixed_case_expected,
+       .should_succeed = k_hex_mixed_case_should_succeed},
+      {.name = "hex with underscores",
+       .input = k_hex_with_underscores_input,
+       .expected = k_hex_with_underscores_expected,
+       .should_succeed = k_hex_with_underscores_should_succeed},
+      {.name = "hex single digit",
+       .input = k_hex_single_digit_input,
+       .expected = k_hex_single_digit_expected,
+       .should_succeed = k_hex_single_digit_should_succeed},
+      {.name = "hex all digits",
+       .input = k_hex_all_digits_input,
+       .expected = k_hex_all_digits_expected,
+       .should_succeed = k_hex_all_digits_should_succeed},
+      {.name = "hex all letters",
+       .input = k_hex_all_letters_input,
+       .expected = k_hex_all_letters_expected,
+       .should_succeed = k_hex_all_letters_should_succeed},
+      {.name = "hex with suffix",
+       .input = k_hex_with_suffix_input,
+       .expected = k_hex_with_suffix_expected,
+       .should_succeed = k_hex_with_suffix_should_succeed},
+      {.name = "hex large value",
+       .input = k_hex_large_value_input,
+       .expected = k_hex_large_value_expected,
+       .should_succeed = k_hex_large_value_should_succeed},
+      // Invalid hex cases
+      {.name = "hex no digits",
+       .input = k_hex_no_digits_input,
+       .expected = std::nullopt,
+       .should_succeed = k_hex_no_digits_should_succeed},
+      {.name = "hex invalid char",
+       .input = k_hex_invalid_char_input,
+       .expected = std::nullopt,
+       .should_succeed = k_hex_invalid_char_should_succeed},
+      {.name = "hex trailing underscore",
+       .input = k_hex_trailing_underscore_input,
+       .expected = std::nullopt,
+       .should_succeed = k_hex_trailing_underscore_should_succeed},
+      {.name = "hex leading underscore",
+       .input = k_hex_leading_underscore_input,
+       .expected = std::nullopt,
+       .should_succeed = k_hex_leading_underscore_should_succeed},
+      {.name = "hex uppercase X",
+       .input = k_hex_uppercase_x_input,
+       .expected = k_hex_uppercase_x_expected,
+       .should_succeed = k_hex_uppercase_x_should_succeed},
   };
   for (auto const& params : params_list) {
     SUBCASE(std::string(params.name).c_str()) {
