@@ -673,6 +673,7 @@ DEFINE_PARSE_HELPER(Trait_Def, parse_trait_def)
 DEFINE_PARSE_HELPER(Impl_Block, parse_impl_block)
 DEFINE_PARSE_HELPER(Trait_Impl, parse_trait_impl)
 DEFINE_PARSE_HELPER(Type_Alias, parse_type_alias)
+DEFINE_PARSE_HELPER(Type_Name, parse_type_name)
 DEFINE_PARSE_HELPER(Function_Type, parse_function_type)
 DEFINE_PARSE_HELPER(Array_Type, parse_array_type)
 

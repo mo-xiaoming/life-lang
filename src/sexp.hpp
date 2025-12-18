@@ -218,6 +218,13 @@ inline void print_sexp(Sexp_Printer& p_, Array_Type const& arr_) {
   p_.end_list();
 }
 
+inline void print_sexp(Sexp_Printer& p_, Tuple_Type const& tuple_) {
+  p_.begin_list("tuple_type");
+  p_.space();
+  p_.write_vector(tuple_.element_types, [&](auto const& t_) { print_sexp(p_, t_); });
+  p_.end_list();
+}
+
 inline void print_sexp(Sexp_Printer& p_, Type_Name const& type_) {
   std::visit([&](auto const& t_) { print_sexp(p_, t_); }, type_);
 }
@@ -340,6 +347,13 @@ inline void print_sexp(Sexp_Printer& p_, Struct_Literal const& lit_) {
 
 inline void print_sexp(Sexp_Printer& p_, Array_Literal const& lit_) {
   p_.begin_list("array_lit");
+  p_.space();
+  p_.write_vector(lit_.elements, [&](auto const& e_) { print_sexp(p_, e_); });
+  p_.end_list();
+}
+
+inline void print_sexp(Sexp_Printer& p_, Tuple_Literal const& lit_) {
+  p_.begin_list("tuple_lit");
   p_.space();
   p_.write_vector(lit_.elements, [&](auto const& e_) { print_sexp(p_, e_); });
   p_.end_list();

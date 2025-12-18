@@ -77,11 +77,20 @@ struct Array_Type {
   std::string size;                         // Array size (stored as string to preserve literal)
 };
 
-// Type name: either a path-based type, function type, or array type
-// Examples: I32, Vec<T>, Std.String, fn(I32): Bool, [I32; 4]
-struct Type_Name : std::variant<Path_Type, Function_Type, Array_Type> {
+// Tuple type: (T, U, V, ...)
+// Examples: (I32, String), (Bool, I32, I32), ((I32, I32), String)
+// Note: Empty tuple () is represented as Path_Type with value "()", not Tuple_Type
+// Note: Single-element tuple (T,) is represented as Tuple_Type with one element
+struct Tuple_Type {
+  static constexpr std::string_view k_name = "Tuple_Type";
+  std::vector<Type_Name> element_types;  // Element types (must have at least 1)
+};
+
+// Type name: either a path-based type, function type, array type, or tuple type
+// Examples: I32, Vec<T>, Std.String, fn(I32): Bool, [I32; 4], (I32, String)
+struct Type_Name : std::variant<Path_Type, Function_Type, Array_Type, Tuple_Type> {
   static constexpr std::string_view k_name = "Type_Name";
-  using Base_Type = std::variant<Path_Type, Function_Type, Array_Type>;
+  using Base_Type = std::variant<Path_Type, Function_Type, Array_Type, Tuple_Type>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 
@@ -217,6 +226,15 @@ struct Array_Literal {
   std::vector<Expr> elements;
 };
 
+// Tuple literal: (expr, expr, ...)
+// Examples: (1, 2), ("name", 42, true), (x, y + 1)
+// Note: Single element requires trailing comma: (x,) - otherwise it's a parenthesized expression
+// Note: Empty tuple () is Unit_Literal, not Tuple_Literal
+struct Tuple_Literal {
+  static constexpr std::string_view k_name = "Tuple_Literal";
+  std::vector<Expr> elements;
+};
+
 // ============================================================================
 // Binary Operators
 // ============================================================================
@@ -302,6 +320,7 @@ struct Expr : std::variant<
                   std::shared_ptr<Assignment_Expr>,
                   Struct_Literal,
                   Array_Literal,
+                  Tuple_Literal,
                   Unit_Literal,
                   String,
                   Integer,
@@ -323,6 +342,7 @@ struct Expr : std::variant<
       std::shared_ptr<Assignment_Expr>,
       Struct_Literal,
       Array_Literal,
+      Tuple_Literal,
       Unit_Literal,
       String,
       Integer,
@@ -877,6 +897,10 @@ inline Array_Type make_array_type(Type_Name&& element_type_, std::string&& size_
   return Array_Type{.element_type = std::make_shared<Type_Name>(std::move(element_type_)), .size = std::move(size_)};
 }
 
+inline Tuple_Type make_tuple_type(std::vector<Type_Name>&& element_types_) {
+  return Tuple_Type{.element_types = std::move(element_types_)};
+}
+
 inline Type_Name make_type_name(std::vector<Type_Name_Segment>&& segments_) {
   return Type_Name(Path_Type{std::move(segments_)});
 }
@@ -1057,6 +1081,10 @@ inline Field_Access_Expr make_field_access_expr(Expr&& object_, std::string&& fi
 
 inline Array_Literal make_array_literal(std::vector<Expr>&& elements_) {
   return Array_Literal{.elements = std::move(elements_)};
+}
+
+inline Tuple_Literal make_tuple_literal(std::vector<Expr>&& elements_) {
+  return Tuple_Literal{.elements = std::move(elements_)};
 }
 
 inline Index_Expr make_index_expr(Expr&& object_, Expr&& index_) {

@@ -44,7 +44,9 @@ target_sources(tests
         parser/test_trait_bounds_in_declarations.cpp
         parser/test_trait_def.cpp
         parser/test_trait_impl.cpp
+        parser/test_tuple_literal.cpp
         parser/test_tuple_pattern.cpp
+        parser/test_tuple_type.cpp
         parser/test_type_alias.cpp
         parser/test_unary_expr.cpp
         parser/test_unit_type.cpp
@@ -55,6 +57,7 @@ target_sources(tests
         integration/test_array_type_in_functions.cpp
         integration/test_parse_module_integration.cpp
         integration/test_readme_example.cpp
+        integration/test_tuple_types_and_literals.cpp
 )
 
 target_link_libraries(tests

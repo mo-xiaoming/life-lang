@@ -1142,13 +1142,79 @@ std::optional<ast::Var_Name> Parser::parse_variable_name() {
 std::optional<ast::Type_Name> Parser::parse_type_name() {
   skip_whitespace_and_comments();
 
-  // Type_Name is a variant of Path_Type, Function_Type, and Array_Type
+  // Type_Name is a variant of Path_Type, Function_Type, Array_Type, and Tuple_Type
   // Try array type first (starts with "[")
   if (peek() == '[') {
     auto array_type = parse_array_type();
     if (array_type) {
       return ast::Type_Name{std::move(*array_type)};
     }
+    return std::nullopt;
+  }
+
+  // Try tuple type or unit type (starts with "(")
+  // Need to distinguish: () = unit type, (T) = parenthesized type, (T,) or (T, U) = tuple type
+  if (peek() == '(') {
+    auto const start_pos = current_position();
+
+    // Check for unit type () first
+    if (peek(1) == ')') {
+      // Parse as unit type (handled by parse_path_type)
+      auto path_type = parse_path_type();
+      if (path_type) {
+        return ast::Type_Name{std::move(*path_type)};
+      }
+      return std::nullopt;
+    }
+
+    // Could be tuple type or parenthesized type
+    advance();  // consume '('
+
+    // Parse first type
+    auto first_type = parse_type_name();
+    if (!first_type) {
+      error("Expected type in parentheses", make_range(start_pos));
+      return std::nullopt;
+    }
+
+    skip_whitespace_and_comments();
+
+    // Check what follows
+    if (peek() == ',') {
+      // Tuple type: (T, ...)
+      std::vector<ast::Type_Name> element_types;
+      element_types.push_back(std::move(*first_type));
+
+      while (peek() == ',') {
+        advance();  // consume ','
+        skip_whitespace_and_comments();
+
+        // Allow trailing comma before ')'
+        if (peek() == ')') {
+          break;
+        }
+
+        auto elem_type = parse_type_name();
+        if (!elem_type) {
+          error("Expected type in tuple type", make_range(current_position()));
+          return std::nullopt;
+        }
+        element_types.push_back(std::move(*elem_type));
+        skip_whitespace_and_comments();
+      }
+
+      if (!expect(')')) {
+        return std::nullopt;
+      }
+
+      return ast::Type_Name{ast::make_tuple_type(std::move(element_types))};
+    }
+    if (peek() == ')') {
+      // Parenthesized type: (T) - just return T
+      advance();  // consume ')'
+      return first_type;
+    }
+    error("Expected ',' or ')' after type in parentheses", make_range(current_position()));
     return std::nullopt;
   }
 
@@ -1750,25 +1816,64 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
   }
 
-  // Try unit literal () or parenthesized expression
+  // Try unit literal (), tuple literal (expr, ...), or parenthesized expression (expr)
   if (peek() == '(') {
     if (peek(1) == ')') {
+      // Unit literal: ()
       auto unit = parse_unit_literal();
       if (unit) {
         return ast::Expr{*unit};
       }
     } else {
+      // Could be tuple literal or parenthesized expression
       advance();  // consume '('
-      auto expr = parse_expr();
-      if (!expr) {
+
+      // Parse first expression
+      auto first_expr = parse_expr();
+      if (!first_expr) {
         error("Expected expression", make_range(start_pos));
         return std::nullopt;
       }
+
       skip_whitespace_and_comments();
-      if (!expect(')')) {
-        return std::nullopt;
+
+      // Check what follows
+      if (peek() == ',') {
+        // Tuple literal: (expr, ...)
+        std::vector<ast::Expr> elements;
+        elements.push_back(std::move(*first_expr));
+
+        while (peek() == ',') {
+          advance();  // consume ','
+          skip_whitespace_and_comments();
+
+          // Allow trailing comma before ')'
+          if (peek() == ')') {
+            break;
+          }
+
+          auto elem = parse_expr();
+          if (!elem) {
+            error("Expected expression in tuple literal", make_range(current_position()));
+            return std::nullopt;
+          }
+          elements.push_back(std::move(*elem));
+          skip_whitespace_and_comments();
+        }
+
+        if (!expect(')')) {
+          return std::nullopt;
+        }
+
+        return ast::Expr{ast::make_tuple_literal(std::move(elements))};
       }
-      return expr;
+      if (peek() == ')') {
+        // Parenthesized expression: (expr)
+        advance();  // consume ')'
+        return first_expr;
+      }
+      error("Expected ',' or ')' after expression in parentheses", make_range(current_position()));
+      return std::nullopt;
     }
   }
 
