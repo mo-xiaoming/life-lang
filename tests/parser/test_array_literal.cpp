@@ -27,7 +27,7 @@ inline auto const k_multiple_integers_expected =
 constexpr auto k_mixed_types_should_succeed = true;
 constexpr auto k_mixed_types_input = R"([1, "hello", true])";
 inline std::string const k_mixed_types_expected =
-    std::format(R"((array_lit ((integer "1") (string "\"hello\"") {})))", test_sexp::var_name("true"));
+    std::format(R"((array_lit ((integer "1") (string "\"hello\"") {})))", test_sexp::bool_literal(true));
 
 // Nested arrays
 constexpr auto k_nested_arrays_should_succeed = true;

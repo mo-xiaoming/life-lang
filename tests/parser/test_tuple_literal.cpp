@@ -31,7 +31,7 @@ inline auto const k_multiple_trailing_comma_expected = R"((tuple_lit ((integer "
 constexpr auto k_mixed_types_should_succeed = true;
 constexpr auto k_mixed_types_input = R"((42, "hello", true))";
 inline std::string const k_mixed_types_expected =
-    std::format(R"((tuple_lit ((integer "42") (string "\"hello\"") {})))", test_sexp::var_name("true"));
+    std::format(R"((tuple_lit ((integer "42") (string "\"hello\"") {})))", test_sexp::bool_literal(true));
 
 // Tuple with variables
 constexpr auto k_with_variables_should_succeed = true;

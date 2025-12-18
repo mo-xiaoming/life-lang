@@ -809,6 +809,44 @@ std::optional<ast::Char> Parser::parse_char() {
   return result;
 }
 
+std::optional<ast::Bool_Literal> Parser::parse_bool_literal() {
+  skip_whitespace_and_comments();
+
+  auto const start_pos = current_position();
+
+  // Try to match "true"
+  if (lookahead("true")) {
+    // Make sure it's not part of a longer identifier (e.g., "true_value")
+    if (is_identifier_continue(peek(4))) {
+      error("Expected boolean literal 'true' or 'false'", make_range(start_pos));
+      return std::nullopt;
+    }
+    advance();  // t
+    advance();  // r
+    advance();  // u
+    advance();  // e
+    return ast::Bool_Literal{true};
+  }
+
+  // Try to match "false"
+  if (lookahead("false")) {
+    // Make sure it's not part of a longer identifier (e.g., "false_value")
+    if (is_identifier_continue(peek(5))) {
+      error("Expected boolean literal 'true' or 'false'", make_range(start_pos));
+      return std::nullopt;
+    }
+    advance();  // f
+    advance();  // a
+    advance();  // l
+    advance();  // s
+    advance();  // e
+    return ast::Bool_Literal{false};
+  }
+
+  error("Expected boolean literal 'true' or 'false'", make_range(start_pos));
+  return std::nullopt;
+}
+
 std::optional<ast::Unit_Literal> Parser::parse_unit_literal() {
   skip_whitespace_and_comments();
 
@@ -1813,6 +1851,21 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     auto array_lit = parse_array_literal();
     if (array_lit) {
       return ast::Expr{std::move(*array_lit)};
+    }
+  }
+
+  // Try boolean literal (true or false)
+  // Must check before identifiers to prevent treating them as variable names
+  if (lookahead("true") && !is_identifier_continue(peek(4))) {
+    auto bool_lit = parse_bool_literal();
+    if (bool_lit) {
+      return ast::Expr{*bool_lit};
+    }
+  }
+  if (lookahead("false") && !is_identifier_continue(peek(5))) {
+    auto bool_lit = parse_bool_literal();
+    if (bool_lit) {
+      return ast::Expr{*bool_lit};
     }
   }
 
@@ -4123,7 +4176,9 @@ std::optional<ast::Expr> Parser::parse_func_call() {
     return ast::Pattern{std::move(tuple_pat)};
   }
 
-  if (peek() == '"' || std::isdigit(peek()) != 0 || (peek() == '-' && std::isdigit(peek(1)) != 0)) {
+  if (peek() == '"' || std::isdigit(peek()) != 0 || (peek() == '-' && std::isdigit(peek(1)) != 0) ||
+      (lookahead("true") && !is_identifier_continue(peek(4))) ||
+      (lookahead("false") && !is_identifier_continue(peek(5)))) {
     auto expr = parse_primary_expr();
     if (!expr) {
       error("Expected literal in pattern", make_range(current_position()));

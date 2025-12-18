@@ -195,6 +195,12 @@ struct Char {
   std::string value;
 };
 
+// Boolean literal: true or false
+struct Bool_Literal {
+  static constexpr std::string_view k_name = "Bool_Literal";
+  bool value{};
+};
+
 // Unit literal: () - represents "no value" or empty tuple
 // Used in return statements for functions with unit return type: return ();
 struct Unit_Literal {
@@ -332,6 +338,7 @@ struct Expr : std::variant<
                   Array_Literal,
                   Tuple_Literal,
                   Unit_Literal,
+                  Bool_Literal,
                   String,
                   Integer,
                   Float,
@@ -355,6 +362,7 @@ struct Expr : std::variant<
       Array_Literal,
       Tuple_Literal,
       Unit_Literal,
+      Bool_Literal,
       String,
       Integer,
       Float,
@@ -1008,6 +1016,10 @@ inline Float make_float(std::string value_, std::optional<std::string> suffix_ =
 
 inline Unit_Literal make_unit_literal() noexcept {
   return Unit_Literal{};
+}
+
+inline Bool_Literal make_bool_literal(bool value_) noexcept {
+  return Bool_Literal{value_};
 }
 
 inline Char make_char(std::string&& value_) {

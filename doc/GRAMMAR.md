@@ -23,6 +23,7 @@ type_name = upper { letter | digit | "_" } ;
 ```ebnf
 integer = digit { digit } ;
 float = digit { digit } "." digit { digit } ;
+bool_literal = "true" | "false" ;
 string = '"' { any_char - '"' | escape_sequence } '"' ;
 char = "'" ( any_char - "'" | escape_sequence ) "'" ;
 unit_literal = "(" ")" ;
@@ -277,7 +278,7 @@ field_access = expr "." var_name ;
 
 tuple_literal = "(" expr { "," expr } ")" ;
 
-literal = integer | float | string | char | unit_literal ;
+literal = integer | float | bool_literal | string | char | unit_literal ;
 ```
 
 ## Patterns
