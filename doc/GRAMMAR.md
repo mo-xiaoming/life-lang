@@ -208,8 +208,32 @@ block = "{" { statement } [ expr ] "}" ;
 ```ebnf
 binary_expr = expr binary_op expr ;
 binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">=" 
-          | "&&" | "||" | "&" | "|" | "^" | "<<" | ">>" ;
+          | "&&" | "||" | "&" | "|" | "^" | "<<" | ">>" | "as" ;
 ```
+
+**Operator Precedence** (highest to lowest):
+1. Field access, method calls, indexing: `.`, `()`, `[]`
+2. **Type cast**: `as`
+3. Unary: `-`, `!`, `&`, `*`
+4. Multiplicative: `*`, `/`, `%`
+5. Additive: `+`, `-`
+6. Shift: `<<`, `>>`
+7. Bitwise AND: `&`
+8. Bitwise XOR: `^`
+9. Bitwise OR: `|`
+10. Comparison: `==`, `!=`, `<`, `>`, `<=`, `>=`
+11. Logical AND: `&&`
+12. Logical OR: `||`
+13. Range: `..`, `..=`
+
+**Type Cast Semantics:**
+- `expr as Type` - Explicit type conversion
+- Allowed conversions (enforced in semantic analysis):
+  - Numeric primitives: `I32 as I64`, `I32 as F64`, etc.
+  - Pointer to integer: `&x as U64`
+  - Integer to pointer: `0 as *T` (unsafe context only)
+  - Enum variant to discriminant: `Color.Red as I32`
+- Examples: `x + y as I64 * z` parses as `x + ((y as I64) * z)`
 
 ### Unary Operations
 

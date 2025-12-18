@@ -450,6 +450,15 @@ inline void print_sexp(Sexp_Printer& p_, Range_Expr const& expr_) {
   p_.end_list();
 }
 
+inline void print_sexp(Sexp_Printer& p_, Cast_Expr const& expr_) {
+  p_.begin_list("cast");
+  p_.space();
+  print_sexp(p_, *expr_.expr);
+  p_.space();
+  print_sexp(p_, expr_.target_type);
+  p_.end_list();
+}
+
 inline void print_sexp(Sexp_Printer& p_, Func_Call_Expr const& call_);
 inline void print_sexp(Sexp_Printer& p_, Field_Access_Expr const& access_);
 inline void print_sexp(Sexp_Printer& p_, Index_Expr const& index_);
@@ -468,10 +477,10 @@ inline void print_sexp(Sexp_Printer& p_, Expr const& expr_) {
                       std::is_same_v<T, std::shared_ptr<Field_Access_Expr>> ||
                       std::is_same_v<T, std::shared_ptr<Index_Expr>> ||
                       std::is_same_v<T, std::shared_ptr<Binary_Expr>> ||
-                      std::is_same_v<T, std::shared_ptr<Unary_Expr>> || std::is_same_v<T, std::shared_ptr<If_Expr>> ||
-                      std::is_same_v<T, std::shared_ptr<While_Expr>> || std::is_same_v<T, std::shared_ptr<For_Expr>> ||
-                      std::is_same_v<T, std::shared_ptr<Match_Expr>> || std::is_same_v<T, std::shared_ptr<Block>> ||
-                      std::is_same_v<T, std::shared_ptr<Range_Expr>> ||
+                      std::is_same_v<T, std::shared_ptr<Unary_Expr>> || std::is_same_v<T, std::shared_ptr<Cast_Expr>> ||
+                      std::is_same_v<T, std::shared_ptr<If_Expr>> || std::is_same_v<T, std::shared_ptr<While_Expr>> ||
+                      std::is_same_v<T, std::shared_ptr<For_Expr>> || std::is_same_v<T, std::shared_ptr<Match_Expr>> ||
+                      std::is_same_v<T, std::shared_ptr<Block>> || std::is_same_v<T, std::shared_ptr<Range_Expr>> ||
                       std::is_same_v<T, std::shared_ptr<Assignment_Expr>>) {
           if (e_) {
             print_sexp(p_, *e_);

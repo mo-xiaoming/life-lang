@@ -299,6 +299,15 @@ struct Range_Expr {
   bool inclusive{};  // false for .., true for ..=
 };
 
+// Type cast expression: expr as Type
+// Examples: x as I64, (y + 1) as F32, ptr as U64
+// Performs explicit type conversion (validity checked in semantic analysis)
+struct Cast_Expr {
+  static constexpr std::string_view k_name = "Cast_Expr";
+  std::shared_ptr<Expr> expr;
+  Type_Name target_type;
+};
+
 // ============================================================================
 // Expression Types
 // ============================================================================
@@ -311,6 +320,7 @@ struct Expr : std::variant<
                   std::shared_ptr<Index_Expr>,
                   std::shared_ptr<Binary_Expr>,
                   std::shared_ptr<Unary_Expr>,
+                  std::shared_ptr<Cast_Expr>,
                   std::shared_ptr<If_Expr>,
                   std::shared_ptr<While_Expr>,
                   std::shared_ptr<For_Expr>,
@@ -333,6 +343,7 @@ struct Expr : std::variant<
       std::shared_ptr<Index_Expr>,
       std::shared_ptr<Binary_Expr>,
       std::shared_ptr<Unary_Expr>,
+      std::shared_ptr<Cast_Expr>,
       std::shared_ptr<If_Expr>,
       std::shared_ptr<While_Expr>,
       std::shared_ptr<For_Expr>,
@@ -1304,6 +1315,11 @@ inline Binary_Expr make_binary_expr(Expr&& lhs_, Binary_Op op_, Expr&& rhs_) {
 // Unary expression helper
 inline Unary_Expr make_unary_expr(Unary_Op op_, Expr&& operand_) {
   return Unary_Expr{.op = op_, .operand = std::make_shared<Expr>(std::move(operand_))};
+}
+
+// Cast expression helper
+inline Cast_Expr make_cast_expr(Expr&& expr_, Type_Name&& target_type_) {
+  return Cast_Expr{.expr = std::make_shared<Expr>(std::move(expr_)), .target_type = std::move(target_type_)};
 }
 
 // Function helpers

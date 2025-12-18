@@ -2066,6 +2066,31 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   while (true) {
     skip_whitespace_and_comments();
 
+    // Check for 'as' cast operator before other operators
+    // Cast has precedence 7 (higher than multiplicative, lower than postfix)
+    if (lookahead("as") && (peek(2) == ' ' || peek(2) == '\t' || peek(2) == '\n' || peek(2) == '\r' ||
+                            (std::isupper(static_cast<unsigned char>(peek(2))) != 0))) {
+      int const cast_precedence = 7;  // Higher than multiplicative (6)
+      if (cast_precedence < min_precedence_) {
+        break;
+      }
+
+      advance();  // consume 'a'
+      advance();  // consume 's'
+      skip_whitespace_and_comments();
+
+      // Parse the target type
+      auto target_type = parse_type_name();
+      if (!target_type) {
+        error("Expected type name after 'as'");
+        return std::nullopt;
+      }
+
+      // Build cast expression
+      lhs = ast::Expr{std::make_shared<ast::Cast_Expr>(ast::make_cast_expr(std::move(*lhs), std::move(*target_type)))};
+      continue;
+    }
+
     // Check for range operators (.., ..=) before binary operators
     // Ranges have low precedence (between logical OR and assignment)
     if (peek() == '.' && peek(1) == '.') {
