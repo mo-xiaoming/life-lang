@@ -69,6 +69,7 @@ PARSE_FN_DECL(Array_Type, array_type)
 // Literal building blocks
 PARSE_FN_DECL(Integer, integer)
 PARSE_FN_DECL(Float, float)
+PARSE_FN_DECL(Bool_Literal, bool_literal)
 PARSE_FN_DECL(String, string)
 PARSE_FN_DECL(Char, char)
 

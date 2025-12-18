@@ -207,6 +207,11 @@ inline std::string char_literal(std::string_view value_) {
   return std::format(R"((char "{}"))", value_);
 }
 
+// Boolean literal
+inline std::string bool_literal(bool value_) {
+  return std::format("(bool {})", value_ ? "true" : "false");
+}
+
 // Wildcard pattern
 inline std::string wildcard_pattern() {
   return "_";
@@ -801,6 +806,7 @@ DEFINE_PARSE_HELPER_WITH_EXTRACTION(Unary_Expr)
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(Assignment_Expr)
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(Integer)
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(Float)
+DEFINE_PARSE_HELPER_WITH_EXTRACTION(Bool_Literal)
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(String)
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(Char)
 

@@ -323,6 +323,13 @@ inline void print_sexp(Sexp_Printer& p_, Char const& ch_) {
   p_.end_list();
 }
 
+inline void print_sexp(Sexp_Printer& p_, Bool_Literal const& bool_) {
+  p_.begin_list("bool");
+  p_.space();
+  p_.write(bool_.value ? "true" : "false");
+  p_.end_list();
+}
+
 inline void print_sexp(Sexp_Printer& p_, Unit_Literal const& /*unused*/) {
   p_.write("unit");
 }
