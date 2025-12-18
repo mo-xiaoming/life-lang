@@ -408,6 +408,21 @@ inline void print_sexp(Sexp_Printer& p_, Binary_Op op_) {
     case Binary_Op::Or:
       p_.write("||");
       break;
+    case Binary_Op::Bit_And:
+      p_.write("&");
+      break;
+    case Binary_Op::Bit_Or:
+      p_.write("|");
+      break;
+    case Binary_Op::Bit_Xor:
+      p_.write("^");
+      break;
+    case Binary_Op::Shl:
+      p_.write("<<");
+      break;
+    case Binary_Op::Shr:
+      p_.write(">>");
+      break;
   }
 }
 

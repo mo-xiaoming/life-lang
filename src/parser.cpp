@@ -1692,31 +1692,44 @@ std::optional<ast::Where_Clause> Parser::parse_where_clause() {
   // Precedence levels (higher = tighter binding):
   // 1: || (logical OR)
   // 2: && (logical AND)
-  // 3: ==, != (equality)
-  // 4: <, >, <=, >= (comparison)
-  // 5: +, - (additive)
-  // 6: *, /, % (multiplicative)
+  // 3: | (bitwise OR)
+  // 4: ^ (bitwise XOR)
+  // 5: & (bitwise AND)
+  // 6: ==, != (equality)
+  // 7: <, >, <=, >= (comparison)
+  // 8: <<, >> (shift)
+  // 9: +, - (additive)
+  // 10: *, /, % (multiplicative)
 
   switch (op_) {
     case ast::Binary_Op::Or:
       return 1;
     case ast::Binary_Op::And:
       return 2;
+    case ast::Binary_Op::Bit_Or:
+      return 3;
+    case ast::Binary_Op::Bit_Xor:
+      return 4;
+    case ast::Binary_Op::Bit_And:
+      return 5;
     case ast::Binary_Op::Eq:
     case ast::Binary_Op::Ne:
-      return 3;
+      return 6;
     case ast::Binary_Op::Lt:
     case ast::Binary_Op::Gt:
     case ast::Binary_Op::Le:
     case ast::Binary_Op::Ge:
-      return 4;
+      return 7;
+    case ast::Binary_Op::Shl:
+    case ast::Binary_Op::Shr:
+      return 8;
     case ast::Binary_Op::Add:
     case ast::Binary_Op::Sub:
-      return 5;
+      return 9;
     case ast::Binary_Op::Mul:
     case ast::Binary_Op::Div:
     case ast::Binary_Op::Mod:
-      return 6;
+      return 10;
   }
   return 0;
 }
@@ -1755,6 +1768,16 @@ std::optional<ast::Where_Clause> Parser::parse_where_clause() {
     advance();
     return ast::Binary_Op::Or;
   }
+  if (peek() == '<' && peek(1) == '<') {
+    advance();
+    advance();
+    return ast::Binary_Op::Shl;
+  }
+  if (peek() == '>' && peek(1) == '>') {
+    advance();
+    advance();
+    return ast::Binary_Op::Shr;
+  }
 
   // Single-character operators
   switch (peek()) {
@@ -1783,6 +1806,15 @@ std::optional<ast::Where_Clause> Parser::parse_where_clause() {
     case '>':
       advance();
       return ast::Binary_Op::Gt;
+    case '&':
+      advance();
+      return ast::Binary_Op::Bit_And;
+    case '|':
+      advance();
+      return ast::Binary_Op::Bit_Or;
+    case '^':
+      advance();
+      return ast::Binary_Op::Bit_Xor;
     default:
       return std::nullopt;
   }

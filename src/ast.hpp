@@ -271,6 +271,13 @@ enum class Binary_Op : std::uint8_t {
   // Logical operators
   And,  // &&
   Or,   // ||
+
+  // Bitwise operators
+  Bit_And,  // &
+  Bit_Or,   // |
+  Bit_Xor,  // ^
+  Shl,      // <<
+  Shr,      // >>
 };
 
 // Example: x + y, a * (b - c), value == 42
