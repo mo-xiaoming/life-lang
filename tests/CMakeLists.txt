@@ -8,6 +8,8 @@ target_sources(tests
         test_main.cpp
         
         # Unit tests - test semantic boundaries only (11 exposed rules)
+        parser/test_array_literal.cpp
+        parser/test_array_type.cpp
         parser/test_assignment.cpp
         parser/test_binary_expr.cpp
         parser/test_block.cpp
@@ -26,6 +28,7 @@ target_sources(tests
         parser/test_if_expr.cpp
         parser/test_impl_block.cpp
         parser/test_import.cpp
+        parser/test_index_expr.cpp
         parser/test_integer.cpp
         parser/test_internal_parse_errors.cpp
         parser/test_keywords.cpp
@@ -49,6 +52,7 @@ target_sources(tests
         parser/test_while_expr.cpp
         
         # Integration tests - test complete parse_module workflows
+        integration/test_array_type_in_functions.cpp
         integration/test_parse_module_integration.cpp
         integration/test_readme_example.cpp
 )

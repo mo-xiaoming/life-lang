@@ -19,6 +19,7 @@ namespace life_lang::ast {
 struct Type_Name_Segment;
 struct Type_Name;
 struct Function_Type;
+struct Array_Type;
 struct Trait_Bound;
 struct Type_Param;
 struct Where_Predicate;
@@ -27,6 +28,8 @@ struct Var_Name_Segment;
 struct Func_Call_Expr;
 struct Field_Access_Expr;
 struct Assignment_Expr;
+struct Array_Literal;
+struct Index_Expr;
 struct Binary_Expr;
 struct If_Expr;
 struct While_Expr;
@@ -66,11 +69,19 @@ struct Path_Type {
   std::vector<Type_Name_Segment> segments;
 };
 
-// Type name: either a path-based type or a function type
-// Examples: I32, Vec<T>, Std.String, fn(I32): Bool
-struct Type_Name : std::variant<Path_Type, Function_Type> {
+// Array type: [T; N]
+// Examples: [I32; 4], [String; 10], [Vec<I32>; 3]
+struct Array_Type {
+  static constexpr std::string_view k_name = "Array_Type";
+  std::shared_ptr<Type_Name> element_type;  // Element type
+  std::string size;                         // Array size (stored as string to preserve literal)
+};
+
+// Type name: either a path-based type, function type, or array type
+// Examples: I32, Vec<T>, Std.String, fn(I32): Bool, [I32; 4]
+struct Type_Name : std::variant<Path_Type, Function_Type, Array_Type> {
   static constexpr std::string_view k_name = "Type_Name";
-  using Base_Type = std::variant<Path_Type, Function_Type>;
+  using Base_Type = std::variant<Path_Type, Function_Type, Array_Type>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 
@@ -199,6 +210,13 @@ struct Struct_Literal {
   std::vector<Field_Initializer> fields;
 };
 
+// Array literal: [expr, expr, ...]
+// Examples: [1, 2, 3], [x, y + 1, calculate()], [] (empty array)
+struct Array_Literal {
+  static constexpr std::string_view k_name = "Array_Literal";
+  std::vector<Expr> elements;
+};
+
 // ============================================================================
 // Binary Operators
 // ============================================================================
@@ -272,6 +290,7 @@ struct Expr : std::variant<
                   Var_Name,
                   std::shared_ptr<Func_Call_Expr>,
                   std::shared_ptr<Field_Access_Expr>,
+                  std::shared_ptr<Index_Expr>,
                   std::shared_ptr<Binary_Expr>,
                   std::shared_ptr<Unary_Expr>,
                   std::shared_ptr<If_Expr>,
@@ -282,6 +301,7 @@ struct Expr : std::variant<
                   std::shared_ptr<Range_Expr>,
                   std::shared_ptr<Assignment_Expr>,
                   Struct_Literal,
+                  Array_Literal,
                   Unit_Literal,
                   String,
                   Integer,
@@ -291,6 +311,7 @@ struct Expr : std::variant<
       Var_Name,
       std::shared_ptr<Func_Call_Expr>,
       std::shared_ptr<Field_Access_Expr>,
+      std::shared_ptr<Index_Expr>,
       std::shared_ptr<Binary_Expr>,
       std::shared_ptr<Unary_Expr>,
       std::shared_ptr<If_Expr>,
@@ -301,6 +322,7 @@ struct Expr : std::variant<
       std::shared_ptr<Range_Expr>,
       std::shared_ptr<Assignment_Expr>,
       Struct_Literal,
+      Array_Literal,
       Unit_Literal,
       String,
       Integer,
@@ -322,6 +344,14 @@ struct Field_Access_Expr {
   static constexpr std::string_view k_name = "Field_Access_Expr";
   std::shared_ptr<Expr> object;
   std::string field_name;
+};
+
+// Index expression: array[index]
+// Examples: arr[0], matrix[i][j], get_array()[x + 1]
+struct Index_Expr {
+  static constexpr std::string_view k_name = "Index_Expr";
+  std::shared_ptr<Expr> object;  // The array/indexable expression
+  std::shared_ptr<Expr> index;   // The index expression
 };
 
 // Example: x = 42 or point.x = 10 or arr[i] = value (future)
@@ -842,6 +872,11 @@ inline Path_Type make_path_type(Args&&... args_) {
   }
 }
 
+// Array_Type helper
+inline Array_Type make_array_type(Type_Name&& element_type_, std::string&& size_) {
+  return Array_Type{.element_type = std::make_shared<Type_Name>(std::move(element_type_)), .size = std::move(size_)};
+}
+
 inline Type_Name make_type_name(std::vector<Type_Name_Segment>&& segments_) {
   return Type_Name(Path_Type{std::move(segments_)});
 }
@@ -1005,6 +1040,9 @@ inline Expr make_expr(Range_Expr&& range_) {
 inline Expr make_expr(Struct_Literal&& literal_) {
   return Expr{std::move(literal_)};
 }
+inline Expr make_expr(Array_Literal&& literal_) {
+  return Expr{std::move(literal_)};
+}
 inline Expr make_expr(Unit_Literal const& unit_) {
   return Expr{unit_};
 }
@@ -1015,6 +1053,17 @@ inline Func_Call_Expr make_func_call_expr(Var_Name&& name_, std::vector<Expr>&& 
 
 inline Field_Access_Expr make_field_access_expr(Expr&& object_, std::string&& field_name_) {
   return Field_Access_Expr{.object = std::make_shared<Expr>(std::move(object_)), .field_name = std::move(field_name_)};
+}
+
+inline Array_Literal make_array_literal(std::vector<Expr>&& elements_) {
+  return Array_Literal{.elements = std::move(elements_)};
+}
+
+inline Index_Expr make_index_expr(Expr&& object_, Expr&& index_) {
+  return Index_Expr{
+      .object = std::make_shared<Expr>(std::move(object_)),
+      .index = std::make_shared<Expr>(std::move(index_))
+  };
 }
 
 inline Assignment_Expr make_assignment_expr(Expr&& target_, Expr&& value_) {

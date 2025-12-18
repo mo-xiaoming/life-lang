@@ -209,6 +209,15 @@ inline void print_sexp(Sexp_Printer& p_, Function_Type const& func_) {
   p_.end_list();
 }
 
+inline void print_sexp(Sexp_Printer& p_, Array_Type const& arr_) {
+  p_.begin_list("array_type");
+  p_.space();
+  print_sexp(p_, *arr_.element_type);
+  p_.space();
+  p_.write_quoted(arr_.size);
+  p_.end_list();
+}
+
 inline void print_sexp(Sexp_Printer& p_, Type_Name const& type_) {
   std::visit([&](auto const& t_) { print_sexp(p_, t_); }, type_);
 }
@@ -329,6 +338,13 @@ inline void print_sexp(Sexp_Printer& p_, Struct_Literal const& lit_) {
   p_.end_list();
 }
 
+inline void print_sexp(Sexp_Printer& p_, Array_Literal const& lit_) {
+  p_.begin_list("array_lit");
+  p_.space();
+  p_.write_vector(lit_.elements, [&](auto const& e_) { print_sexp(p_, e_); });
+  p_.end_list();
+}
+
 // Operator S-expression printers
 inline void print_sexp(Sexp_Printer& p_, Binary_Op op_) {
   switch (op_) {
@@ -422,6 +438,7 @@ inline void print_sexp(Sexp_Printer& p_, Range_Expr const& expr_) {
 
 inline void print_sexp(Sexp_Printer& p_, Func_Call_Expr const& call_);
 inline void print_sexp(Sexp_Printer& p_, Field_Access_Expr const& access_);
+inline void print_sexp(Sexp_Printer& p_, Index_Expr const& index_);
 inline void print_sexp(Sexp_Printer& p_, Assignment_Expr const& assign_);
 inline void print_sexp(Sexp_Printer& p_, If_Expr const& if_expr_);
 inline void print_sexp(Sexp_Printer& p_, While_Expr const& while_expr_);
@@ -435,6 +452,7 @@ inline void print_sexp(Sexp_Printer& p_, Expr const& expr_) {
         using T = std::decay_t<decltype(e_)>;
         if constexpr (std::is_same_v<T, std::shared_ptr<Func_Call_Expr>> ||
                       std::is_same_v<T, std::shared_ptr<Field_Access_Expr>> ||
+                      std::is_same_v<T, std::shared_ptr<Index_Expr>> ||
                       std::is_same_v<T, std::shared_ptr<Binary_Expr>> ||
                       std::is_same_v<T, std::shared_ptr<Unary_Expr>> || std::is_same_v<T, std::shared_ptr<If_Expr>> ||
                       std::is_same_v<T, std::shared_ptr<While_Expr>> || std::is_same_v<T, std::shared_ptr<For_Expr>> ||
@@ -469,6 +487,15 @@ inline void print_sexp(Sexp_Printer& p_, Field_Access_Expr const& access_) {
   print_sexp(p_, *access_.object);
   p_.space();
   p_.write_quoted(access_.field_name);
+  p_.end_list();
+}
+
+inline void print_sexp(Sexp_Printer& p_, Index_Expr const& index_) {
+  p_.begin_list("index");
+  p_.space();
+  print_sexp(p_, *index_.object);
+  p_.space();
+  print_sexp(p_, *index_.index);
   p_.end_list();
 }
 

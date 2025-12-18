@@ -924,6 +924,64 @@ std::optional<ast::Struct_Literal> Parser::parse_struct_literal() {
   return result;
 }
 
+std::optional<ast::Array_Literal> Parser::parse_array_literal() {
+  skip_whitespace_and_comments();
+
+  // Expect '['
+  if (!expect('[')) {
+    return std::nullopt;
+  }
+
+  skip_whitespace_and_comments();
+
+  std::vector<ast::Expr> elements;
+
+  // Parse array elements
+  // Empty array literal is valid: []
+  if (peek() != ']') {
+    while (true) {
+      skip_whitespace_and_comments();
+
+      // Parse element expression
+      auto element = parse_expr();
+      if (!element) {
+        error("Expected expression in array literal", make_range(current_position()));
+        return std::nullopt;
+      }
+
+      elements.push_back(std::move(*element));
+
+      skip_whitespace_and_comments();
+
+      // Check for comma or end
+      if (peek() == ',') {
+        advance();  // consume ','
+        skip_whitespace_and_comments();
+        // Allow trailing comma
+        if (peek() == ']') {
+          break;
+        }
+        continue;
+      }
+
+      // No comma, must be end of elements
+      break;
+    }
+  }
+
+  skip_whitespace_and_comments();
+
+  // Expect ']'
+  if (!expect(']')) {
+    return std::nullopt;
+  }
+
+  ast::Array_Literal result;
+  result.elements = std::move(elements);
+
+  return result;
+}
+
 std::optional<ast::Var_Name> Parser::parse_variable_name() {
   skip_whitespace_and_comments();
 
@@ -1084,8 +1142,17 @@ std::optional<ast::Var_Name> Parser::parse_variable_name() {
 std::optional<ast::Type_Name> Parser::parse_type_name() {
   skip_whitespace_and_comments();
 
-  // Type_Name is a variant of Path_Type and Function_Type
-  // Try function type first (starts with "fn(")
+  // Type_Name is a variant of Path_Type, Function_Type, and Array_Type
+  // Try array type first (starts with "[")
+  if (peek() == '[') {
+    auto array_type = parse_array_type();
+    if (array_type) {
+      return ast::Type_Name{std::move(*array_type)};
+    }
+    return std::nullopt;
+  }
+
+  // Try function type (starts with "fn(")
   // Use match_keyword to ensure "fn" is followed by non-identifier character
   if (peek() == 'f' && peek(1) == 'n' && !is_identifier_continue(peek(2))) {
     // Could be function type "fn(...)" or path type starting with something like "Fn"
@@ -1294,6 +1361,56 @@ std::optional<ast::Function_Type> Parser::parse_function_type() {
   }
 
   result.return_type = std::make_shared<ast::Type_Name>(std::move(*return_type));
+
+  return result;
+}
+
+std::optional<ast::Array_Type> Parser::parse_array_type() {
+  skip_whitespace_and_comments();
+
+  auto const start_pos = current_position();
+
+  if (!expect('[')) {
+    return std::nullopt;
+  }
+
+  skip_whitespace_and_comments();
+
+  // Parse element type
+  auto element_type = parse_type_name();
+  if (!element_type) {
+    error("Expected element type in array type", make_range(start_pos));
+    return std::nullopt;
+  }
+
+  skip_whitespace_and_comments();
+  if (!expect(';')) {
+    error("Expected ';' after element type in array type", make_range(start_pos));
+    return std::nullopt;
+  }
+
+  skip_whitespace_and_comments();
+
+  // Parse array size (integer literal)
+  if (std::isdigit(static_cast<unsigned char>(peek())) == 0) {
+    error("Expected integer literal for array size", make_range(start_pos));
+    return std::nullopt;
+  }
+
+  std::string size;
+  while (std::isdigit(static_cast<unsigned char>(peek())) != 0) {
+    size += advance();
+  }
+
+  skip_whitespace_and_comments();
+  if (!expect(']')) {
+    error("Expected ']' after array size", make_range(start_pos));
+    return std::nullopt;
+  }
+
+  ast::Array_Type result;
+  result.element_type = std::make_shared<ast::Type_Name>(std::move(*element_type));
+  result.size = std::move(size);
 
   return result;
 }
@@ -1622,6 +1739,14 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     auto char_lit = parse_char();
     if (char_lit) {
       return ast::Expr{std::move(*char_lit)};
+    }
+  }
+
+  // Try array literal [expr, ...]
+  if (peek() == '[') {
+    auto array_lit = parse_array_literal();
+    if (array_lit) {
+      return ast::Expr{std::move(*array_lit)};
     }
   }
 
@@ -2011,6 +2136,30 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
       error("Function call target must be a variable name or field access");
       return std::nullopt;
+    }
+
+    // Index expression: expr[index]
+    if (peek() == '[') {
+      advance();  // consume '['
+      skip_whitespace_and_comments();
+
+      auto index = parse_expr();
+      if (!index) {
+        error("Expected expression in array index");
+        return std::nullopt;
+      }
+
+      skip_whitespace_and_comments();
+      if (!expect(']')) {
+        return std::nullopt;
+      }
+
+      ast::Index_Expr index_expr;
+      index_expr.object = std::make_shared<ast::Expr>(std::move(*expr));
+      index_expr.index = std::make_shared<ast::Expr>(std::move(*index));
+
+      expr = ast::Expr{std::make_shared<ast::Index_Expr>(std::move(index_expr))};
+      continue;
     }
 
     // No more postfix operations

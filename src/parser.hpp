@@ -91,6 +91,7 @@ public:
   std::optional<ast::Char> parse_char();
   std::optional<ast::Unit_Literal> parse_unit_literal();
   std::optional<ast::Struct_Literal> parse_struct_literal();
+  std::optional<ast::Array_Literal> parse_array_literal();
   std::optional<ast::Var_Name> parse_variable_name();
   std::optional<ast::Var_Name> parse_qualified_variable_name();  // Multi-segment paths for function calls
   std::optional<ast::Type_Name> parse_type_name();
@@ -98,6 +99,7 @@ public:
   // Type system
   std::optional<ast::Path_Type> parse_path_type();
   std::optional<ast::Function_Type> parse_function_type();
+  std::optional<ast::Array_Type> parse_array_type();
   std::optional<ast::Type_Param> parse_type_param();
   std::optional<ast::Where_Clause> parse_where_clause();
 
