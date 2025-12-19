@@ -607,11 +607,34 @@ struct Enum_Pattern {
   std::vector<std::shared_ptr<Pattern>> patterns;  // Optional tuple patterns (empty for unit variants)
 };
 
+// Or pattern: matches any of multiple alternatives
+// Examples:
+//   1 | 2 | 3                  - simple alternatives
+//   Some(1) | Some(2) | None   - top-level alternatives (different variants)
+//   Some(1 | 2 | 3)            - nested alternatives (same variant, different values)
+// Semantic constraint: All alternatives must bind the same variables with the same types
+struct Or_Pattern {
+  static constexpr std::string_view k_name = "Or_Pattern";
+  std::vector<std::shared_ptr<Pattern>> alternatives;  // At least 2 alternatives
+};
+
 // Pattern variant supporting all pattern types
-struct Pattern
-    : std::variant<Wildcard_Pattern, Literal_Pattern, Simple_Pattern, Struct_Pattern, Tuple_Pattern, Enum_Pattern> {
-  using Base_Type =
-      std::variant<Wildcard_Pattern, Literal_Pattern, Simple_Pattern, Struct_Pattern, Tuple_Pattern, Enum_Pattern>;
+struct Pattern : std::variant<
+                     Wildcard_Pattern,
+                     Literal_Pattern,
+                     Simple_Pattern,
+                     Struct_Pattern,
+                     Tuple_Pattern,
+                     Enum_Pattern,
+                     Or_Pattern> {
+  using Base_Type = std::variant<
+      Wildcard_Pattern,
+      Literal_Pattern,
+      Simple_Pattern,
+      Struct_Pattern,
+      Tuple_Pattern,
+      Enum_Pattern,
+      Or_Pattern>;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -1209,6 +1232,10 @@ inline Tuple_Pattern make_tuple_pattern(std::vector<std::shared_ptr<Pattern>>&& 
 
 inline Enum_Pattern make_enum_pattern(Type_Name&& type_name_, std::vector<std::shared_ptr<Pattern>>&& patterns_) {
   return Enum_Pattern{.type_name = std::move(type_name_), .patterns = std::move(patterns_)};
+}
+
+inline Or_Pattern make_or_pattern(std::vector<std::shared_ptr<Pattern>>&& alternatives_) {
+  return Or_Pattern{.alternatives = std::move(alternatives_)};
 }
 
 inline Pattern make_pattern(Wildcard_Pattern const& pattern_) {

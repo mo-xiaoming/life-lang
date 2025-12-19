@@ -271,6 +271,22 @@ inline std::string simple_pattern(std::string_view name_) {
   return std::format(R"((pattern "{}"))", name_);
 }
 
+// Or pattern
+inline std::string or_pattern(std::vector<std::string> const& alternatives_) {
+  if (alternatives_.empty()) {
+    return "(or_pattern ())";
+  }
+  std::string alts = "(";
+  for (size_t i = 0; i < alternatives_.size(); ++i) {
+    if (i > 0) {
+      alts += " ";
+    }
+    alts += alternatives_[i];
+  }
+  alts += ")";
+  return std::format("(or_pattern {})", alts);
+}
+
 // Tuple pattern
 inline std::string tuple_pattern(std::vector<std::string> const& elements_) {
   if (elements_.empty()) {

@@ -39,6 +39,7 @@ target_sources(tests
         parser/test_let_statement.cpp
         parser/test_match_expr.cpp
         parser/test_method_chaining.cpp
+        parser/test_or_pattern.cpp
         parser/test_pub_impl_method.cpp
         parser/test_pub_struct_field.cpp
         parser/test_range_expr.cpp

@@ -4502,7 +4502,7 @@ std::optional<ast::Expr> Parser::parse_func_call() {
   return result;
 }
 
-[[nodiscard]] std::optional<ast::Pattern> Parser::parse_pattern() {
+[[nodiscard]] std::optional<ast::Pattern> Parser::parse_single_pattern() {
   skip_whitespace_and_comments();
 
   auto const start_pos = current_position();
@@ -4688,6 +4688,42 @@ std::optional<ast::Expr> Parser::parse_func_call() {
   ast::Simple_Pattern simple_pat;
   simple_pat.name = path.segments[0].value;
   return ast::Pattern{std::move(simple_pat)};
+}
+
+[[nodiscard]] std::optional<ast::Pattern> Parser::parse_pattern() {
+  // Parse first pattern
+  auto first = parse_single_pattern();
+  if (!first) {
+    return std::nullopt;
+  }
+
+  // Check for | to form or-pattern
+  skip_whitespace_and_comments();
+  if (peek() != '|') {
+    return first;  // Just a single pattern
+  }
+
+  // Parse or-pattern alternatives
+  std::vector<std::shared_ptr<ast::Pattern>> alternatives;
+  alternatives.push_back(std::make_shared<ast::Pattern>(std::move(*first)));
+
+  while (peek() == '|') {
+    advance();  // consume '|'
+    skip_whitespace_and_comments();
+
+    auto alternative = parse_single_pattern();
+    if (!alternative) {
+      error("Expected pattern after '|'", make_range(current_position()));
+      return std::nullopt;
+    }
+
+    alternatives.push_back(std::make_shared<ast::Pattern>(std::move(*alternative)));
+    skip_whitespace_and_comments();
+  }
+
+  ast::Or_Pattern or_pat;
+  or_pat.alternatives = std::move(alternatives);
+  return ast::Pattern{std::move(or_pat)};
 }
 
 [[nodiscard]] std::optional<ast::Let_Statement> Parser::parse_let_statement() {
