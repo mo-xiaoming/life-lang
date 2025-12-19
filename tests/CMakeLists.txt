@@ -44,6 +44,7 @@ target_sources(tests
         parser/test_pub_struct_field.cpp
         parser/test_range_expr.cpp
         parser/test_raw_string.cpp
+        parser/test_rest_pattern.cpp
         parser/test_string.cpp
         parser/test_string_interpolation.cpp
         parser/test_struct_def.cpp

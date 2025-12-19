@@ -619,6 +619,10 @@ inline void print_sexp(Sexp_Printer& p_, Struct_Pattern const& struct_pat_) {
   print_sexp(p_, struct_pat_.type_name);
   p_.space();
   p_.write_vector(struct_pat_.fields, [&](auto const& f_) { print_sexp(p_, f_); });
+  if (struct_pat_.has_rest) {
+    p_.space();
+    p_.write_quoted("..");
+  }
   p_.end_list();
 }
 

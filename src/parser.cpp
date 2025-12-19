@@ -4606,7 +4606,41 @@ std::optional<ast::Expr> Parser::parse_func_call() {
     skip_whitespace_and_comments();
 
     std::vector<ast::Field_Pattern> fields;
+    bool has_rest = false;
+
+    // Check for empty struct pattern or immediate ..
+    if (peek() == '.' && peek(1) == '.') {
+      advance();  // first .
+      advance();  // second .
+      has_rest = true;
+      skip_whitespace_and_comments();
+      if (!expect('}')) {
+        error("Expected '}' after '..' in struct pattern", make_range(current_position()));
+        return std::nullopt;
+      }
+      ast::Struct_Pattern struct_pat;
+      struct_pat.type_name = std::move(*name);
+      struct_pat.fields = std::move(fields);
+      struct_pat.has_rest = has_rest;
+      return ast::Pattern{std::move(struct_pat)};
+    }
+
     while (peek() != '}' && m_pos < m_source.size()) {
+      // Check for .. rest pattern
+      if (peek() == '.' && peek(1) == '.') {
+        advance();  // first .
+        advance();  // second .
+        has_rest = true;
+        skip_whitespace_and_comments();
+
+        // .. must be last element
+        if (peek() == ',') {
+          error("Rest pattern '..' must be the last element in struct pattern", make_range(current_position()));
+          return std::nullopt;
+        }
+        break;
+      }
+
       // Parse field name
       if (!is_identifier_start(peek())) {
         error("Expected field name in struct pattern", make_range(current_position()));
@@ -4624,7 +4658,7 @@ std::optional<ast::Expr> Parser::parse_func_call() {
       ast::Pattern field_pattern;
 
       // Check for shorthand syntax (field without colon)
-      if (peek() == ',' || peek() == '}') {
+      if (peek() == ',' || peek() == '}' || (peek() == '.' && peek(1) == '.')) {
         // Shorthand: field name becomes both field name and pattern binding
         ast::Simple_Pattern simple;
         simple.name = field_name;
@@ -4653,11 +4687,14 @@ std::optional<ast::Expr> Parser::parse_func_call() {
       if (peek() == ',') {
         advance();
         skip_whitespace_and_comments();
-        // Allow trailing comma
-        if (peek() == '}') {
+        // Allow trailing comma before } or ..
+        if (peek() == '}' || (peek() == '.' && peek(1) == '.')) {
+          if (peek() == '.' && peek(1) == '.') {
+            continue;  // Let the loop handle ..
+          }
           break;
         }
-      } else if (peek() != '}') {
+      } else if (peek() != '}' && (peek() != '.' || peek(1) != '.')) {
         error("Expected ',' or '}' after field pattern", make_range(current_position()));
         return std::nullopt;
       }
@@ -4671,6 +4708,7 @@ std::optional<ast::Expr> Parser::parse_func_call() {
     ast::Struct_Pattern struct_pat;
     struct_pat.type_name = std::move(*name);
     struct_pat.fields = std::move(fields);
+    struct_pat.has_rest = has_rest;
     return ast::Pattern{std::move(struct_pat)};
   }
 

@@ -586,6 +586,7 @@ struct Struct_Pattern {
   static constexpr std::string_view k_name = "Struct_Pattern";
   Type_Name type_name;
   std::vector<Field_Pattern> fields;
+  bool has_rest = false;  // true if pattern contains .. to ignore remaining fields
 };
 
 // Example: (a, b, c) (destructure tuple elements in for loops)
@@ -1222,8 +1223,9 @@ inline Field_Pattern make_field_pattern(std::string&& name_, Pattern&& pattern_)
   return Field_Pattern{.name = std::move(name_), .pattern = std::make_shared<Pattern>(std::move(pattern_))};
 }
 
-inline Struct_Pattern make_struct_pattern(Type_Name&& type_name_, std::vector<Field_Pattern>&& fields_) {
-  return Struct_Pattern{.type_name = std::move(type_name_), .fields = std::move(fields_)};
+inline Struct_Pattern
+make_struct_pattern(Type_Name&& type_name_, std::vector<Field_Pattern>&& fields_, bool has_rest_ = false) {
+  return Struct_Pattern{.type_name = std::move(type_name_), .fields = std::move(fields_), .has_rest = has_rest_};
 }
 
 inline Tuple_Pattern make_tuple_pattern(std::vector<std::shared_ptr<Pattern>>&& elements_) {
