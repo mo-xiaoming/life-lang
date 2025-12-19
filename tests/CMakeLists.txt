@@ -43,6 +43,7 @@ target_sources(tests
         parser/test_pub_struct_field.cpp
         parser/test_range_expr.cpp
         parser/test_string.cpp
+        parser/test_string_interpolation.cpp
         parser/test_struct_def.cpp
         parser/test_trait_bounds.cpp
         parser/test_trait_bounds_in_declarations.cpp
@@ -67,6 +68,7 @@ target_sources(tests
         integration/test_octal_literals.cpp
         integration/test_parse_module_integration.cpp
         integration/test_readme_example.cpp
+        integration/test_string_interpolation.cpp
         integration/test_tuple_types_and_literals.cpp
 )
 

@@ -294,6 +294,29 @@ inline void print_sexp(Sexp_Printer& p_, String const& str_) {
   p_.end_list();
 }
 
+inline void print_sexp(Sexp_Printer& p_, String_Interp_Part const& part_) {
+  std::visit(
+      [&p_](auto const& value_) {
+        using T = std::decay_t<decltype(value_)>;
+        if constexpr (std::is_same_v<T, std::string>) {
+          p_.write_quoted(value_);
+        } else {
+          print_sexp(p_, *value_);
+        }
+      },
+      part_
+  );
+}
+
+inline void print_sexp(Sexp_Printer& p_, String_Interpolation const& interp_) {
+  p_.begin_list("string_interp");
+  for (auto const& part : interp_.parts) {
+    p_.space();
+    print_sexp(p_, part);
+  }
+  p_.end_list();
+}
+
 inline void print_sexp(Sexp_Printer& p_, Integer const& i_) {
   p_.begin_list("integer");
   p_.space();

@@ -89,6 +89,7 @@ public:
   std::optional<ast::Float> parse_float();
   std::optional<ast::Bool_Literal> parse_bool_literal();
   std::optional<ast::String> parse_string();
+  std::optional<ast::String_Interpolation> parse_string_interpolation();
   std::optional<ast::Char> parse_char();
   std::optional<ast::Unit_Literal> parse_unit_literal();
   std::optional<ast::Struct_Literal> parse_struct_literal();
