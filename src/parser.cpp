@@ -2459,6 +2459,35 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   auto const start_pos = current_position();
 
+  // Check for unbounded start range (.., ..=)
+  if (peek() == '.' && peek(1) == '.') {
+    advance();  // consume first '.'
+    advance();  // consume second '.'
+
+    bool inclusive = false;
+    if (peek() == '=') {
+      advance();  // consume '='
+      inclusive = true;
+    }
+
+    skip_whitespace_and_comments();
+
+    // Try to parse end expression
+    // If we can't parse an expression, this might be a fully unbounded range (..)
+    // Don't parse blocks as range end - blocks are statements, not valid range bounds
+    std::optional<ast::Expr> end_expr;
+    if (peek() != '{') {
+      end_expr = parse_binary_expr(1);  // Precedence 1 to avoid consuming outer operators
+    }
+
+    ast::Range_Expr range;
+    range.start = std::nullopt;  // Unbounded start
+    range.end = end_expr ? std::make_optional(std::make_shared<ast::Expr>(std::move(*end_expr))) : std::nullopt;
+    range.inclusive = inclusive;
+
+    return ast::Expr{std::make_shared<ast::Range_Expr>(std::move(range))};
+  }
+
   // Try unary operator
   auto unary_op = try_parse_unary_op();
   if (unary_op) {
@@ -2533,16 +2562,18 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
       // Parse right-hand side (end of range)
       skip_whitespace_and_comments();
-      auto rhs = parse_binary_expr(range_precedence + 1);
-      if (!rhs) {
-        error("Expected expression after range operator");
-        return std::nullopt;
+
+      // Try to parse end expression - if we can't, it's unbounded end (a..)
+      // Don't parse blocks as range end - blocks are statements, not valid range bounds
+      std::optional<ast::Expr> rhs;
+      if (peek() != '{') {
+        rhs = parse_binary_expr(range_precedence + 1);
       }
 
       // Build range expression
       ast::Range_Expr range;
-      range.start = std::make_shared<ast::Expr>(std::move(*lhs));
-      range.end = std::make_shared<ast::Expr>(std::move(*rhs));
+      range.start = std::make_optional(std::make_shared<ast::Expr>(std::move(*lhs)));
+      range.end = rhs ? std::make_optional(std::make_shared<ast::Expr>(std::move(*rhs))) : std::nullopt;
       range.inclusive = inclusive;
 
       lhs = ast::Expr{std::make_shared<ast::Range_Expr>(std::move(range))};

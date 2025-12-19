@@ -445,10 +445,36 @@ unary_op = "-" | "+" | "!" | "~" ;
 ### Range Expressions
 
 ```ebnf
-range_expr = expr ".." expr
-           | expr ".." "=" expr
-           | ".." expr
-           | ".." "=" expr ;
+range_expr = expr ".." [ "=" ] expr      (* bounded range: start to end *)
+           | expr ".." [ "=" ]          (* unbounded end: start to infinity *)
+           | ".." [ "=" ] expr          (* unbounded start: -infinity to end *)
+           | ".."                        (* fully unbounded: all values *)
+           ;
+
+(* Range Expression Semantics:
+   - '..' (exclusive): half-open interval, excludes endpoint
+   - '..=' (inclusive): closed interval, includes endpoint
+   
+   Conceptual model:
+   - 'a..b'   ≡ [a, b)   = {x | a ≤ x < b}
+   - 'a..=b'  ≡ [a, b]   = {x | a ≤ x ≤ b}
+   - 'a..'    ≡ [a, ∞)   = {x | a ≤ x ≤ type_max}  (includes MAX)
+   - '..b'    ≡ (-∞, b)  = {x | type_min ≤ x < b}  (excludes b)
+   - '..=b'   ≡ (-∞, b]  = {x | type_min ≤ x ≤ b}  (includes b)
+   - '..'     ≡ (-∞, ∞)  = {x | type_min ≤ x ≤ type_max}  (all values)
+   
+   Key insight: Unbounded ranges are infinite intervals clipped to type bounds.
+   - 'a..' includes type_max because [a, ∞) has no "next value" beyond max
+   - 'a..b' excludes b per half-open interval definition
+   
+   Examples:
+   - 0..10    = 0,1,2,3,4,5,6,7,8,9          (excludes 10)
+   - 0..=10   = 0,1,2,3,4,5,6,7,8,9,10       (includes 10)
+   - 18..     = 18,19,...,I32_MAX            (includes MAX for I32)
+   - ..5      = I32_MIN,...,2,3,4            (excludes 5)
+   - ..=5     = I32_MIN,...,3,4,5            (includes 5)
+   - ..       = I32_MIN,...,I32_MAX          (all I32 values)
+*)
 ```
 
 ### Primary Expressions
