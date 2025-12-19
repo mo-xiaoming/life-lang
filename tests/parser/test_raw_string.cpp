@@ -1,4 +1,3 @@
-// tests/parser/test_raw_string.cpp
 #include <doctest/doctest.h>
 
 #include "parser.hpp"

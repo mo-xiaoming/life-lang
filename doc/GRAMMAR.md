@@ -114,6 +114,39 @@ unit_literal = "(" ")" ;
   - Combining them would be confusing: which braces are literal vs interpolation?
   - If you need both, use interpolation with escaped backslashes: `"path: {user}\\Documents"`
 
+- **String concatenation**: No special operator (`+` or `++`)
+  
+  **Idiomatic approach - use string interpolation**:
+  ```rust
+  // Instead of: a + b + c
+  let result = "{a}{b}{c}";           // Clean, one allocation
+  
+  // Path building
+  let path = "{base_dir}/{user}/{file}.txt";
+  
+  // Message construction
+  let msg = "{prefix} {content} {suffix}";
+  ```
+  
+  **Rationale for no `+` operator**:
+  - **Preserves value semantics**: `+` has consistent meaning (numeric addition only)
+  - **Avoids type confusion**: `1 + 2` is always arithmetic, never string concatenation
+  - **Better performance**: `"{a}{b}{c}"` allocates once; `a + b + c` creates intermediate copies
+  - **More explicit**: String building is intentional, not hidden behind overloaded operators
+  - **Interpolation covers 90% of use cases**: Most concatenation is for messages, paths, formatting
+  
+  **For explicit array joining** (future standard library):
+  ```rust
+  String::concat([a, b, c])           // Join array of strings
+  String::join([a, b, c], ", ")       // Join with separator
+  ```
+  
+  **Comparison with other languages**:
+  - Python/JavaScript: `+` operator creates performance issues (`a + b + c + d` = multiple copies)
+  - Rust: `.to_owned() + &b` is verbose and awkward
+  - Go: Library-only (`strings.Join`) - verbose but principled
+  - **Life-lang**: Interpolation (ergonomic) + library functions (explicit edge cases) = best of both
+
 ### Comments
 ```ebnf
 comment = "//" { any_char - newline } newline
