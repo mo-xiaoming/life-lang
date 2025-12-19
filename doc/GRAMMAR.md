@@ -502,11 +502,66 @@ wildcard_pattern = "_" ;
 
 tuple_pattern = "(" pattern { "," pattern } ")" ;
 
-struct_pattern = type_name "{" [ pattern_field { "," pattern_field } ] "}" ;
+struct_pattern = type_name "{" [ pattern_field { "," pattern_field } [ "," ".." ] ] "}" 
+               | type_name "{" ".." "}" ;
 pattern_field = var_name [ ":" pattern ] ;
 
 enum_pattern = type_name [ "(" pattern { "," pattern } ")" ] ;
 ```
+
+**Rest Pattern (`..`) Notes:**
+- **Purpose**: Ignore remaining/private fields in struct patterns
+- **Type-only matching**: `Point { .. }` - matches any Point, ignores all fields
+- **Partial matching**: `Config { debug, timeout, .. }` - match specific fields, ignore rest
+- **Required for private fields**: When matching structs from other modules with private fields
+- **Position**: Must come after named fields (if any)
+- **Examples**:
+  ```rust
+  // Type-only matching
+  match shape {
+    Point { .. } => "it's a point",
+    Circle { .. } => "it's a circle",
+  }
+  
+  // Partial field matching
+  match config {
+    Config { debug: true, .. } => enable_logging(),
+    Config { host, port, .. } => connect(host, port),
+  }
+  
+  // Cross-module matching (User has private fields)
+  match user {
+    User { name: "admin", .. } => grant_access(),  // Ignores private fields
+    User { name, .. } => regular_user(name),
+  }
+  ```
+
+**Visibility Rules for Pattern Matching:**
+- **Same module**: Can match all fields (pub and private)
+- **Other modules**: Can ONLY match `pub` fields
+  - Must use `..` to ignore private fields
+  - Error if attempting to name a private field from another module
+- **Rationale**: Preserves encapsulation while allowing practical pattern matching
+- **Examples**:
+  ```rust
+  // Module A
+  pub struct User {
+    pub name: String,
+    age: I32,  // private
+  }
+  
+  // Module B (importing User)
+  match user {
+    User { name, .. } => {}              // ✅ OK: ignores private age
+    User { name: "Alice", .. } => {}     // ✅ OK: matches pub field
+    User { name, age } => {}             // ❌ ERROR: age is private
+  }
+  
+  // Module A (same module as User)
+  match user {
+    User { name, age } => {}             // ✅ OK: all fields visible
+  }
+  ```
 
 **Or-Pattern Notes:**
 - **Top-level or-patterns**: `Some(1) | Some(2) | None` - matches any of the alternatives

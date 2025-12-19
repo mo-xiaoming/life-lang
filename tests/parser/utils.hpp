@@ -324,6 +324,38 @@ inline std::string struct_pattern(std::string_view type_name_, std::vector<std::
   return std::format("(struct_pattern {} {})", type_name_, fields);
 }
 
+// Struct pattern with rest (..)
+inline std::string struct_pattern_with_rest(std::string_view type_name_, std::vector<std::string> const& fields_) {
+  if (fields_.empty()) {
+    return std::format(R"((struct_pattern {} () ".."))", type_name_);
+  }
+  std::string fields = "(";
+  for (size_t i = 0; i < fields_.size(); ++i) {
+    if (i > 0) {
+      fields += " ";
+    }
+    fields += fields_[i];
+  }
+  fields += ")";
+  return std::format(R"((struct_pattern {} {} ".."))", type_name_, fields);
+}
+
+// Enum pattern
+inline std::string enum_pattern(std::string_view type_name_, std::vector<std::string> const& patterns_) {
+  if (patterns_.empty()) {
+    return std::format("(enum_pattern {} ())", type_name_);
+  }
+  std::string pats = "(";
+  for (size_t i = 0; i < patterns_.size(); ++i) {
+    if (i > 0) {
+      pats += " ";
+    }
+    pats += patterns_[i];
+  }
+  pats += ")";
+  return std::format("(enum_pattern {} {})", type_name_, pats);
+}
+
 // Match arm without guard
 inline std::string match_arm(std::string_view pattern_, std::string_view result_) {
   return std::format("(arm {} nil {})", pattern_, result_);
