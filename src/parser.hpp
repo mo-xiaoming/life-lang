@@ -123,6 +123,7 @@ public:
 
   // Statements
   std::optional<ast::Pattern> parse_pattern();
+  std::optional<ast::Pattern> parse_single_pattern();  // Internal: parse one pattern without | handling
   std::optional<ast::Statement> parse_statement();
   std::optional<ast::Let_Statement> parse_let_statement();
   std::optional<ast::Assignment_Expr> parse_assignment();

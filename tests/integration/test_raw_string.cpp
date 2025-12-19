@@ -96,8 +96,9 @@ TEST_CASE("Integration - raw string vs regular string") {
   if (module) {
     auto const sexp = to_sexp_string(*module, 0);
     CHECK(sexp.find("(func_def") != std::string::npos);
-    // Both should have same output (escaped backslashes in S-expression)
+    // Raw string: backslashes are literal (once-escaped in S-expression)
     CHECK(sexp.find(R"((string "r\"C:\\path\\to\\file\""))") != std::string::npos);
-    CHECK(sexp.find(R"((string \"r\\\"C:\\\\path\\\\to\\\\file\\\"\"))") != std::string::npos);
+    // Regular string: backslashes are already escaped in source (doubled in S-expression)
+    CHECK(sexp.find(R"((string "\"C:\\\\path\\\\to\\\\file\""))") != std::string::npos);
   }
 }

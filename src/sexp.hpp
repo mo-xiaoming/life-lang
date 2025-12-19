@@ -642,6 +642,13 @@ inline void print_sexp(Sexp_Printer& p_, Enum_Pattern const& enum_pat_) {
   p_.end_list();
 }
 
+inline void print_sexp(Sexp_Printer& p_, Or_Pattern const& or_pat_) {
+  p_.begin_list("or_pattern");
+  p_.space();
+  p_.write_shared_ptr_vector(or_pat_.alternatives, [&](auto const& pat_) { print_sexp(p_, pat_); });
+  p_.end_list();
+}
+
 // Statement S-expression printers
 inline void print_sexp(Sexp_Printer& p_, Let_Statement const& let_) {
   p_.begin_list("let");

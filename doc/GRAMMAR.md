@@ -483,12 +483,16 @@ literal = integer | float | bool_literal | string | char | unit_literal ;
 ## Patterns
 
 ```ebnf
-pattern = literal_pattern
-        | var_pattern
-        | wildcard_pattern
-        | tuple_pattern
-        | struct_pattern
-        | enum_pattern ;
+pattern = or_pattern ;
+
+or_pattern = single_pattern { "|" single_pattern } ;
+
+single_pattern = literal_pattern
+               | var_pattern
+               | wildcard_pattern
+               | tuple_pattern
+               | struct_pattern
+               | enum_pattern ;
 
 literal_pattern = literal ;
 
@@ -503,6 +507,32 @@ pattern_field = var_name [ ":" pattern ] ;
 
 enum_pattern = type_name [ "(" pattern { "," pattern } ")" ] ;
 ```
+
+**Or-Pattern Notes:**
+- **Top-level or-patterns**: `Some(1) | Some(2) | None` - matches any of the alternatives
+- **Nested or-patterns**: `Some(1 | 2 | 3)` - same as `Some(1) | Some(2) | Some(3)` for this case
+- **Mixed variants**: `Ok(()) | Err(SpecificError)` - can mix different enum variants
+- **Semantic constraint**: All alternatives must bind the same set of variables with the same types
+  - Valid: `Point { x: 0, y } | Point { x: 1, y }` - both bind `y`
+  - Invalid: `Point { x: 0, y } | Point { x, y: 1 }` - different variables
+- **Examples**:
+  ```rust
+  match char {
+    'a' | 'e' | 'i' | 'o' | 'u' => "vowel",  // Simple alternatives
+    _ => "consonant",
+  }
+  
+  match value {
+    Some(1 | 2 | 3) => "small",              // Nested or-pattern
+    Some(x) => "other: {x}",
+    None => "nothing",
+  }
+  
+  match result {
+    Ok(()) | Err(RecoverableError) => continue,  // Mixed variants
+    Err(e) => panic("Fatal: {e}"),
+  }
+  ```
 
 ## Notes
 
