@@ -629,6 +629,59 @@ std::optional<ast::Float> Parser::parse_float() {
   std::string value;
   std::optional<std::string> suffix;
 
+  // Check for special float literals: nan, inf (case-insensitive)
+  if (lookahead("nan") || lookahead("NaN") || lookahead("NAN") || lookahead("Nan")) {
+    value = "nan";
+    advance();  // 'n'
+    advance();  // 'a'
+    advance();  // 'n'
+
+    // Check for optional type suffix (F32, F64)
+    if (peek() == 'F') {
+      suffix = std::string(1, advance());
+      if (std::isdigit(static_cast<unsigned char>(peek())) == 0) {
+        error("Expected digit after type suffix", make_range(start_pos));
+        return std::nullopt;
+      }
+      while (std::isdigit(static_cast<unsigned char>(peek())) != 0) {
+        *suffix += advance();
+      }
+    }
+
+    ast::Float result;
+    result.value = std::move(value);
+    if (suffix) {
+      result.suffix = *suffix;
+    }
+    return result;
+  }
+
+  if (lookahead("inf") || lookahead("Inf") || lookahead("INF")) {
+    value = "inf";
+    advance();  // 'i'
+    advance();  // 'n'
+    advance();  // 'f'
+
+    // Check for optional type suffix (F32, F64)
+    if (peek() == 'F') {
+      suffix = std::string(1, advance());
+      if (std::isdigit(static_cast<unsigned char>(peek())) == 0) {
+        error("Expected digit after type suffix", make_range(start_pos));
+        return std::nullopt;
+      }
+      while (std::isdigit(static_cast<unsigned char>(peek())) != 0) {
+        *suffix += advance();
+      }
+    }
+
+    ast::Float result;
+    result.value = std::move(value);
+    if (suffix) {
+      result.suffix = *suffix;
+    }
+    return result;
+  }
+
   // Float requires digits before or after dot (or both)
   // Also supports scientific notation (e/E)
 
@@ -1982,6 +2035,30 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     auto bool_lit = parse_bool_literal();
     if (bool_lit) {
       return ast::Expr{*bool_lit};
+    }
+  }
+
+  // Try special float literals (nan, inf) - must check before identifiers
+  // Case-insensitive matching
+  // Allow F suffix for type annotation (nanF32, infF64)
+  if (lookahead("nan") || lookahead("NaN") || lookahead("NAN") || lookahead("Nan")) {
+    char const after_nan = peek(3);
+    // Valid if followed by EOF, whitespace, non-identifier, or 'F' (for suffix)
+    if (after_nan == '\0' || !is_identifier_continue(after_nan) || after_nan == 'F') {
+      auto float_lit = parse_float();
+      if (float_lit) {
+        return ast::Expr{std::move(*float_lit)};
+      }
+    }
+  }
+  if (lookahead("inf") || lookahead("Inf") || lookahead("INF")) {
+    char const after_inf = peek(3);
+    // Valid if followed by EOF, whitespace, non-identifier, or 'F' (for suffix)
+    if (after_inf == '\0' || !is_identifier_continue(after_inf) || after_inf == 'F') {
+      auto float_lit = parse_float();
+      if (float_lit) {
+        return ast::Expr{std::move(*float_lit)};
+      }
     }
   }
 
