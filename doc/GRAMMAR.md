@@ -61,6 +61,8 @@ exponent = ( "e" | "E" ) [ "+" | "-" ] digit { digit | "_" } ;
 float_suffix = "F32" | "F64" ;
 bool_literal = "true" | "false" ;
 string = '"' { any_char - '"' | escape_sequence } '"' ;
+string_interpolation = '"' { string_part | "{" expr "}" } '"' ;
+string_part = { any_char - '"' - "{" | escape_sequence } ;
 char = "'" ( any_char - "'" | escape_sequence ) "'" ;
 unit_literal = "(" ")" ;
 ```
@@ -81,6 +83,12 @@ unit_literal = "(" ")" ;
   - Positive infinity: `inf`, `Inf`, or `INF` (with optional suffix: `infF32`, `InfF64`)
   - Negative infinity: `-inf`, `-Inf`, `-INF` (unary minus applied to infinity literal)
   - Rationale: More user-friendly than requiring `F32::NAN` constants; aligns with Python, JavaScript, C99
+- **String interpolation**: Embed expressions in strings using `{expr}` syntax
+  - Example: `"Hello, {name}! You are {age} years old."`
+  - Full expression support: `"result is {x + y * 2}"`
+  - Method calls: `"Name: {user.name.to_upper()}"`
+  - Empty `{}` not treated as interpolation (literal braces in format strings)
+  - Rationale: More ergonomic than format functions; aligns with Python f-strings, JavaScript, Kotlin, Swift
 
 ### Comments
 ```ebnf

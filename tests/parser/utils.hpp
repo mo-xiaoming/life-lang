@@ -202,6 +202,50 @@ inline std::string string(std::string_view value_) {
   return oss.str();
 }
 
+// String interpolation part (string literal segment)
+inline std::string string_part(std::string_view value_) {
+  std::ostringstream oss;
+  oss << '"';
+  for (char const ch : value_) {
+    switch (ch) {
+      case '"':
+        oss << "\\\"";
+        break;
+      case '\\':
+        oss << "\\\\";
+        break;
+      case '\n':
+        oss << "\\n";
+        break;
+      case '\r':
+        oss << "\\r";
+        break;
+      case '\t':
+        oss << "\\t";
+        break;
+      default:
+        oss << ch;
+        break;
+    }
+  }
+  oss << '"';
+  return oss.str();
+}
+
+// String interpolation expression
+inline std::string string_interp(std::vector<std::string> const& parts_) {
+  if (parts_.empty()) {
+    return "(string_interp)";
+  }
+  std::string result = "(string_interp";
+  for (auto const& part : parts_) {
+    result += " ";
+    result += part;
+  }
+  result += ")";
+  return result;
+}
+
 // Character literal
 inline std::string char_literal(std::string_view value_) {
   return std::format(R"((char "{}"))", value_);
@@ -314,6 +358,38 @@ inline std::string match_expr(std::string_view scrutinee_, std::vector<std::stri
 // Field access expression
 inline std::string field_access(std::string_view object_, std::string_view field_name_) {
   return std::format("(field_access {} \"{}\")", object_, field_name_);
+}
+
+// Method call expression
+inline std::string
+method_call(std::string_view object_, std::string_view method_name_, std::vector<std::string> const& args_) {
+  if (args_.empty()) {
+    return std::format("(method_call {} \"{}\" ())", object_, method_name_);
+  }
+  std::string params = "(";
+  for (size_t i = 0; i < args_.size(); ++i) {
+    if (i > 0) {
+      params += " ";
+    }
+    params += args_[i];
+  }
+  params += ")";
+  return std::format("(method_call {} \"{}\" {})", object_, method_name_, params);
+}
+
+// Grouped expression (parenthesized)
+inline std::string grouped_expr(std::string_view expr_) {
+  return std::format("(grouped {})", expr_);
+}
+
+// Index expression
+inline std::string index_expr(std::string_view array_, std::string_view index_) {
+  return std::format("(index {} {})", array_, index_);
+}
+
+// Tuple access expression
+inline std::string tuple_access(std::string_view tuple_, std::string_view index_) {
+  return std::format("(tuple_access {} {})", tuple_, index_);
 }
 
 // Overload for integer that accepts int directly

@@ -834,6 +834,83 @@ std::optional<ast::String> Parser::parse_string() {
   return result;
 }
 
+std::optional<ast::String_Interpolation> Parser::parse_string_interpolation() {
+  skip_whitespace_and_comments();
+
+  auto const start_pos = current_position();
+
+  if (peek() != '"') {
+    error("Expected string interpolation", make_range(start_pos));
+    return std::nullopt;
+  }
+
+  advance();  // consume opening quote
+
+  std::vector<ast::String_Interp_Part> parts;
+  std::string current_literal;
+
+  while (peek() != '"' && peek() != '\0') {
+    if (peek() == '\\') {
+      // Escape sequence
+      current_literal += advance();  // consume backslash
+      if (peek() == '\0') {
+        error("Unterminated string interpolation", make_range(start_pos));
+        return std::nullopt;
+      }
+      current_literal += advance();  // consume escaped character
+    } else if (peek() == '{') {
+      // Start of interpolated expression
+      // Push any accumulated literal
+      if (!current_literal.empty()) {
+        parts.emplace_back(current_literal);
+        current_literal.clear();
+      }
+
+      advance();  // consume '{'
+      skip_whitespace_and_comments();
+
+      // Parse expression inside {}
+      auto expr = parse_expr();
+      if (!expr) {
+        error("Expected expression in string interpolation", make_range(current_position()));
+        return std::nullopt;
+      }
+
+      skip_whitespace_and_comments();
+
+      if (peek() != '}') {
+        error("Expected '}' to close interpolated expression", make_range(current_position()));
+        return std::nullopt;
+      }
+
+      advance();  // consume '}'
+
+      // Add expression to parts
+      parts.emplace_back(std::make_shared<ast::Expr>(std::move(*expr)));
+    } else {
+      current_literal += advance();
+    }
+  }
+
+  if (peek() != '"') {
+    error("Unterminated string interpolation", make_range(start_pos));
+    return std::nullopt;
+  }
+
+  advance();  // consume closing quote
+
+  // Push any remaining literal
+  if (!current_literal.empty()) {
+    parts.emplace_back(current_literal);
+  }
+
+  // Create AST node
+  ast::String_Interpolation result;
+  result.parts = std::move(parts);
+
+  return result;
+}
+
 std::optional<ast::Char> Parser::parse_char() {
   skip_whitespace_and_comments();
 
@@ -1999,11 +2076,38 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
   }
 
-  // Try string
+  // Try string or string interpolation
   if (peek() == '"') {
-    auto string = parse_string();
-    if (string) {
-      return ast::Expr{std::move(*string)};
+    // Peek ahead to see if there's interpolation: '{' followed by non-'}' before closing '"'
+    bool has_interpolation = false;
+    std::size_t look_ahead = 1;
+    while (peek(look_ahead) != '\0') {
+      char const ch = peek(look_ahead);
+      if (ch == '"') {
+        break;  // End of string, no interpolation
+      }
+      if (ch == '\\') {
+        look_ahead += 2;  // Skip escape sequence
+        continue;
+      }
+      if (ch == '{' && peek(look_ahead + 1) != '}') {
+        // Only treat as interpolation if there's something inside {}
+        has_interpolation = true;
+        break;
+      }
+      look_ahead++;
+    }
+
+    if (has_interpolation) {
+      auto interp = parse_string_interpolation();
+      if (interp) {
+        return ast::Expr{std::move(*interp)};
+      }
+    } else {
+      auto string = parse_string();
+      if (string) {
+        return ast::Expr{std::move(*string)};
+      }
     }
   }
 

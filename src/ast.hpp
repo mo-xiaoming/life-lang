@@ -173,6 +173,23 @@ struct String {
   std::string value;
 };
 
+// String interpolation part: either a literal string segment or an expression
+// Example: "result: {x + 1}" has parts: ["result: ", <expr: x+1>, ""]
+struct String_Interp_Part : std::variant<std::string, std::shared_ptr<Expr>> {
+  using Base_Type = std::variant<std::string, std::shared_ptr<Expr>>;
+  using Base_Type::Base_Type;
+  using Base_Type::operator=;
+  static constexpr std::string_view k_name = "String_Interp_Part";
+};
+
+// String interpolation: "Hello, {name}! You are {age} years old."
+// Represented as alternating string literals and expressions
+// Example: ["Hello, ", <name>, "! You are ", <age>, " years old."]
+struct String_Interpolation {
+  static constexpr std::string_view k_name = "String_Interpolation";
+  std::vector<String_Interp_Part> parts;
+};
+
 // Example: 42 or 0x2A or 0b101010 (stored as string for arbitrary precision)
 // Optional suffix: I8, I16, I32, I64, U8, U16, U32, U64
 struct Integer {
@@ -347,6 +364,7 @@ struct Expr : std::variant<
                   Unit_Literal,
                   Bool_Literal,
                   String,
+                  String_Interpolation,
                   Integer,
                   Float,
                   Char> {
@@ -371,6 +389,7 @@ struct Expr : std::variant<
       Unit_Literal,
       Bool_Literal,
       String,
+      String_Interpolation,
       Integer,
       Float,
       Char>;
