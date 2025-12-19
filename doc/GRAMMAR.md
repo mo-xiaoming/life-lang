@@ -63,6 +63,7 @@ bool_literal = "true" | "false" ;
 string = '"' { any_char - '"' | escape_sequence } '"' ;
 string_interpolation = '"' { string_part | "{" expr "}" } '"' ;
 string_part = { any_char - '"' - "{" | escape_sequence } ;
+raw_string = "r" { "#" } '"' { any_char } '"' { "#" } ;
 char = "'" ( any_char - "'" | escape_sequence ) "'" ;
 unit_literal = "(" ")" ;
 ```
@@ -83,12 +84,35 @@ unit_literal = "(" ")" ;
   - Positive infinity: `inf`, `Inf`, or `INF` (with optional suffix: `infF32`, `InfF64`)
   - Negative infinity: `-inf`, `-Inf`, `-INF` (unary minus applied to infinity literal)
   - Rationale: More user-friendly than requiring `F32::NAN` constants; aligns with Python, JavaScript, C99
-- **String interpolation**: Embed expressions in strings using `{expr}` syntax
-  - Example: `"Hello, {name}! You are {age} years old."`
-  - Full expression support: `"result is {x + y * 2}"`
-  - Method calls: `"Name: {user.name.to_upper()}"`
-  - Empty `{}` not treated as interpolation (literal braces in format strings)
-  - Rationale: More ergonomic than format functions; aligns with Python f-strings, JavaScript, Kotlin, Swift
+- **String types - three distinct forms with different purposes**:
+  
+  1. **Regular strings** (`"..."`): Escape sequences processed
+     - Example: `"Hello\nWorld"` → newline between words
+     - Use for: User-facing text with escape sequences
+  
+  2. **String interpolation** (`"...{expr}..."`): Escape sequences + expression substitution
+     - Example: `"Hello, {name}! You are {age} years old."`
+     - Full expression support: `"result is {x + y * 2}"`
+     - Method calls: `"Name: {user.name.to_upper()}"`
+     - Empty `{}` not treated as interpolation (literal braces in format strings)
+     - Use for: Dynamic user-facing messages, logging with values
+     - Rationale: More ergonomic than format functions; aligns with Python f-strings, JavaScript, Kotlin, Swift
+  
+  3. **Raw strings** (`r"..."`, `r#"..."#`): No processing at all - everything is literal
+     - Basic syntax: `r"C:\path\to\file"` - backslashes are literal
+     - With embedded quotes: `r#"He said "hello""#` - delimiter allows quotes in content
+     - Multiple delimiters: `r##"Contains "# and "#" patterns"##` - match delimiter count
+     - Multi-line: Raw strings can span multiple lines naturally
+     - No escape processing: `r"\n"` is literally backslash-n, not a newline character
+     - **No interpolation**: `r"value: {x}"` contains literal braces, not an expression
+     - Use for: Regex patterns, Windows file paths, JSON/XML templates, SQL queries
+     - Rationale: Avoid escaping hell for regex, file paths, embedded languages; aligns with Rust, Python, C++11
+  
+  **Design principle**: Raw strings and interpolation serve opposite purposes:
+  - Interpolation: Dynamic content with escape processing (`"user: {name}\n"`)
+  - Raw strings: Static literal content, no processing (`r"regex: \d+\.\w+"`)
+  - Combining them would be confusing: which braces are literal vs interpolation?
+  - If you need both, use interpolation with escaped backslashes: `"path: {user}\\Documents"`
 
 ### Comments
 ```ebnf
