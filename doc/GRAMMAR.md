@@ -70,6 +70,10 @@ unit_literal = "(" ")" ;
 - Underscores can be used for readability: `1_000_000`, `0xFF_FF`, `0o755`, `0b1111_0000`
 - Type suffixes specify exact numeric type: `42I32`, `255U8`, `3.14F32`
 - Leading zeros not allowed in decimal integers (except standalone `0`)
+- **Negative integer literals**: Parsed as unary minus applied to positive literal (e.g., `-128I8` → `(unary - (integer "128" "I8"))`)
+  - Minimum values (e.g., `-128I8`, `-32768I16`, `-2147483648I32`) validated during semantic analysis
+  - The literal `128` would overflow `I8`, but `-128I8` is valid as it represents the minimum value
+  - Semantic analyzer recognizes the pattern and treats it as the minimum value constant
 - Floats support scientific notation: `1.5e10`, `3.14E-5`
 - Floats require either a decimal point or exponent (or both)
 - **IEEE 754 special values** as literals:
@@ -276,6 +280,11 @@ binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
   - `I32::MIN - 1` → panic
   - `I32::MAX * 2` → panic
 - **Rationale**: Overflow is a logic error; wrapping silently can cause security bugs and incorrect results
+- **Special case - Minimum value literals**: `-128I8`, `-32768I16`, `-2147483648I32`, `-9223372036854775808I64`
+  - Parsed as unary minus applied to positive literal: `-128I8` → `(unary - (integer "128" "I8"))`
+  - Even though `128` exceeds `I8::MAX` (127), the pattern is recognized during semantic analysis
+  - Validated to represent the exact minimum value (`I8::MIN`, etc.)
+  - No overflow panic for these specific literals, as they represent valid constants
 
 **Division and Modulo (`/`, `%`):**
 - **Division by zero**: Always panics
