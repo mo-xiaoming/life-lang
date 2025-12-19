@@ -489,9 +489,17 @@ inline void print_sexp(Sexp_Printer& p_, Unary_Expr const& expr_) {
 inline void print_sexp(Sexp_Printer& p_, Range_Expr const& expr_) {
   p_.begin_list(expr_.inclusive ? "range_inclusive" : "range");
   p_.space();
-  print_sexp(p_, *expr_.start);
+  if (expr_.start) {
+    print_sexp(p_, **expr_.start);
+  } else {
+    p_.write("nil");
+  }
   p_.space();
-  print_sexp(p_, *expr_.end);
+  if (expr_.end) {
+    print_sexp(p_, **expr_.end);
+  } else {
+    p_.write("nil");
+  }
   p_.end_list();
 }
 

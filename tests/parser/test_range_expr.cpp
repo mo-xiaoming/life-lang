@@ -64,15 +64,15 @@ constexpr auto k_large_range_input = "1000..=9999";
 inline auto const k_large_range_expected =
     test_sexp::range_expr(test_sexp::integer(1000), test_sexp::integer(9999), true);
 
-// === Invalid Range Expressions ===
-
-// Missing start - `..` is not a valid expression start
-constexpr auto k_missing_start_should_succeed = false;
+// Unbounded start range - now valid
+constexpr auto k_missing_start_should_succeed = true;
 constexpr auto k_missing_start_input = "..10";
+constexpr auto k_missing_start_expected = R"((range nil (integer "10")))";
 
-// Only dots - not a valid expression
-constexpr auto k_only_dots_should_succeed = false;
+// Fully unbounded range - now valid
+constexpr auto k_only_dots_should_succeed = true;
 constexpr auto k_only_dots_input = "..";
+constexpr auto k_only_dots_expected = R"((range nil nil))";
 
 }  // namespace
 
@@ -116,14 +116,14 @@ TEST_CASE("Parse Range_Expr") {
        .expected = k_large_range_expected,
        .should_succeed = k_large_range_should_succeed},
 
-      // Invalid cases
-      {.name = "invalid - missing start",
+      // Unbounded ranges (now valid)
+      {.name = "unbounded start",
        .input = k_missing_start_input,
-       .expected = "",
+       .expected = k_missing_start_expected,
        .should_succeed = k_missing_start_should_succeed},
-      {.name = "invalid - only dots",
+      {.name = "fully unbounded",
        .input = k_only_dots_input,
-       .expected = "",
+       .expected = k_only_dots_expected,
        .should_succeed = k_only_dots_should_succeed},
   };
   for (auto const& params : params_list) {

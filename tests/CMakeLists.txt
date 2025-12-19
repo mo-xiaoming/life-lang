@@ -57,6 +57,7 @@ target_sources(tests
         parser/test_tuple_type.cpp
         parser/test_type_alias.cpp
         parser/test_unary_expr.cpp
+        parser/test_unbounded_range.cpp
         parser/test_unit_type.cpp
         parser/test_where_clause.cpp
         parser/test_while_expr.cpp

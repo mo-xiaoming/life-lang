@@ -324,9 +324,9 @@ struct Unary_Expr {
 // Examples: 0..10, start..end, 1..=100
 struct Range_Expr {
   static constexpr std::string_view k_name = "Range_Expr";
-  std::shared_ptr<Expr> start;
-  std::shared_ptr<Expr> end;
-  bool inclusive{};  // false for .., true for ..=
+  std::optional<std::shared_ptr<Expr>> start;  // None for unbounded start (..)
+  std::optional<std::shared_ptr<Expr>> end;    // None for unbounded end (a..)
+  bool inclusive{};                            // false for .., true for ..=
 };
 
 // Type cast expression: expr as Type
