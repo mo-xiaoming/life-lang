@@ -25,6 +25,7 @@ target_sources(tests
         parser/test_expr.cpp
         parser/test_field_access.cpp
         parser/test_float.cpp
+        parser/test_float_special.cpp
         parser/test_for_expr.cpp
         parser/test_func_def.cpp
         parser/test_func_type.cpp
@@ -61,6 +62,7 @@ target_sources(tests
         integration/test_binary_literals.cpp
         integration/test_bitwise_ops.cpp
         integration/test_bool_literals.cpp
+        integration/test_float_special_literals.cpp
         integration/test_hex_literals.cpp
         integration/test_octal_literals.cpp
         integration/test_parse_module_integration.cpp

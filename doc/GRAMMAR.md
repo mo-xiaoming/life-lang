@@ -52,7 +52,11 @@ octal_digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" ;
 binary_digit = "0" | "1" ;
 int_suffix = "I8" | "I16" | "I32" | "I64" | "U8" | "U16" | "U32" | "U64" ;
 float = digit { digit | "_" } "." digit { digit | "_" } [ exponent ] [ float_suffix ]
-      | digit { digit | "_" } exponent [ float_suffix ] ;
+      | digit { digit | "_" } exponent [ float_suffix ]
+      | nan_literal [ float_suffix ]
+      | inf_literal [ float_suffix ] ;
+nan_literal = "nan" | "NaN" | "NAN" | "Nan" ;
+inf_literal = "inf" | "Inf" | "INF" ;
 exponent = ( "e" | "E" ) [ "+" | "-" ] digit { digit | "_" } ;
 float_suffix = "F32" | "F64" ;
 bool_literal = "true" | "false" ;
@@ -68,6 +72,11 @@ unit_literal = "(" ")" ;
 - Leading zeros not allowed in decimal integers (except standalone `0`)
 - Floats support scientific notation: `1.5e10`, `3.14E-5`
 - Floats require either a decimal point or exponent (or both)
+- **IEEE 754 special values** as literals:
+  - NaN: `nan`, `NaN`, `NAN`, or `Nan` (with optional suffix: `nanF32`, `NaNF64`)
+  - Positive infinity: `inf`, `Inf`, or `INF` (with optional suffix: `infF32`, `InfF64`)
+  - Negative infinity: `-inf`, `-Inf`, `-INF` (unary minus applied to infinity literal)
+  - Rationale: More user-friendly than requiring `F32::NAN` constants; aligns with Python, JavaScript, C99
 
 ### Comments
 ```ebnf
