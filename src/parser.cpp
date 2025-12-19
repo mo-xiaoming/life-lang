@@ -911,6 +911,70 @@ std::optional<ast::String_Interpolation> Parser::parse_string_interpolation() {
   return result;
 }
 
+std::optional<ast::String> Parser::parse_raw_string() {
+  skip_whitespace_and_comments();
+  auto const start_pos = current_position();
+
+  if (peek() != 'r') {
+    return std::nullopt;
+  }
+
+  advance();  // consume 'r'
+
+  // Count delimiter '#' symbols
+  size_t delimiter_count = 0;
+  while (peek() == '#') {
+    ++delimiter_count;
+    advance();
+  }
+
+  if (peek() != '"') {
+    error("Expected '\"' after raw string prefix", make_range(current_position()));
+    return std::nullopt;
+  }
+
+  advance();  // consume opening quote
+
+  // Build raw string content (no escape processing)
+  std::string value = "r";
+  for (size_t i = 0; i < delimiter_count; ++i) {
+    value += '#';
+  }
+  value += '"';
+
+  // Parse until we find closing delimiter
+  while (!is_at_end()) {
+    if (peek() == '"') {
+      // Check if we have matching delimiter
+      size_t matched_delimiters = 0;
+      size_t look_ahead = 1;
+
+      while (matched_delimiters < delimiter_count && peek(look_ahead) == '#') {
+        ++matched_delimiters;
+        ++look_ahead;
+      }
+
+      if (matched_delimiters == delimiter_count) {
+        // Found complete closing delimiter
+        value += advance();  // closing quote
+        for (size_t i = 0; i < delimiter_count; ++i) {
+          value += advance();  // closing '#' symbols
+        }
+
+        ast::String result;
+        result.value = std::move(value);
+        return result;
+      }
+    }
+
+    // Not the closing delimiter, just part of content
+    value += advance();
+  }
+
+  error("Unterminated raw string literal", make_range(start_pos));
+  return std::nullopt;
+}
+
 std::optional<ast::Char> Parser::parse_char() {
   skip_whitespace_and_comments();
 
@@ -2073,6 +2137,14 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       if (integer) {
         return ast::Expr{std::move(*integer)};
       }
+    }
+  }
+
+  // Try raw string (r"..." or r#"..."#)
+  if (peek() == 'r' && (peek(1) == '"' || peek(1) == '#')) {
+    auto raw_string = parse_raw_string();
+    if (raw_string) {
+      return ast::Expr{std::move(*raw_string)};
     }
   }
 
