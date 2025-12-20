@@ -3,6 +3,7 @@ build*/
 compile_commands.json
 tags
 .vscode/
+vcpkg/
 vcpkg_installed/
 CMakeUserPresets.json
 /Testing/
