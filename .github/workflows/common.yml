@@ -37,15 +37,19 @@ jobs:
         gcc --version
         g++ --version
 
-    - name: Install CMake & Ninja
+    - name: Install Ninja
       run: |
+        sudo apt-get update
         sudo apt-get install -y ninja-build
-        wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
-        sudo apt-get remove --purge --auto-remove cmake
-        sudo apt-get install -y cmake
-        cmake --version
         ninja --version
         which ninja
+        
+    - name: Install CMake from Kitware
+      run: |
+        wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
+        sudo apt-get update
+        sudo apt-get install -y cmake
+        cmake --version
 
     - name: Install lcov
       if: ${{ inputs.coverage }}
