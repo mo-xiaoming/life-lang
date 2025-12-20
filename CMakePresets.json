@@ -14,7 +14,6 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
-        "CMAKE_MAKE_PROGRAM": "ninja",
         "ENABLE_VERBOSE_BUILD": {
           "type": "BOOL",
           "value": "ON"
@@ -25,11 +24,7 @@
       "name": "vcpkg",
       "inherits": "common",
       "hidden": true,
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-      "cacheVariables": {
-        "CMAKE_C_COMPILER": "gcc",
-        "CMAKE_CXX_COMPILER": "g++"
-      }
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
     },
     {
       "name": "asan-ubsan-flags",
