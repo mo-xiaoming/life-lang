@@ -1,5 +1,6 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
+
 using life_lang::ast::Expr;
 
 PARSE_TEST(Expr, expr)
@@ -97,7 +98,7 @@ TEST_CASE("Parse Method Chaining") {
        .expected = k_complex_chain_expected,
        .should_succeed = k_complex_chain_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

@@ -139,6 +139,21 @@ inline std::string type_name(std::string_view name_) {
   return std::format(R"((path ((type_segment "{}"))))", name_);
 }
 
+// Type name with template parameters
+inline std::string type_name(std::string_view name_, std::initializer_list<std::string> template_params_) {
+  std::string params = "(";
+  bool first = true;
+  for (auto const& param: template_params_) {
+    if (!first) {
+      params += " ";
+    }
+    first = false;
+    params += param;
+  }
+  params += ")";
+  return std::format(R"((path ((type_segment "{}" {}))))", name_, params);
+}
+
 // Type name with two segments (convenience overload for qualified names)
 inline std::string type_name(std::string_view seg1_, std::string_view seg2_) {
   return std::format(R"((path ((type_segment "{}") (type_segment "{}"))))", seg1_, seg2_);
@@ -170,13 +185,28 @@ inline std::string integer(std::string_view value_) {
   return std::format(R"((integer "{}"))", value_);
 }
 
+// Integer literal with type suffix
+inline std::string integer(std::string_view value_, std::string_view type_suffix_) {
+  return std::format(R"((integer "{}" "{}"))", value_, type_suffix_);
+}
+
+// Float literal
+inline std::string float_literal(std::string_view value_) {
+  return std::format(R"((float "{}"))", value_);
+}
+
+// Float literal with type suffix
+inline std::string float_literal(std::string_view value_, std::string_view type_suffix_) {
+  return std::format(R"((float "{}" "{}"))", value_, type_suffix_);
+}
+
 // String literal
 // Note: AST stores strings WITH surrounding quotes
 // Use the same escaping as the S-expression printer
 inline std::string string(std::string_view value_) {
   std::ostringstream oss;
   oss << "(string \"";
-  for (char const ch : value_) {
+  for (char const ch: value_) {
     switch (ch) {
       case '"':
         oss << "\\\"";
@@ -206,7 +236,7 @@ inline std::string string(std::string_view value_) {
 inline std::string string_part(std::string_view value_) {
   std::ostringstream oss;
   oss << '"';
-  for (char const ch : value_) {
+  for (char const ch: value_) {
     switch (ch) {
       case '"':
         oss << "\\\"";
@@ -238,7 +268,7 @@ inline std::string string_interp(std::vector<std::string> const& parts_) {
     return "(string_interp)";
   }
   std::string result = "(string_interp";
-  for (auto const& part : parts_) {
+  for (auto const& part: parts_) {
     result += " ";
     result += part;
   }
@@ -254,6 +284,56 @@ inline std::string char_literal(std::string_view value_) {
 // Boolean literal
 inline std::string bool_literal(bool value_) {
   return std::format("(bool {})", value_ ? "true" : "false");
+}
+
+// Trait bound: (trait_bound <Type_Name>)
+inline std::string trait_bound(std::string_view trait_name_sexp_) {
+  return std::format("(trait_bound {})", trait_name_sexp_);
+}
+
+// Type parameter with optional bounds: (type_param <Type_Name> (<Trait_Bound>...)?)
+inline std::string type_param_with_bounds(std::string_view type_name_sexp_, std::vector<std::string> const& bounds_) {
+  if (bounds_.empty()) {
+    return std::format("(type_param {})", type_name_sexp_);
+  }
+  std::string bounds = "(";
+  for (size_t i = 0; i < bounds_.size(); ++i) {
+    if (i > 0) {
+      bounds += " ";
+    }
+    bounds += bounds_[i];
+  }
+  bounds += ")";
+  return std::format("(type_param {} {})", type_name_sexp_, bounds);
+}
+
+// Where predicate: (where_pred <Type_Name> (<Trait_Bound>...))
+inline std::string where_predicate(std::string_view type_name_sexp_, std::vector<std::string> const& bounds_) {
+  std::string bounds = "(";
+  for (size_t i = 0; i < bounds_.size(); ++i) {
+    if (i > 0) {
+      bounds += " ";
+    }
+    bounds += bounds_[i];
+  }
+  bounds += ")";
+  return std::format("(where_pred {} {})", type_name_sexp_, bounds);
+}
+
+// Where clause: (where (<Where_Predicate>...))
+inline std::string where_clause(std::vector<std::string> const& predicates_) {
+  if (predicates_.empty()) {
+    return "(where)";
+  }
+  std::string preds = "(";
+  for (size_t i = 0; i < predicates_.size(); ++i) {
+    if (i > 0) {
+      preds += " ";
+    }
+    preds += predicates_[i];
+  }
+  preds += ")";
+  return std::format("(where {})", preds);
 }
 
 // Wildcard pattern
@@ -466,6 +546,27 @@ inline std::string return_statement(std::string_view expr_) {
   return std::format("(return {})", expr_);
 }
 
+// Field initialization (for struct literals)
+inline std::string field_init(std::string_view name_, std::string_view value_) {
+  return std::format(R"((field_init "{}" {}))", name_, value_);
+}
+
+// Struct literal
+inline std::string struct_literal(std::string_view type_name_, std::vector<std::string> const& fields_) {
+  if (fields_.empty()) {
+    return std::format(R"((struct_lit "{}" ()))", type_name_);
+  }
+  std::string fields = "(";
+  for (size_t i = 0; i < fields_.size(); ++i) {
+    if (i > 0) {
+      fields += " ";
+    }
+    fields += fields_[i];
+  }
+  fields += ")";
+  return std::format(R"((struct_lit "{}" {}))", type_name_, fields);
+}
+
 // Function call statement
 inline std::string function_call_statement(std::string_view expr_) {
   return std::format("(call_stmt {})", expr_);
@@ -495,6 +596,11 @@ inline std::string if_expr(std::string_view condition_, std::string_view then_bl
 inline std::string
 if_else_expr(std::string_view condition_, std::string_view then_block_, std::string_view else_block_) {
   return std::format("(if {} {} {})", condition_, then_block_, else_block_);
+}
+
+// If statement wrapper (wraps an if expression used as a statement)
+inline std::string if_statement(std::string_view if_expr_) {
+  return std::format("(if_stmt {})", if_expr_);
 }
 
 // Else-if clause
@@ -574,6 +680,38 @@ inline std::string continue_statement() {
 // Unary expression
 inline std::string unary_expr(std::string_view op_, std::string_view operand_) {
   return std::format("(unary {} {})", op_, operand_);
+}
+
+// Array literal
+inline std::string array_literal(std::vector<std::string> const& elements_) {
+  if (elements_.empty()) {
+    return "(array_lit ())";
+  }
+  std::string elements = "(";
+  for (size_t i = 0; i < elements_.size(); ++i) {
+    if (i > 0) {
+      elements += " ";
+    }
+    elements += elements_[i];
+  }
+  elements += ")";
+  return std::format("(array_lit {})", elements);
+}
+
+// Tuple literal
+inline std::string tuple_literal(std::vector<std::string> const& elements_) {
+  if (elements_.empty()) {
+    return "(tuple_lit)";
+  }
+  std::string elements = "(";
+  for (size_t i = 0; i < elements_.size(); ++i) {
+    if (i > 0) {
+      elements += " ";
+    }
+    elements += elements_[i];
+  }
+  elements += ")";
+  return std::format("(tuple_lit {})", elements);
 }
 
 // Cast expression
@@ -775,6 +913,53 @@ inline std::string array_type(std::string_view element_type_, std::string_view s
   return std::format("(array_type {} \"{}\")", element_type_, size_);
 }
 
+// Tuple type
+inline std::string tuple_type(std::initializer_list<std::string> element_types_) {
+  std::string elements = "(";
+  bool first = true;
+  for (auto const& elem: element_types_) {
+    if (!first) {
+      elements += " ";
+    }
+    first = false;
+    elements += elem;
+  }
+  elements += ")";
+  return std::format("(tuple_type {})", elements);
+}
+
+// Import item (with optional alias)
+inline std::string import_item(std::string_view name_, std::string_view alias_ = "") {
+  if (alias_.empty()) {
+    return std::format("\"{}\"", name_);
+  }
+  return std::format(R"((as "{}" "{}"))", name_, alias_);
+}
+
+// Import statement
+inline std::string
+import_statement(std::vector<std::string_view> const& module_path_, std::vector<std::string> const& items_) {
+  std::string path = "(path";
+  for (auto const& segment: module_path_) {
+    path += std::format("\"{}\"", segment);
+    if (&segment != &module_path_.back()) {
+      path += " ";
+    }
+  }
+  path += ")";
+
+  std::string items = "(items";
+  for (auto const& item: items_) {
+    items += item;
+    if (&item != &items_.back()) {
+      items += " ";
+    }
+  }
+  items += ")";
+
+  return std::format("(import {} {})", path, items);
+}
+
 }  // namespace test_sexp
 
 // Helper to get expected value - either from AST object or string
@@ -796,7 +981,7 @@ inline std::string normalize_sexp(std::string_view sexp_) {
   bool in_string = false;
   bool prev_space = false;
 
-  for (char const c : sexp_) {
+  for (char const c: sexp_) {
     if (c == '"' && (result.empty() || result.back() != '\\')) {
       in_string = !in_string;
       result += c;

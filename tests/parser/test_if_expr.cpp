@@ -2,6 +2,7 @@
 #include "utils.hpp"
 
 using life_lang::ast::Expr;
+using namespace test_sexp;
 
 PARSE_TEST(Expr, expr)
 
@@ -9,81 +10,62 @@ namespace {
 // Basic if without else
 constexpr auto k_if_only_should_succeed = true;
 constexpr auto k_if_only_input = "if x { return 1; }";
-inline auto const k_if_only_expected = test_sexp::if_expr(
-    test_sexp::var_name("x"),
-    test_sexp::block({test_sexp::return_statement(test_sexp::integer(1))})
-);
+inline auto const k_if_only_expected = if_expr(var_name("x"), block({return_statement(integer("1"))}));
 
 // If with else
 constexpr auto k_if_else_should_succeed = true;
 constexpr auto k_if_else_input = "if condition { return 1; } else { return 2; }";
-inline auto const k_if_else_expected = test_sexp::if_else_expr(
-    test_sexp::var_name("condition"),
-    test_sexp::block({test_sexp::return_statement(test_sexp::integer(1))}),
-    test_sexp::block({test_sexp::return_statement(test_sexp::integer(2))})
+inline auto const k_if_else_expected = if_else_expr(
+    var_name("condition"),
+    block({return_statement(integer("1"))}),
+    block({return_statement(integer("2"))})
 );
 
 // If with single else-if
 constexpr auto k_if_elseif_should_succeed = true;
 constexpr auto k_if_elseif_input = "if a { return 1; } else if b { return 2; }";
-inline auto const k_if_elseif_expected = test_sexp::if_with_elseif(
-    test_sexp::var_name("a"),
-    test_sexp::block({test_sexp::return_statement(test_sexp::integer(1))}),
-    {test_sexp::else_if_clause(
-        test_sexp::var_name("b"),
-        test_sexp::block({test_sexp::return_statement(test_sexp::integer(2))})
-    )}
+inline auto const k_if_elseif_expected = if_with_elseif(
+    var_name("a"),
+    block({return_statement(integer("1"))}),
+    {else_if_clause(var_name("b"), block({return_statement(integer("2"))}))}
 );
 
 // If with else-if and final else
 constexpr auto k_if_elseif_else_should_succeed = true;
 constexpr auto k_if_elseif_else_input = "if a { return 1; } else if b { return 2; } else { return 3; }";
-inline auto const k_if_elseif_else_expected = test_sexp::if_with_elseif(
-    test_sexp::var_name("a"),
-    test_sexp::block({test_sexp::return_statement(test_sexp::integer(1))}),
-    {test_sexp::else_if_clause(
-        test_sexp::var_name("b"),
-        test_sexp::block({test_sexp::return_statement(test_sexp::integer(2))})
-    )},
-    test_sexp::block({test_sexp::return_statement(test_sexp::integer(3))})
+inline auto const k_if_elseif_else_expected = if_with_elseif(
+    var_name("a"),
+    block({return_statement(integer("1"))}),
+    {else_if_clause(var_name("b"), block({return_statement(integer("2"))}))},
+    block({return_statement(integer("3"))})
 );
 
 // If with multiple else-if clauses
 constexpr auto k_multiple_elseif_should_succeed = true;
 constexpr auto k_multiple_elseif_input =
     "if a { return 1; } else if b { return 2; } else if c { return 3; } else { return 4; }";
-inline auto const k_multiple_elseif_expected = test_sexp::if_with_elseif(
-    test_sexp::var_name("a"),
-    test_sexp::block({test_sexp::return_statement(test_sexp::integer(1))}),
-    {test_sexp::else_if_clause(
-         test_sexp::var_name("b"),
-         test_sexp::block({test_sexp::return_statement(test_sexp::integer(2))})
-     ),
-     test_sexp::else_if_clause(
-         test_sexp::var_name("c"),
-         test_sexp::block({test_sexp::return_statement(test_sexp::integer(3))})
-     )},
-    test_sexp::block({test_sexp::return_statement(test_sexp::integer(4))})
+inline auto const k_multiple_elseif_expected = if_with_elseif(
+    var_name("a"),
+    block({return_statement(integer("1"))}),
+    {else_if_clause(var_name("b"), block({return_statement(integer("2"))})),
+     else_if_clause(var_name("c"), block({return_statement(integer("3"))}))},
+    block({return_statement(integer("4"))})
 );
 
 // If expression with binary operators
 constexpr auto k_if_with_comparison_should_succeed = true;
 constexpr auto k_if_with_comparison_input = "if x > y { return x; } else { return y; }";
-inline auto const k_if_with_comparison_expected = test_sexp::if_else_expr(
-    test_sexp::binary_expr(">", test_sexp::var_name("x"), test_sexp::var_name("y")),
-    test_sexp::block({test_sexp::return_statement(test_sexp::var_name("x"))}),
-    test_sexp::block({test_sexp::return_statement(test_sexp::var_name("y"))})
+inline auto const k_if_with_comparison_expected = if_else_expr(
+    binary_expr(">", var_name("x"), var_name("y")),
+    block({return_statement(var_name("x"))}),
+    block({return_statement(var_name("y"))})
 );
 
 // Empty blocks
 constexpr auto k_if_empty_blocks_should_succeed = true;
 constexpr auto k_if_empty_blocks_input = "if x {} else if y {} else {}";
-inline auto const k_if_empty_blocks_expected = test_sexp::if_with_elseif(
-    test_sexp::var_name("x"),
-    test_sexp::block({}),
-    {test_sexp::else_if_clause(test_sexp::var_name("y"), test_sexp::block({}))},
-    test_sexp::block({})
-);
+inline auto const k_if_empty_blocks_expected =
+    if_with_elseif(var_name("x"), block({}), {else_if_clause(var_name("y"), block({}))}, block({}));
 
 // Invalid: missing condition
 constexpr auto k_missing_condition_should_succeed = false;
@@ -154,7 +136,7 @@ TEST_CASE("Parse If_Expr") {
        .expected = k_missing_elseif_block_expected,
        .should_succeed = k_missing_elseif_block_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

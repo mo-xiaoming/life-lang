@@ -1,5 +1,6 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
+
 using life_lang::ast::Expr;
 
 PARSE_TEST(Expr, expr)
@@ -175,7 +176,7 @@ TEST_CASE("Parse Tuple_Pattern in For_Expr") {
        .expected = "",
        .should_succeed = k_invalid_identifier_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

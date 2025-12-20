@@ -33,19 +33,15 @@ inline auto const k_all_escapes_expected = test_sexp::string(R"("abc\"d\n\x00yz"
 
 constexpr auto k_with_trailing_text_should_succeed = false;
 constexpr auto k_with_trailing_text_input = R"("hello" world)";
-constexpr auto k_with_trailing_text_expected = R"({
-  "String": {
-    "value": "\"hello\""
-  }
-})";
+inline auto const k_with_trailing_text_expected = test_sexp::string(R"("hello")");
 
 constexpr auto k_invalid_unclosed_should_succeed = false;
 constexpr auto k_invalid_unclosed_input = R"("hello)";
-constexpr auto k_invalid_unclosed_expected = "{}";
+constexpr auto k_invalid_unclosed_expected = "";
 
 constexpr auto k_invalid_no_quotes_should_succeed = false;
 constexpr auto k_invalid_no_quotes_input = "hello";
-constexpr auto k_invalid_no_quotes_expected = "{}";
+constexpr auto k_invalid_no_quotes_expected = "";
 
 }  // namespace
 
@@ -88,7 +84,7 @@ TEST_CASE("Parse String") {
        .expected = k_invalid_no_quotes_expected,
        .should_succeed = k_invalid_no_quotes_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

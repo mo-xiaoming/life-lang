@@ -1,56 +1,63 @@
 #include <doctest/doctest.h>
+#include "../parser/utils.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 
+using namespace test_sexp;
+
 TEST_CASE("Hexadecimal literals in expressions") {
-  SUBCASE("simple hex literal") {
-    life_lang::parser::Parser parser("0xFF");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(life_lang::ast::to_sexp_string(*expr, 0) == "(integer \"0xFF\")");
-    }
-  }
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected;
+  };
 
-  SUBCASE("hex in binary expression") {
-    life_lang::parser::Parser parser("0xFF + 0x10");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(life_lang::ast::to_sexp_string(*expr, 0) == "(binary + (integer \"0xFF\") (integer \"0x10\"))");
-    }
-  }
+  static Test_Case const k_test_cases[] = {
+      {.name = "simple hex literal", .input = "0xFF", .expected = integer("0xFF")},
+      {.name = "hex in binary expression",
+       .input = "0xFF + 0x10",
+       .expected = binary_expr("+", integer("0xFF"), integer("0x10"))},
+      {.name = "hex in comparison",
+       .input = "value == 0xDEAD",
+       .expected = binary_expr("==", var_name("value"), integer("0xDEAD"))},
+  };
 
-  SUBCASE("hex in comparison") {
-    life_lang::parser::Parser parser("value == 0xDEAD");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(
-          life_lang::ast::to_sexp_string(*expr, 0) == "(binary == (var ((var_segment \"value\"))) (integer \"0xDEAD\"))"
-      );
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      life_lang::parser::Parser parser(tc.input);
+      auto const expr = parser.parse_expr();
+      REQUIRE(expr.has_value());
+      if (expr.has_value()) {
+        CHECK(life_lang::ast::to_sexp_string(*expr, 0) == tc.expected);
+      }
     }
   }
 }
 
 TEST_CASE("Hexadecimal literals in let statements") {
-  SUBCASE("let with hex value") {
-    life_lang::parser::Parser parser("let flags = 0xFF;");
-    auto const stmt = parser.parse_statement();
-    REQUIRE(stmt.has_value());
-    if (stmt.has_value()) {
-      auto const sexp = life_lang::ast::to_sexp_string(*stmt, 0);
-      CHECK(sexp == "(let false (pattern \"flags\") nil (integer \"0xFF\"))");
-    }
-  }
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected;
+  };
 
-  SUBCASE("let with hex and type annotation") {
-    life_lang::parser::Parser parser("let color: U32 = 0xDEAD_BEEF;");
-    auto const stmt = parser.parse_statement();
-    REQUIRE(stmt.has_value());
-    if (stmt.has_value()) {
-      auto const sexp = life_lang::ast::to_sexp_string(*stmt, 0);
-      CHECK(sexp == "(let false (pattern \"color\") (path ((type_segment \"U32\"))) (integer \"0xDEADBEEF\"))");
+  static Test_Case const k_test_cases[] = {
+      {.name = "let with hex value",
+       .input = "let flags = 0xFF;",
+       .expected = let_statement(simple_pattern("flags"), integer("0xFF"))},
+      {.name = "let with hex and type annotation",
+       .input = "let color: U32 = 0xDEAD_BEEF;",
+       .expected = let_statement(simple_pattern("color"), integer("0xDEADBEEF"), false, type_name("U32"))},
+  };
+
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      life_lang::parser::Parser parser(tc.input);
+      auto const stmt = parser.parse_statement();
+      REQUIRE(stmt.has_value());
+      if (stmt.has_value()) {
+        CHECK(life_lang::ast::to_sexp_string(*stmt, 0) == tc.expected);
+      }
     }
   }
 }
@@ -83,7 +90,7 @@ TEST_CASE("Hexadecimal literals with type suffixes") {
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
-      CHECK(life_lang::ast::to_sexp_string(*expr, 0) == "(integer \"0xFF\" \"U8\")");
+      CHECK(life_lang::ast::to_sexp_string(*expr, 0) == integer("0xFF", "U8"));
     }
   }
 
@@ -92,7 +99,7 @@ TEST_CASE("Hexadecimal literals with type suffixes") {
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
-      CHECK(life_lang::ast::to_sexp_string(*expr, 0) == "(integer \"0xDEADBEEF\" \"U32\")");
+      CHECK(life_lang::ast::to_sexp_string(*expr, 0) == integer("0xDEADBEEF", "U32"));
     }
   }
 
@@ -101,7 +108,7 @@ TEST_CASE("Hexadecimal literals with type suffixes") {
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
-      CHECK(life_lang::ast::to_sexp_string(*expr, 0) == "(integer \"0x7FFFFFFFFFFFFFFF\" \"I64\")");
+      CHECK(life_lang::ast::to_sexp_string(*expr, 0) == integer("0x7FFFFFFFFFFFFFFF", "I64"));
     }
   }
 }

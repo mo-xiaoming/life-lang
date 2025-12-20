@@ -2,6 +2,7 @@
 #include "utils.hpp"
 
 using life_lang::ast::Type_Name;
+using namespace test_sexp;
 
 PARSE_TEST(Type_Name, type_name)
 
@@ -10,79 +11,78 @@ namespace {
 // Single element with trailing comma
 constexpr auto k_single_element_trailing_comma_should_succeed = true;
 constexpr auto k_single_element_trailing_comma_input = "(I32,)";
-inline auto const k_single_element_trailing_comma_expected = R"((tuple_type ((path ((type_segment "I32"))))))";
+inline auto const k_single_element_trailing_comma_expected = tuple_type({type_name("I32")});
 
 // Two elements
 constexpr auto k_two_elements_should_succeed = true;
 constexpr auto k_two_elements_input = "(I32, String)";
-inline auto const k_two_elements_expected =
-    R"((tuple_type ((path ((type_segment "I32"))) (path ((type_segment "String"))))))";
+inline auto const k_two_elements_expected = tuple_type({type_name("I32"), type_name("String")});
 
 // Three elements
 constexpr auto k_three_elements_should_succeed = true;
 constexpr auto k_three_elements_input = "(I32, String, Bool)";
-inline auto const k_three_elements_expected =
-    R"((tuple_type ((path ((type_segment "I32"))) (path ((type_segment "String"))) (path ((type_segment "Bool"))))))";
+inline auto const k_three_elements_expected = tuple_type({type_name("I32"), type_name("String"), type_name("Bool")});
 
 // Multiple elements with trailing comma
 constexpr auto k_multiple_trailing_comma_should_succeed = true;
 constexpr auto k_multiple_trailing_comma_input = "(I32, String, Bool,)";
 inline auto const k_multiple_trailing_comma_expected =
-    R"((tuple_type ((path ((type_segment "I32"))) (path ((type_segment "String"))) (path ((type_segment "Bool"))))))";
+    tuple_type({type_name("I32"), type_name("String"), type_name("Bool")});
 
 // Nested tuple types
 constexpr auto k_nested_tuples_should_succeed = true;
 constexpr auto k_nested_tuples_input = "((I32, I32), String)";
 inline auto const k_nested_tuples_expected =
-    R"((tuple_type ((tuple_type ((path ((type_segment "I32"))) (path ((type_segment "I32"))))) (path ((type_segment "String"))))))";
+    tuple_type({tuple_type({type_name("I32"), type_name("I32")}), type_name("String")});
 
 // Tuple with qualified types
 constexpr auto k_with_qualified_types_should_succeed = true;
 constexpr auto k_with_qualified_types_input = "(Std.String, Std.Vec)";
 inline auto const k_with_qualified_types_expected =
-    R"((tuple_type ((path ((type_segment "Std") (type_segment "String"))) (path ((type_segment "Std") (type_segment "Vec"))))))";
+    tuple_type({type_name_path({"Std", "String"}), type_name_path({"Std", "Vec"})});
 
 // Tuple with generic types
 constexpr auto k_with_generic_types_should_succeed = true;
 constexpr auto k_with_generic_types_input = "(Vec<I32>, Map<String, I32>)";
 inline auto const k_with_generic_types_expected =
-    R"((tuple_type ((path ((type_segment "Vec" ((path ((type_segment "I32"))))))) (path ((type_segment "Map" ((path ((type_segment "String"))) (path ((type_segment "I32"))))))))))";
+    tuple_type({type_name("Vec", {type_name("I32")}), type_name("Map", {type_name("String"), type_name("I32")})});
 
 // Tuple with array types
 constexpr auto k_with_array_types_should_succeed = true;
 constexpr auto k_with_array_types_input = "([I32; 4], [String; 10])";
 inline auto const k_with_array_types_expected =
-    R"((tuple_type ((array_type (path ((type_segment "I32"))) "4") (array_type (path ((type_segment "String"))) "10"))))";
+    tuple_type({array_type(type_name("I32"), "4"), array_type(type_name("String"), "10")});
 
 // Tuple with function types
 constexpr auto k_with_function_types_should_succeed = true;
 constexpr auto k_with_function_types_input = "(fn(I32): Bool, fn(): ())";
 inline auto const k_with_function_types_expected =
-    R"foo((tuple_type ((func_type ((path ((type_segment "I32")))) (path ((type_segment "Bool")))) (func_type () (path ((type_segment "()")))))))foo";
+    tuple_type({func_type({type_name("I32")}, type_name("Bool")), func_type({}, type_name("()"))});
 
 // Large tuple (5 elements)
 constexpr auto k_large_tuple_should_succeed = true;
 constexpr auto k_large_tuple_input = "(I32, String, Bool, F64, Char)";
 inline auto const k_large_tuple_expected =
-    R"((tuple_type ((path ((type_segment "I32"))) (path ((type_segment "String"))) (path ((type_segment "Bool"))) (path ((type_segment "F64"))) (path ((type_segment "Char"))))))";
+    tuple_type({type_name("I32"), type_name("String"), type_name("Bool"), type_name("F64"), type_name("Char")});
 
 // Complex nested tuple with generics
 constexpr auto k_complex_nested_should_succeed = true;
 constexpr auto k_complex_nested_input = "((Vec<I32>, String), (Bool, Map<String, I32>))";
-inline auto const k_complex_nested_expected =
-    R"((tuple_type ((tuple_type ((path ((type_segment "Vec" ((path ((type_segment "I32"))))))) (path ((type_segment "String"))))) (tuple_type ((path ((type_segment "Bool"))) (path ((type_segment "Map" ((path ((type_segment "String"))) (path ((type_segment "I32"))))))))))))";
+inline auto const k_complex_nested_expected = tuple_type(
+    {tuple_type({type_name("Vec", {type_name("I32")}), type_name("String")}),
+     tuple_type({type_name("Bool"), type_name("Map", {type_name("String"), type_name("I32")})})}
+);
 // === Parenthesized Type Tests (NOT tuples) ===
 
 // Single element without trailing comma - parenthesized type
 constexpr auto k_parenthesized_type_should_succeed = true;
 constexpr auto k_parenthesized_type_input = "(I32)";
-inline auto const k_parenthesized_type_expected =
-    R"((path ((type_segment "I32"))))";  // Just the type, no tuple wrapper
+inline auto const k_parenthesized_type_expected = type_name("I32");  // Just the type, no tuple wrapper
 
 // Complex parenthesized type with generics
 constexpr auto k_complex_parenthesized_should_succeed = true;
 constexpr auto k_complex_parenthesized_input = "(Vec<I32>)";
-inline auto const k_complex_parenthesized_expected = R"((path ((type_segment "Vec" ((path ((type_segment "I32"))))))))";
+inline auto const k_complex_parenthesized_expected = type_name("Vec", {type_name("I32")});
 
 // === Invalid Tuple Types ===
 
@@ -105,7 +105,7 @@ constexpr auto k_leading_comma_input = "(, I32, String)";
 // Empty tuple (should parse as unit type, not tuple type)
 constexpr auto k_empty_tuple_should_succeed = true;
 constexpr auto k_empty_tuple_input = "()";
-inline auto const k_empty_tuple_expected = R"foo((path ((type_segment "()"))))foo";  // Unit type, not tuple
+inline auto const k_empty_tuple_expected = type_name("()");  // Unit type, not tuple
 
 }  // namespace
 
@@ -186,7 +186,7 @@ TEST_CASE("Parse Tuple_Type") {
        .expected = k_empty_tuple_expected,
        .should_succeed = k_empty_tuple_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

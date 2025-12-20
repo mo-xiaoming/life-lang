@@ -2,8 +2,7 @@
 #include "utils.hpp"
 
 using life_lang::ast::Func_Def;
-using test_sexp::type_name;
-using test_sexp::var_name;
+using namespace test_sexp;
 
 PARSE_TEST(Func_Def, func_def)
 
@@ -11,38 +10,32 @@ namespace {
 // Simple function definitions
 constexpr auto k_empty_body_should_succeed = true;
 constexpr auto k_empty_body_input = "fn hello(): Int {}";
-inline auto const k_empty_body_expected =
-    test_sexp::func_def(test_sexp::func_decl("hello", {}, {}, type_name("Int")), test_sexp::block({}));
+inline auto const k_empty_body_expected = func_def(func_decl("hello", {}, {}, type_name("Int")), block({}));
 
 // Functions with parameters
 constexpr auto k_with_parameters_should_succeed = true;
 constexpr auto k_with_parameters_input = "fn hello(a: Int, b: Double): Int {}";
-inline auto const k_with_parameters_expected = test_sexp::func_def(
-    test_sexp::func_decl(
+inline auto const k_with_parameters_expected = func_def(
+    func_decl(
         "hello",
         {},
-        {test_sexp::function_parameter("a", type_name("Int")), test_sexp::function_parameter("b", type_name("Double"))},
+        {function_parameter("a", type_name("Int")), function_parameter("b", type_name("Double"))},
         type_name("Int")
     ),
-    test_sexp::block({})
+    block({})
 );
 
 // Functions with statements
 constexpr auto k_with_return_should_succeed = true;
 constexpr auto k_with_return_input = "fn hello(): Int {return world;}";
-inline auto const k_with_return_expected = test_sexp::func_def(
-    test_sexp::func_decl("hello", {}, {}, type_name("Int")),
-    test_sexp::block({test_sexp::return_statement(var_name("world"))})
-);
+inline auto const k_with_return_expected =
+    func_def(func_decl("hello", {}, {}, type_name("Int")), block({return_statement(var_name("world"))}));
 
 constexpr auto k_with_statements_should_succeed = true;
 constexpr auto k_with_statements_input = "fn hello(): Int {foo(); return 0;}";
-inline auto const k_with_statements_expected = test_sexp::func_def(
-    test_sexp::func_decl("hello", {}, {}, type_name("Int")),
-    test_sexp::block(
-        {test_sexp::function_call_statement(test_sexp::function_call(var_name("foo"), {})),
-         test_sexp::return_statement(test_sexp::integer("0"))}
-    )
+inline auto const k_with_statements_expected = func_def(
+    func_decl("hello", {}, {}, type_name("Int")),
+    block({function_call_statement(function_call(var_name("foo"), {})), return_statement(integer("0"))})
 );
 
 // Nested constructs
@@ -53,12 +46,9 @@ constexpr auto k_nested_block_input = R"(fn hello(a: Int): Int {
         return world;
     }
 })";
-inline auto const k_nested_block_expected = test_sexp::func_def(
-    test_sexp::func_decl("hello", {}, {test_sexp::function_parameter("a", type_name("Int"))}, type_name("Int")),
-    test_sexp::block(
-        {test_sexp::function_call_statement(test_sexp::function_call(var_name("hello"), {})),
-         test_sexp::block({test_sexp::return_statement(var_name("world"))})}
-    )
+inline auto const k_nested_block_expected = func_def(
+    func_decl("hello", {}, {function_parameter("a", type_name("Int"))}, type_name("Int")),
+    block({function_call_statement(function_call(var_name("hello"), {})), block({return_statement(var_name("world"))})})
 );
 
 constexpr auto k_nested_func_should_succeed = true;
@@ -68,14 +58,11 @@ constexpr auto k_nested_func_input = R"(fn hello(): Int {
     }
     return world();
 })";
-inline auto const k_nested_func_expected = test_sexp::func_def(
-    test_sexp::func_decl("hello", {}, {}, type_name("Int")),
-    test_sexp::block(
-        {test_sexp::func_def(
-             test_sexp::func_decl("world", {}, {}, type_name("Int")),
-             test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
-         ),
-         test_sexp::return_statement(test_sexp::function_call(var_name("world"), {}))}
+inline auto const k_nested_func_expected = func_def(
+    func_decl("hello", {}, {}, type_name("Int")),
+    block(
+        {func_def(func_decl("world", {}, {}, type_name("Int")), block({return_statement(integer("0"))})),
+         return_statement(function_call(var_name("world"), {}))}
     )
 );
 
@@ -85,36 +72,31 @@ constexpr auto k_hello_world_input = R"(fn main(args: Std.Array<Std.String>): I3
     Std.print("Hello, world!");
     return 0;
 })";
-inline auto const k_hello_world_expected = test_sexp::func_def(
-    test_sexp::func_decl(
+inline auto const k_hello_world_expected = func_def(
+    func_decl(
         "main",
         {},
         {"(param false \"args\" (path ((type_segment \"Std\") (type_segment \"Array\" ((path ((type_segment \"Std\") "
          "(type_segment \"String\"))))))))"},
-        test_sexp::type_name("I32")
+        type_name("I32")
     ),
-    test_sexp::block(
-        {test_sexp::function_call_statement(
-             R"((call (var ((var_segment "Std") (var_segment "print"))) ((string "\"Hello, world!\""))))"
-         ),
-         test_sexp::return_statement(test_sexp::integer("0"))}
+    block(
+        {function_call_statement(function_call(var_name_path({"Std", "print"}), {string("\"Hello, world!\"")})),
+         return_statement(integer("0"))}
     )
 );
-;
 
 // Trailing content
 constexpr auto k_with_trailing_code_should_succeed = false;
 constexpr auto k_with_trailing_code_input = "fn foo(): Int {} bar";
-inline auto const k_with_trailing_code_expected =
-    test_sexp::func_def(test_sexp::func_decl("foo", {}, {}, type_name("Int")), test_sexp::block({}));
+inline auto const k_with_trailing_code_expected = func_def(func_decl("foo", {}, {}, type_name("Int")), block({}));
 
 // Invalid cases
 constexpr auto k_invalid_no_fn_keyword_should_succeed = false;
 constexpr auto k_invalid_no_fn_keyword_input = "hello(): Int {}";
 constexpr auto k_invalid_empty_should_succeed = false;
 constexpr auto k_invalid_empty_input = "";
-inline auto const k_invalid_expected =
-    test_sexp::func_def(test_sexp::func_decl("", {}, {}, "(path ())"), test_sexp::block({}));
+inline auto const k_invalid_expected = func_def(func_decl("", {}, {}, "(path ())"), block({}));
 
 }  // namespace
 
@@ -174,7 +156,7 @@ TEST_CASE("Parse Func_Def") {
        .expected = k_invalid_expected,
        .should_succeed = k_invalid_empty_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

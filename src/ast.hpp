@@ -1009,7 +1009,7 @@ inline Function_Type make_function_type(std::vector<Type_Name> param_types_, Typ
   // Convert Type_Name vector to shared_ptr vector
   std::vector<std::shared_ptr<Type_Name>> param_types;
   param_types.reserve(param_types_.size());
-  for (auto& param : param_types_) {
+  for (auto& param: param_types_) {
     param_types.emplace_back(std::make_shared<Type_Name>(std::move(param)));
   }
   return Function_Type{

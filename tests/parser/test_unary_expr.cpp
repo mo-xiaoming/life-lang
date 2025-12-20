@@ -126,7 +126,7 @@ TEST_CASE("Parse Unary_Expr") {
        .expected = k_neg_call_expected,
        .should_succeed = k_neg_call_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

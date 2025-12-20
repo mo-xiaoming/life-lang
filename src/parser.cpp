@@ -1317,7 +1317,7 @@ std::optional<ast::Var_Name> Parser::parse_variable_name() {
   }
 
   // Check if it's a keyword (keywords can't be used as variable names)
-  for (auto const& kw : k_keywords) {
+  for (auto const& kw: k_keywords) {
     if (name == kw) {
       error(std::format("Cannot use keyword '{}' as variable name", name), make_range(start_pos));
       return std::nullopt;
@@ -1738,7 +1738,7 @@ std::optional<ast::Function_Type> Parser::parse_function_type() {
   ast::Function_Type result;
 
   // Convert vector of Type_Name to vector of forward_ast<Type_Name>
-  for (auto& param : param_types) {
+  for (auto& param: param_types) {
     result.param_types.push_back(std::make_shared<ast::Type_Name>(std::move(param)));
   }
 
@@ -2633,7 +2633,8 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       advance();  // consume '.'
       skip_whitespace_and_comments();
 
-      if (!is_identifier_start(peek())) {
+      // Allow both identifier field names and numeric field names (for tuple access like pair.0)
+      if (!is_identifier_start(peek()) && (std::isdigit(static_cast<unsigned char>(peek())) == 0)) {
         error("Expected field name after '.'");
         return std::nullopt;
       }
@@ -2955,7 +2956,7 @@ std::optional<ast::Expr> Parser::parse_func_call() {
 
   // Validate that simple patterns are not keywords
   if (auto* simple = std::get_if<ast::Simple_Pattern>(&*pattern)) {
-    for (auto const& kw : k_keywords) {
+    for (auto const& kw: k_keywords) {
       if (simple->name == kw) {
         error("Cannot use keyword '" + simple->name + "' as pattern binding", make_range(start_pos));
         return std::nullopt;

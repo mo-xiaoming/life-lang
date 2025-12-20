@@ -1,9 +1,6 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
 
-// Specialized test for keyword boundary validation
-// Note: This test validates lexical analysis (keyword boundaries), not AST structure,
-// so it doesn't follow the standard PARSE_TEST pattern which compares expected AST.
 TEST_CASE("Keyword Boundary Validation") {
   struct Test_Case {
     std::string name;
@@ -30,7 +27,7 @@ TEST_CASE("Keyword Boundary Validation") {
       {.name = "return with underscore", .input = "return_value;", .should_succeed = true, .is_return_stmt = true},
   };
 
-  for (auto const& test : test_list) {
+  for (auto const& test: test_list) {
     SUBCASE(std::string(test.name).c_str()) {
       if (test.is_return_stmt) {
         auto const got = life_lang::internal::parse_statement(test.input);
@@ -64,7 +61,7 @@ TEST_CASE("Var_Name vs Keyword Distinction") {
       {.name = "return plus text", .input = "returnvalue", .expected_name = "returnvalue"},
       {.name = "let plus text", .input = "letter", .expected_name = "letter"},
   };
-  for (auto const& test : test_list) {
+  for (auto const& test: test_list) {
     SUBCASE(std::string(test.name).c_str()) {
       auto const got = life_lang::internal::parse_type_name(test.input);
       REQUIRE(bool(got));

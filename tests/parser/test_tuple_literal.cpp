@@ -10,99 +10,118 @@ namespace {
 // Single element with trailing comma (required for single-element tuples)
 constexpr auto k_single_element_trailing_comma_should_succeed = true;
 constexpr auto k_single_element_trailing_comma_input = "(42,)";
-inline auto const k_single_element_trailing_comma_expected = R"((tuple_lit ((integer "42"))))";
+inline auto const k_single_element_trailing_comma_expected = test_sexp::tuple_literal({test_sexp::integer("42")});
 
 // Two elements
 constexpr auto k_two_elements_should_succeed = true;
 constexpr auto k_two_elements_input = "(1, 2)";
-inline auto const k_two_elements_expected = R"((tuple_lit ((integer "1") (integer "2"))))";
+inline auto const k_two_elements_expected =
+    test_sexp::tuple_literal({test_sexp::integer("1"), test_sexp::integer("2")});
 
 // Three elements
 constexpr auto k_three_elements_should_succeed = true;
 constexpr auto k_three_elements_input = "(1, 2, 3)";
-inline auto const k_three_elements_expected = R"((tuple_lit ((integer "1") (integer "2") (integer "3"))))";
+inline auto const k_three_elements_expected =
+    test_sexp::tuple_literal({test_sexp::integer("1"), test_sexp::integer("2"), test_sexp::integer("3")});
 
 // Multiple elements with trailing comma
 constexpr auto k_multiple_trailing_comma_should_succeed = true;
 constexpr auto k_multiple_trailing_comma_input = "(1, 2, 3,)";
-inline auto const k_multiple_trailing_comma_expected = R"((tuple_lit ((integer "1") (integer "2") (integer "3"))))";
+inline auto const k_multiple_trailing_comma_expected =
+    test_sexp::tuple_literal({test_sexp::integer("1"), test_sexp::integer("2"), test_sexp::integer("3")});
 
 // Mixed types (parser accepts, semantic analysis checks later)
 constexpr auto k_mixed_types_should_succeed = true;
 constexpr auto k_mixed_types_input = R"((42, "hello", true))";
-inline std::string const k_mixed_types_expected =
-    std::format(R"((tuple_lit ((integer "42") (string "\"hello\"") {})))", test_sexp::bool_literal(true));
+inline std::string const k_mixed_types_expected = test_sexp::tuple_literal(
+    {test_sexp::integer("42"), test_sexp::string(R"("hello")"), test_sexp::bool_literal(true)}
+);
 
 // Tuple with variables
 constexpr auto k_with_variables_should_succeed = true;
 constexpr auto k_with_variables_input = "(x, y, z)";
-inline std::string const k_with_variables_expected = std::format(
-    R"((tuple_lit ({} {} {})))",
-    test_sexp::var_name("x"),
-    test_sexp::var_name("y"),
-    test_sexp::var_name("z")
-);
+inline std::string const k_with_variables_expected =
+    test_sexp::tuple_literal({test_sexp::var_name("x"), test_sexp::var_name("y"), test_sexp::var_name("z")});
 
 // Tuple with expressions
 constexpr auto k_with_expressions_should_succeed = true;
 constexpr auto k_with_expressions_input = "(1 + 2, x * 3)";
-inline std::string const k_with_expressions_expected = std::format(
-    R"((tuple_lit ((binary + (integer "1") (integer "2")) (binary * {} (integer "3")))))",
-    test_sexp::var_name("x")
+inline std::string const k_with_expressions_expected = test_sexp::tuple_literal(
+    {test_sexp::binary_expr("+", test_sexp::integer("1"), test_sexp::integer("2")),
+     test_sexp::binary_expr("*", test_sexp::var_name("x"), test_sexp::integer("3"))}
 );
 
 // Nested tuples
 constexpr auto k_nested_tuples_should_succeed = true;
 constexpr auto k_nested_tuples_input = "((1, 2), (3, 4))";
-inline auto const k_nested_tuples_expected =
-    R"((tuple_lit ((tuple_lit ((integer "1") (integer "2"))) (tuple_lit ((integer "3") (integer "4"))))))";
+inline auto const k_nested_tuples_expected = test_sexp::tuple_literal(
+    {test_sexp::tuple_literal({test_sexp::integer("1"), test_sexp::integer("2")}),
+     test_sexp::tuple_literal({test_sexp::integer("3"), test_sexp::integer("4")})}
+);
 
 // Tuple with function calls
 constexpr auto k_with_function_calls_should_succeed = true;
 constexpr auto k_with_function_calls_input = "(foo(), bar(x))";
-inline std::string const k_with_function_calls_expected = std::format(
-    R"((tuple_lit ((call {} ()) (call {} ({})))))",
-    test_sexp::var_name("foo"),
-    test_sexp::var_name("bar"),
-    test_sexp::var_name("x")
+inline std::string const k_with_function_calls_expected = test_sexp::tuple_literal(
+    {test_sexp::function_call(test_sexp::var_name("foo"), {}),
+     test_sexp::function_call(test_sexp::var_name("bar"), {test_sexp::var_name("x")})}
 );
 
 // Tuple with struct literals
 constexpr auto k_with_struct_literals_should_succeed = true;
 constexpr auto k_with_struct_literals_input = "(Point { x: 1, y: 2 }, Point { x: 3, y: 4 })";
-inline auto const k_with_struct_literals_expected =
-    R"((tuple_lit ((struct_lit "Point" ((field_init "x" (integer "1")) (field_init "y" (integer "2")))) (struct_lit "Point" ((field_init "x" (integer "3")) (field_init "y" (integer "4")))))))";
+inline auto const k_with_struct_literals_expected = test_sexp::tuple_literal(
+    {test_sexp::struct_literal(
+         "Point",
+         {test_sexp::field_init("x", test_sexp::integer("1")), test_sexp::field_init("y", test_sexp::integer("2"))}
+     ),
+     test_sexp::struct_literal(
+         "Point",
+         {test_sexp::field_init("x", test_sexp::integer("3")), test_sexp::field_init("y", test_sexp::integer("4"))}
+     )}
+);
 
 // Tuple with array literals
 constexpr auto k_with_array_literals_should_succeed = true;
 constexpr auto k_with_array_literals_input = "([1, 2], [3, 4])";
-inline auto const k_with_array_literals_expected =
-    R"((tuple_lit ((array_lit ((integer "1") (integer "2"))) (array_lit ((integer "3") (integer "4"))))))";
+inline auto const k_with_array_literals_expected = test_sexp::tuple_literal(
+    {test_sexp::array_literal({test_sexp::integer("1"), test_sexp::integer("2")}),
+     test_sexp::array_literal({test_sexp::integer("3"), test_sexp::integer("4")})}
+);
 
 // Large tuple (5 elements)
 constexpr auto k_large_tuple_should_succeed = true;
 constexpr auto k_large_tuple_input = "(1, 2, 3, 4, 5)";
-inline auto const k_large_tuple_expected =
-    R"((tuple_lit ((integer "1") (integer "2") (integer "3") (integer "4") (integer "5"))))";
+inline auto const k_large_tuple_expected = test_sexp::tuple_literal(
+    {test_sexp::integer("1"),
+     test_sexp::integer("2"),
+     test_sexp::integer("3"),
+     test_sexp::integer("4"),
+     test_sexp::integer("5")}
+);
 
 // Tuple with string literals
 constexpr auto k_with_strings_should_succeed = true;
 constexpr auto k_with_strings_input = R"(("name", "age", "city"))";
-inline auto const k_with_strings_expected =
-    R"((tuple_lit ((string "\"name\"") (string "\"age\"") (string "\"city\""))))";
+inline auto const k_with_strings_expected = test_sexp::tuple_literal(
+    {test_sexp::string(R"("name")"), test_sexp::string(R"("age")"), test_sexp::string(R"("city")")}
+);
 
 // === Parenthesized Expression Tests (NOT tuples) ===
 
 // Single element without trailing comma - parenthesized expression
 constexpr auto k_parenthesized_expr_should_succeed = true;
 constexpr auto k_parenthesized_expr_input = "(42)";
-inline auto const k_parenthesized_expr_expected = R"((integer "42"))";  // Just the expression, no tuple wrapper
+inline auto const k_parenthesized_expr_expected = test_sexp::integer("42");  // Just the expression, no tuple wrapper
 
 // Complex parenthesized expression
 constexpr auto k_complex_parenthesized_should_succeed = true;
 constexpr auto k_complex_parenthesized_input = "((1 + 2) * 3)";
-inline auto const k_complex_parenthesized_expected =
-    R"((binary * (binary + (integer "1") (integer "2")) (integer "3")))";
+inline auto const k_complex_parenthesized_expected = test_sexp::binary_expr(
+    "*",
+    test_sexp::binary_expr("+", test_sexp::integer("1"), test_sexp::integer("2")),
+    test_sexp::integer("3")
+);
 
 // === Invalid Tuple Literals ===
 
@@ -214,7 +233,7 @@ TEST_CASE("Parse Tuple_Literal") {
        .expected = k_empty_tuple_expected,
        .should_succeed = k_empty_tuple_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

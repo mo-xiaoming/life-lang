@@ -1,11 +1,6 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
 
-// Special case: Field access tests cannot use standard PARSE_TEST pattern
-// Reason: Expected Field_Access_Expr JSON is too complex due to nested variant wrapping
-// Solution: Verify parse success/failure only, skip JSON comparison
-// Pattern: Still follows constant ordering: should_succeed → input (no expected)
-
 namespace {
 struct Test_Case {
   std::string_view name;
@@ -93,7 +88,7 @@ TEST_CASE("Parse Field Access") {
        .should_succeed = k_invalid_missing_field_name_should_succeed},
       {.name = "invalid - empty", .input = k_invalid_empty_input, .should_succeed = k_invalid_empty_should_succeed},
   };
-  for (auto const& test : test_list) {
+  for (auto const& test: test_list) {
     SUBCASE(std::string(test.name).c_str()) {
       // For field access tests, we skip the JSON comparison since constructing expected values is complex
       // Just verify parse succeeds/fails correctly and rest is correct

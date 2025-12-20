@@ -1,5 +1,3 @@
-// Integration test for array types in function signatures
-
 #include <doctest/doctest.h>
 
 #include "parser.hpp"

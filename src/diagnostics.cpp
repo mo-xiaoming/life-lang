@@ -33,7 +33,7 @@ std::size_t visual_column(std::string_view line_, std::size_t column_) {
 }  // namespace
 
 void Diagnostic_Engine::print(std::ostream& out_) const {
-  for (auto const& diag : m_diagnostics) {
+  for (auto const& diag: m_diagnostics) {
     print_diagnostic(out_, diag);
   }
 }
@@ -94,7 +94,7 @@ void Diagnostic_Engine::print_diagnostic(std::ostream& out_, Diagnostic const& d
   }
 
   // Print notes (indented)
-  for (auto const& note : diag_.notes) {
+  for (auto const& note: diag_.notes) {
     out_ << "  ";  // Indent notes
     print_diagnostic(out_, note);
   }

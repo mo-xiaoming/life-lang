@@ -1,66 +1,78 @@
-#include <doctest/doctest.h>
+#include "internal_rules.hpp"
+#include "utils.hpp"
 
-#include "../../src/parser.hpp"
+using namespace life_lang::parser;
+using namespace test_sexp;
 
-TEST_CASE("parse_struct_def - pub fields") {
-  life_lang::parser::Parser parser(R"(
+namespace {
+
+constexpr auto k_pub_fields_input = R"(
 struct Point {
   pub x: I32,
   y: I32,
   pub z: I32
 }
-)");
+)";
+inline auto const k_pub_fields_expected = struct_def(
+    "Point",
+    {
+        struct_field("x", type_name("I32"), true),
+        struct_field("y", type_name("I32"), false),
+        struct_field("z", type_name("I32"), true),
+    }
+);
 
-  auto const result = parser.parse_struct_def();
-
-  REQUIRE(result.has_value());
-  if (result.has_value()) {
-    CHECK(result->name == "Point");
-    REQUIRE(result->fields.size() == 3);
-
-    CHECK(result->fields[0].name == "x");
-    CHECK(result->fields[0].is_pub == true);
-
-    CHECK(result->fields[1].name == "y");
-    CHECK(result->fields[1].is_pub == false);
-
-    CHECK(result->fields[2].name == "z");
-    CHECK(result->fields[2].is_pub == true);
-  }
-}
-
-TEST_CASE("parse_struct_def - all pub fields") {
-  life_lang::parser::Parser parser(R"(
+constexpr auto k_all_pub_fields_input = R"(
 struct User {
   pub name: String,
   pub age: I32
 }
-)");
+)";
+inline auto const k_all_pub_fields_expected = struct_def(
+    "User",
+    {
+        struct_field("name", type_name("String"), true),
+        struct_field("age", type_name("I32"), true),
+    }
+);
 
-  auto const result = parser.parse_struct_def();
-
-  REQUIRE(result.has_value());
-  if (result.has_value()) {
-    REQUIRE(result->fields.size() == 2);
-    CHECK(result->fields[0].is_pub == true);
-    CHECK(result->fields[1].is_pub == true);
-  }
-}
-
-TEST_CASE("parse_struct_def - no pub fields") {
-  life_lang::parser::Parser parser(R"(
+constexpr auto k_no_pub_fields_input = R"(
 struct Internal {
   data: I32,
   flag: Bool
 }
-)");
+)";
+inline auto const k_no_pub_fields_expected = struct_def(
+    "Internal",
+    {
+        struct_field("data", type_name("I32"), false),
+        struct_field("flag", type_name("Bool"), false),
+    }
+);
 
-  auto const result = parser.parse_struct_def();
+}  // namespace
 
-  REQUIRE(result.has_value());
-  if (result.has_value()) {
-    REQUIRE(result->fields.size() == 2);
-    CHECK(result->fields[0].is_pub == false);
-    CHECK(result->fields[1].is_pub == false);
+TEST_CASE("parse_struct_def - pub fields") {
+  struct Test_Case {
+    std::string_view name;
+    std::string_view input;
+    std::string expected;
+  };
+
+  std::vector<Test_Case> const test_cases = {
+      {.name = "pub fields", .input = k_pub_fields_input, .expected = k_pub_fields_expected},
+      {.name = "all pub fields", .input = k_all_pub_fields_input, .expected = k_all_pub_fields_expected},
+      {.name = "no pub fields", .input = k_no_pub_fields_input, .expected = k_no_pub_fields_expected},
+  };
+
+  for (auto const& tc: test_cases) {
+    SUBCASE(std::string(tc.name).c_str()) {
+      Parser parser(tc.input);
+      auto const result = parser.parse_struct_def();
+      REQUIRE(result.has_value());
+      if (result.has_value()) {
+        CHECK(to_sexp_string(*result, 0) == tc.expected);
+      }
+    }
   }
 }

@@ -1,5 +1,6 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
+
 using life_lang::ast::Expr;
 
 PARSE_TEST(Expr, expr)
@@ -67,12 +68,12 @@ inline auto const k_large_range_expected =
 // Unbounded start range - now valid
 constexpr auto k_missing_start_should_succeed = true;
 constexpr auto k_missing_start_input = "..10";
-constexpr auto k_missing_start_expected = R"((range nil (integer "10")))";
+inline auto const k_missing_start_expected = test_sexp::range_expr("nil", test_sexp::integer("10"), false);
 
 // Fully unbounded range - now valid
 constexpr auto k_only_dots_should_succeed = true;
 constexpr auto k_only_dots_input = "..";
-constexpr auto k_only_dots_expected = R"((range nil nil))";
+inline auto const k_only_dots_expected = test_sexp::range_expr("nil", "nil", false);
 
 }  // namespace
 
@@ -126,7 +127,7 @@ TEST_CASE("Parse Range_Expr") {
        .expected = k_only_dots_expected,
        .should_succeed = k_only_dots_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

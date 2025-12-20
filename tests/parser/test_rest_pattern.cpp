@@ -1,82 +1,73 @@
-#include <doctest/doctest.h>
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "internal_rules.hpp"
 #include "utils.hpp"
 
-using namespace life_lang;
-using namespace life_lang::ast;
 using namespace life_lang::parser;
 using namespace test_sexp;
 
-TEST_CASE("Rest pattern - type-only matching (empty fields with ..)") {
-  Parser parser("Point { .. }");
-  auto const pattern = parser.parse_pattern();
-  REQUIRE(pattern.has_value());
-  if (pattern.has_value()) {
-    auto const expected = struct_pattern_with_rest(type_name("Point"), {});
-    CHECK(to_sexp_string(*pattern, 0) == expected);
-  }
-}
+namespace {
 
-TEST_CASE("Rest pattern - single field with rest") {
-  Parser parser("User { name, .. }");
-  auto const pattern = parser.parse_pattern();
-  REQUIRE(pattern.has_value());
-  if (pattern.has_value()) {
-    auto const expected = struct_pattern_with_rest(type_name("User"), {field_pattern("name", simple_pattern("name"))});
-    CHECK(to_sexp_string(*pattern, 0) == expected);
-  }
-}
+constexpr auto k_type_only_input = "Point { .. }";
+inline auto const k_type_only_expected = struct_pattern_with_rest(type_name("Point"), {});
 
-TEST_CASE("Rest pattern - multiple fields with rest") {
-  Parser parser("Config { host, port, .. }");
-  auto const pattern = parser.parse_pattern();
-  REQUIRE(pattern.has_value());
-  if (pattern.has_value()) {
-    auto const expected = struct_pattern_with_rest(
-        type_name("Config"),
-        {field_pattern("host", simple_pattern("host")), field_pattern("port", simple_pattern("port"))}
-    );
-    CHECK(to_sexp_string(*pattern, 0) == expected);
-  }
-}
+constexpr auto k_single_field_input = "User { name, .. }";
+inline auto const k_single_field_expected =
+    struct_pattern_with_rest(type_name("User"), {field_pattern("name", simple_pattern("name"))});
 
-TEST_CASE("Rest pattern - with explicit pattern binding") {
-  Parser parser("Request { method: m, url: u, .. }");
-  auto const pattern = parser.parse_pattern();
-  REQUIRE(pattern.has_value());
-  if (pattern.has_value()) {
-    auto const expected = struct_pattern_with_rest(
-        type_name("Request"),
-        {field_pattern("method", simple_pattern("m")), field_pattern("url", simple_pattern("u"))}
-    );
-    CHECK(to_sexp_string(*pattern, 0) == expected);
-  }
-}
+constexpr auto k_multiple_fields_input = "Config { host, port, .. }";
+inline auto const k_multiple_fields_expected = struct_pattern_with_rest(
+    type_name("Config"),
+    {field_pattern("host", simple_pattern("host")), field_pattern("port", simple_pattern("port"))}
+);
 
-TEST_CASE("Rest pattern - trailing comma before ..") {
-  Parser parser("User { name, age, .. }");
-  auto const pattern = parser.parse_pattern();
-  REQUIRE(pattern.has_value());
-  if (pattern.has_value()) {
-    auto const expected = struct_pattern_with_rest(
-        type_name("User"),
-        {field_pattern("name", simple_pattern("name")), field_pattern("age", simple_pattern("age"))}
-    );
-    CHECK(to_sexp_string(*pattern, 0) == expected);
-  }
-}
+constexpr auto k_explicit_binding_input = "Request { method: m, url: u, .. }";
+inline auto const k_explicit_binding_expected = struct_pattern_with_rest(
+    type_name("Request"),
+    {field_pattern("method", simple_pattern("m")), field_pattern("url", simple_pattern("u"))}
+);
 
-TEST_CASE("Rest pattern - no rest (all fields explicit)") {
-  Parser parser("Point { x, y }");
-  auto const pattern = parser.parse_pattern();
-  REQUIRE(pattern.has_value());
-  if (pattern.has_value()) {
-    auto const expected = struct_pattern(
-        type_name("Point"),
-        {field_pattern("x", simple_pattern("x")), field_pattern("y", simple_pattern("y"))}
-    );
-    CHECK(to_sexp_string(*pattern, 0) == expected);
+constexpr auto k_trailing_comma_input = "User { name, age, .. }";
+inline auto const k_trailing_comma_expected = struct_pattern_with_rest(
+    type_name("User"),
+    {field_pattern("name", simple_pattern("name")), field_pattern("age", simple_pattern("age"))}
+);
+
+constexpr auto k_no_rest_input = "Point { x, y }";
+inline auto const k_no_rest_expected = struct_pattern(
+    type_name("Point"),
+    {field_pattern("x", simple_pattern("x")), field_pattern("y", simple_pattern("y"))}
+);
+
+}  // namespace
+
+TEST_CASE("Rest patterns") {
+  struct Test_Case {
+    std::string_view name;
+    std::string_view input;
+    std::string expected;
+  };
+
+  std::vector<Test_Case> const test_cases = {
+      {.name = "type-only matching (empty fields with ..)",
+       .input = k_type_only_input,
+       .expected = k_type_only_expected},
+      {.name = "single field with rest", .input = k_single_field_input, .expected = k_single_field_expected},
+      {.name = "multiple fields with rest", .input = k_multiple_fields_input, .expected = k_multiple_fields_expected},
+      {.name = "with explicit pattern binding",
+       .input = k_explicit_binding_input,
+       .expected = k_explicit_binding_expected},
+      {.name = "trailing comma before ..", .input = k_trailing_comma_input, .expected = k_trailing_comma_expected},
+      {.name = "no rest (all fields explicit)", .input = k_no_rest_input, .expected = k_no_rest_expected},
+  };
+
+  for (auto const& tc: test_cases) {
+    SUBCASE(std::string(tc.name).c_str()) {
+      Parser parser(tc.input);
+      auto const pattern = parser.parse_pattern();
+      REQUIRE(pattern.has_value());
+      if (pattern.has_value()) {
+        CHECK(to_sexp_string(*pattern, 0) == tc.expected);
+      }
+    }
   }
 }
 
