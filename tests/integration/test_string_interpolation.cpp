@@ -1,4 +1,3 @@
-// Integration test for string interpolation feature
 #include <doctest/doctest.h>
 
 #include "../parser/utils.hpp"
@@ -14,7 +13,6 @@ TEST_CASE("String interpolation - simple variable") {
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-
     auto const expected = string_interp({string_part("Hello, "), var_name("name"), string_part("!")});
     CHECK(to_sexp_string(*expr, 0) == expected);
   }
@@ -25,7 +23,6 @@ TEST_CASE("String interpolation - multiple variables") {
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-
     auto const expected =
         string_interp({string_part("Point: ("), var_name("x"), string_part(", "), var_name("y"), string_part(")")});
     CHECK(to_sexp_string(*expr, 0) == expected);
@@ -37,7 +34,6 @@ TEST_CASE("String interpolation - expression") {
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-
     auto const expected = string_interp({string_part("Result: "), binary_expr("+", var_name("x"), var_name("y"))});
     CHECK(to_sexp_string(*expr, 0) == expected);
   }
@@ -48,7 +44,6 @@ TEST_CASE("String interpolation - field access") {
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-
     auto const expected = string_interp({string_part("Name: "), field_access(var_name("user"), "name")});
     CHECK(to_sexp_string(*expr, 0) == expected);
   }
@@ -59,7 +54,6 @@ TEST_CASE("String interpolation - function call") {
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-
     auto const expected = string_interp({string_part("Value: "), function_call(var_name("get_value"), {})});
     CHECK(to_sexp_string(*expr, 0) == expected);
   }
@@ -70,8 +64,8 @@ TEST_CASE("String interpolation - method chain") {
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-
-    auto const expected = string_interp({string_part("Upper: "), function_call(var_name_path({"name", "to_upper"}), {})});
+    auto const expected =
+        string_interp({string_part("Upper: "), function_call(var_name_path({"name", "to_upper"}), {})});
     CHECK(to_sexp_string(*expr, 0) == expected);
   }
 }
@@ -81,8 +75,8 @@ TEST_CASE("Empty braces - not interpolation") {
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-
-    CHECK(to_sexp_string(*expr, 0) == R"((string "\"Format: {}\""))");
+    auto const expected = string(R"("Format: {}")");
+    CHECK(to_sexp_string(*expr, 0) == expected);
   }
 }
 
@@ -91,8 +85,8 @@ TEST_CASE("Escaped braces - literal") {
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-
-    CHECK(to_sexp_string(*expr, 0) == R"((string "\"Literal: \\{value\\}\""))");
+    auto const expected = string(R"("Literal: \{value\}")");
+    CHECK(to_sexp_string(*expr, 0) == expected);
   }
 }
 
@@ -101,7 +95,6 @@ TEST_CASE("Mixed escaped and interpolated") {
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-
     auto const expected = string_interp({string_part("Literal \\{x\\}, interpolated "), var_name("y")});
     CHECK(to_sexp_string(*expr, 0) == expected);
   }

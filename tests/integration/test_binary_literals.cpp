@@ -1,48 +1,62 @@
 #include <doctest/doctest.h>
 
 #include "../parser/internal_rules.hpp"
+#include "../parser/utils.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 
 using life_lang::ast::to_sexp_string;
 using life_lang::parser::Parser;
+using namespace test_sexp;
 
 TEST_CASE("Binary literals in expressions") {
-  SUBCASE("simple binary literal") {
-    Parser parser("0b1010");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(to_sexp_string(*expr, 0) == "(integer \"0b1010\")");
-    }
-  }
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected;
+  };
 
-  SUBCASE("binary in addition") {
-    Parser parser("0b1010 + 0b0101");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(to_sexp_string(*expr, 0) == "(binary + (integer \"0b1010\") (integer \"0b0101\"))");
-    }
-  }
+  static Test_Case const k_test_cases[] = {
+      {.name = "simple binary literal", .input = "0b1010", .expected = integer("0b1010")},
+      {.name = "binary in addition",
+       .input = "0b1010 + 0b0101",
+       .expected = binary_expr("+", integer("0b1010"), integer("0b0101"))},
+      {.name = "binary in comparison",
+       .input = "value == 0b1111",
+       .expected = binary_expr("==", var_name("value"), integer("0b1111"))},
+  };
 
-  SUBCASE("binary in comparison") {
-    Parser parser("value == 0b1111");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(to_sexp_string(*expr, 0) == "(binary == (var ((var_segment \"value\"))) (integer \"0b1111\"))");
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      Parser parser(tc.input);
+      auto const expr = parser.parse_expr();
+      REQUIRE(expr.has_value());
+      if (expr.has_value()) {
+        CHECK(to_sexp_string(*expr, 0) == tc.expected);
+      }
     }
   }
 }
 
 TEST_CASE("Binary literals with underscores") {
-  SUBCASE("binary with underscores") {
-    Parser parser("0b1111_0000_1010_0101");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(to_sexp_string(*expr, 0) == "(integer \"0b1111000010100101\")");
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected;
+  };
+
+  static Test_Case const k_test_cases[] = {
+      {.name = "binary with underscores", .input = "0b1111_0000_1010_0101", .expected = integer("0b1111000010100101")},
+  };
+
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      Parser parser(tc.input);
+      auto const expr = parser.parse_expr();
+      REQUIRE(expr.has_value());
+      if (expr.has_value()) {
+        CHECK(to_sexp_string(*expr, 0) == tc.expected);
+      }
     }
   }
 
@@ -51,27 +65,31 @@ TEST_CASE("Binary literals with underscores") {
     auto const stmt = parser.parse_statement();
     REQUIRE(stmt.has_value());
     if (stmt.has_value()) {
-      CHECK(to_sexp_string(*stmt, 0) == "(let false (pattern \"flags\") nil (integer \"0b11110000\"))");
+      CHECK(to_sexp_string(*stmt, 0) == let_statement(simple_pattern("flags"), integer("0b11110000")));
     }
   }
 }
 
 TEST_CASE("Binary literals with type suffixes") {
-  SUBCASE("binary with U8 suffix") {
-    Parser parser("0b11111111U8");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(to_sexp_string(*expr, 0) == "(integer \"0b11111111\" \"U8\")");
-    }
-  }
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected;
+  };
 
-  SUBCASE("binary with I32 suffix") {
-    Parser parser("0b1010_1010I32");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(to_sexp_string(*expr, 0) == "(integer \"0b10101010\" \"I32\")");
+  static Test_Case const k_test_cases[] = {
+      {.name = "binary with U8 suffix", .input = "0b11111111U8", .expected = integer("0b11111111", "U8")},
+      {.name = "binary with I32 suffix", .input = "0b1010_1010I32", .expected = integer("0b10101010", "I32")},
+  };
+
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      Parser parser(tc.input);
+      auto const expr = parser.parse_expr();
+      REQUIRE(expr.has_value());
+      if (expr.has_value()) {
+        CHECK(to_sexp_string(*expr, 0) == tc.expected);
+      }
     }
   }
 }
@@ -82,39 +100,41 @@ TEST_CASE("Binary literals in let statements") {
     auto const stmt1 = parser.parse_statement();
     REQUIRE(stmt1.has_value());
     if (stmt1.has_value()) {
-      CHECK(to_sexp_string(*stmt1, 0) == "(let false (pattern \"mask\") nil (integer \"0b11110000\"))");
+      CHECK(to_sexp_string(*stmt1, 0) == let_statement(simple_pattern("mask"), integer("0b11110000")));
     }
 
     auto const stmt2 = parser.parse_statement();
     REQUIRE(stmt2.has_value());
     if (stmt2.has_value()) {
-      CHECK(to_sexp_string(*stmt2, 0) == "(let false (pattern \"bits\") nil (integer \"0b10100101\"))");
+      CHECK(to_sexp_string(*stmt2, 0) == let_statement(simple_pattern("bits"), integer("0b10100101")));
     }
   }
 }
 
 TEST_CASE("Binary literals in arrays") {
-  SUBCASE("array of binary values") {
-    Parser parser("[0b0001, 0b0010, 0b0100, 0b1000]");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(
-          to_sexp_string(*expr, 0) ==
-          "(array_lit ((integer \"0b0001\") (integer \"0b0010\") (integer \"0b0100\") (integer \"0b1000\")))"
-      );
-    }
-  }
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected;
+  };
 
-  SUBCASE("array of binary bytes") {
-    Parser parser("[0b1111_1111, 0b0000_0000, 0b1010_1010]");
-    auto const expr = parser.parse_expr();
-    REQUIRE(expr.has_value());
-    if (expr.has_value()) {
-      CHECK(
-          to_sexp_string(*expr, 0) ==
-          "(array_lit ((integer \"0b11111111\") (integer \"0b00000000\") (integer \"0b10101010\")))"
-      );
+  static Test_Case const k_test_cases[] = {
+      {.name = "array of binary values",
+       .input = "[0b0001, 0b0010, 0b0100, 0b1000]",
+       .expected = array_literal({integer("0b0001"), integer("0b0010"), integer("0b0100"), integer("0b1000")})},
+      {.name = "array of binary bytes",
+       .input = "[0b1111_1111, 0b0000_0000, 0b1010_1010]",
+       .expected = array_literal({integer("0b11111111"), integer("0b00000000"), integer("0b10101010")})},
+  };
+
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      Parser parser(tc.input);
+      auto const expr = parser.parse_expr();
+      REQUIRE(expr.has_value());
+      if (expr.has_value()) {
+        CHECK(to_sexp_string(*expr, 0) == tc.expected);
+      }
     }
   }
 }
@@ -128,31 +148,40 @@ TEST_CASE("Binary literals in match expressions") {
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
-      CHECK(
-          to_sexp_string(*expr, 0) ==
-          "(match (var ((var_segment \"x\"))) ((arm (lit_pattern (integer \"0b0000\")) nil (bool true)) (arm "
-          "(lit_pattern (integer \"0b1111\")) nil (bool false))))"
+      auto const expected = match_expr(
+          var_name("x"),
+          {match_arm(literal_pattern(integer("0b0000")), bool_literal(true)),
+           match_arm(literal_pattern(integer("0b1111")), bool_literal(false))}
       );
+      CHECK(to_sexp_string(*expr, 0) == expected);
     }
   }
 }
 
 TEST_CASE("Binary literals - bit masks") {
-  SUBCASE("permission bits") {
-    Parser parser("let read = 0b100;");
-    auto const stmt = parser.parse_statement();
-    REQUIRE(stmt.has_value());
-    if (stmt.has_value()) {
-      CHECK(to_sexp_string(*stmt, 0) == "(let false (pattern \"read\") nil (integer \"0b100\"))");
-    }
-  }
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected;
+  };
 
-  SUBCASE("multiple permission bits") {
-    Parser parser("let write = 0b010;");
-    auto const stmt = parser.parse_statement();
-    REQUIRE(stmt.has_value());
-    if (stmt.has_value()) {
-      CHECK(to_sexp_string(*stmt, 0) == "(let false (pattern \"write\") nil (integer \"0b010\"))");
+  static Test_Case const k_test_cases[] = {
+      {.name = "permission bits",
+       .input = "let read = 0b100;",
+       .expected = let_statement(simple_pattern("read"), integer("0b100"))},
+      {.name = "multiple permission bits",
+       .input = "let write = 0b010;",
+       .expected = let_statement(simple_pattern("write"), integer("0b010"))},
+  };
+
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      Parser parser(tc.input);
+      auto const stmt = parser.parse_statement();
+      REQUIRE(stmt.has_value());
+      if (stmt.has_value()) {
+        CHECK(to_sexp_string(*stmt, 0) == tc.expected);
+      }
     }
   }
 }

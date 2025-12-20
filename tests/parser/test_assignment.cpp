@@ -127,7 +127,7 @@ TEST_CASE("Parse Assignment_Expr") {
        .expected = k_assignment_self_reference_expected,
        .should_succeed = k_assignment_self_reference_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

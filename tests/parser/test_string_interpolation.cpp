@@ -1,243 +1,158 @@
-// ReSharper disable CppDFAUnreachableCode
-#include <doctest/doctest.h>
-
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "internal_rules.hpp"
 #include "utils.hpp"
 
 using namespace life_lang::parser;
-using namespace life_lang::ast;
 using namespace test_sexp;
 
-TEST_CASE("String interpolation - single variable") {
-  Parser parser(R"("value: {x}")");
+namespace {
+
+constexpr auto k_single_variable_input = R"("value: {x}")";
+inline auto const k_single_variable_expected = string_interp({string_part("value: "), var_name("x")});
+
+constexpr auto k_multiple_variables_input = R"xxx("({x}, {y})")xxx";
+inline auto const k_multiple_variables_expected =
+    string_interp({string_part("("), var_name("x"), string_part(", "), var_name("y"), string_part(")")});
+
+constexpr auto k_expression_input = R"("result: {1 + 2}")";
+inline auto const k_expression_expected =
+    string_interp({string_part("result: "), binary_expr("+", integer("1"), integer("2"))});
+
+constexpr auto k_field_access_input = R"("name: {user.name}")";
+inline auto const k_field_access_expected =
+    string_interp({string_part("name: "), field_access(var_name("user"), "name")});
+
+constexpr auto k_function_call_input = R"("result: {calculate(x, y)}")";
+inline auto const k_function_call_expected =
+    string_interp({string_part("result: "), function_call(var_name("calculate"), {var_name("x"), var_name("y")})});
+
+constexpr auto k_method_call_input = R"("upper: {name.to_upper()}")";
+inline auto const k_method_call_expected =
+    string_interp({string_part("upper: "), function_call(var_name_path({"name", "to_upper"}), {})});
+
+constexpr auto k_cast_expression_input = R"("value: {x as I64}")";
+inline auto const k_cast_expression_expected =
+    string_interp({string_part("value: "), cast_expr(var_name("x"), type_name("I64"))});
+
+constexpr auto k_nested_expression_input = R"("total: {(a + b) * c}")";
+inline auto const k_nested_expression_expected = string_interp(
+    {string_part("total: "), binary_expr("*", binary_expr("+", var_name("a"), var_name("b")), var_name("c"))}
+);
+
+constexpr auto k_with_escape_sequences_input = R"("path: {path}\n")";
+inline auto const k_with_escape_sequences_expected =
+    string_interp({string_part("path: "), var_name("path"), string_part("\\n")});
+
+constexpr auto k_starting_with_expression_input = R"("{x} is the value")";
+inline auto const k_starting_with_expression_expected = string_interp({var_name("x"), string_part(" is the value")});
+
+constexpr auto k_ending_with_expression_input = R"("value is {x}")";
+inline auto const k_ending_with_expression_expected = string_interp({string_part("value is "), var_name("x")});
+
+constexpr auto k_only_expression_input = R"("{x}")";
+inline auto const k_only_expression_expected = string_interp({var_name("x")});
+
+constexpr auto k_adjacent_expressions_input = R"("{x}{y}")";
+inline auto const k_adjacent_expressions_expected = string_interp({var_name("x"), var_name("y")});
+
+constexpr auto k_empty_braces_input = R"("{}")";
+inline auto const k_empty_braces_expected = string("\"{}\"");
+
+constexpr auto k_format_placeholders_input = R"xxx("({}, {})")xxx";
+inline auto const k_format_placeholders_expected = string("\"({}, {})\"");
+
+constexpr auto k_no_interpolation_input = R"("plain string")";
+inline auto const k_no_interpolation_expected = string("\"plain string\"");
+
+constexpr auto k_escaped_braces_input = R"("Literal: \{not interpolated\}")";
+inline auto const k_escaped_braces_expected = string(R"("Literal: \{not interpolated\}")");
+
+constexpr auto k_mixed_escaped_input = R"("Escaped: \{literal\}, Interpolated: {x}")";
+inline auto const k_mixed_escaped_expected =
+    string_interp({string_part("Escaped: \\{literal\\}, Interpolated: "), var_name("x")});
+
+constexpr auto k_json_escaped_input = R"("JSON: \{\"key\": \"value\"\}")";
+inline auto const k_json_escaped_expected = string(R"("JSON: \{\"key\": \"value\"\}")");
+
+constexpr auto k_comparison_expression_input = R"("check: {x == y}")";
+inline auto const k_comparison_expression_expected =
+    string_interp({string_part("check: "), binary_expr("==", var_name("x"), var_name("y"))});
+
+constexpr auto k_array_index_input = R"("item: {items[0]}")";
+inline auto const k_array_index_expected =
+    string_interp({string_part("item: "), index_expr(var_name("items"), integer("0"))});
+
+}  // namespace
+
+TEST_CASE("String interpolation") {
+  struct Test_Case {
+    std::string_view name;
+    std::string_view input;
+    std::string expected;
+  };
+
+  std::vector<Test_Case> const test_cases = {
+      {.name = "single variable", .input = k_single_variable_input, .expected = k_single_variable_expected},
+      {.name = "multiple variables", .input = k_multiple_variables_input, .expected = k_multiple_variables_expected},
+      {.name = "expression", .input = k_expression_input, .expected = k_expression_expected},
+      {.name = "field access", .input = k_field_access_input, .expected = k_field_access_expected},
+      {.name = "function call", .input = k_function_call_input, .expected = k_function_call_expected},
+      {.name = "method call", .input = k_method_call_input, .expected = k_method_call_expected},
+      {.name = "cast expression", .input = k_cast_expression_input, .expected = k_cast_expression_expected},
+      {.name = "nested expression", .input = k_nested_expression_input, .expected = k_nested_expression_expected},
+      {.name = "with escape sequences",
+       .input = k_with_escape_sequences_input,
+       .expected = k_with_escape_sequences_expected},
+      {.name = "starting with expression",
+       .input = k_starting_with_expression_input,
+       .expected = k_starting_with_expression_expected},
+      {.name = "ending with expression",
+       .input = k_ending_with_expression_input,
+       .expected = k_ending_with_expression_expected},
+      {.name = "only expression", .input = k_only_expression_input, .expected = k_only_expression_expected},
+      {.name = "adjacent expressions",
+       .input = k_adjacent_expressions_input,
+       .expected = k_adjacent_expressions_expected},
+      {.name = "empty string with expression (empty braces)",
+       .input = k_empty_braces_input,
+       .expected = k_empty_braces_expected},
+      {.name = "format placeholders (not interpolation)",
+       .input = k_format_placeholders_input,
+       .expected = k_format_placeholders_expected},
+      {.name = "no interpolation", .input = k_no_interpolation_input, .expected = k_no_interpolation_expected},
+      {.name = "escaped braces - literal braces",
+       .input = k_escaped_braces_input,
+       .expected = k_escaped_braces_expected},
+      {.name = "mixed escaped and interpolated braces",
+       .input = k_mixed_escaped_input,
+       .expected = k_mixed_escaped_expected},
+      {.name = "only opening escaped brace (JSON)", .input = k_json_escaped_input, .expected = k_json_escaped_expected},
+      {.name = "comparison expression",
+       .input = k_comparison_expression_input,
+       .expected = k_comparison_expression_expected},
+      {.name = "array index", .input = k_array_index_input, .expected = k_array_index_expected},
+  };
+
+  for (auto const& tc: test_cases) {
+    SUBCASE(std::string(tc.name).c_str()) {
+      Parser parser(tc.input);
+      auto const expr = parser.parse_expr();
+      REQUIRE(expr.has_value());
+      if (expr.has_value()) {
+        CHECK(to_sexp_string(*expr, 0) == tc.expected);
+      }
+    }
+  }
+}
+
+TEST_CASE("String interpolation - tuple access") {
+  Parser parser(R"("first: {pair.0}")");
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
-    auto const expected = string_interp({string_part("value: "), var_name("x")});
+    auto const expected = string_interp({string_part("first: "), field_access(var_name("pair"), "0")});
     CHECK(to_sexp_string(*expr, 0) == expected);
   }
 }
-
-TEST_CASE("String interpolation - multiple variables") {
-  Parser parser(R"xxx("({x}, {y})")xxx");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected =
-        string_interp({string_part("("), var_name("x"), string_part(", "), var_name("y"), string_part(")")});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - expression") {
-  Parser parser(R"("result: {1 + 2}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({string_part("result: "), binary_expr("+", integer("1"), integer("2"))});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - field access") {
-  Parser parser(R"("name: {user.name}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({string_part("name: "), field_access(var_name("user"), "name")});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - function call") {
-  Parser parser(R"("result: {calculate(x, y)}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected =
-        string_interp({string_part("result: "), function_call(var_name("calculate"), {var_name("x"), var_name("y")})});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - method call") {
-  Parser parser(R"("upper: {name.to_upper()}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    // Method call parses as function call with path
-    auto const expected =
-        string_interp({string_part("upper: "), function_call(var_name_path({"name", "to_upper"}), {})});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - cast expression") {
-  Parser parser(R"("value: {x as I64}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({string_part("value: "), cast_expr(var_name("x"), type_name("I64"))});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - nested expression") {
-  Parser parser(R"("total: {(a + b) * c}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    // Parentheses affect precedence but aren't preserved in AST
-    auto const expected = string_interp(
-        {string_part("total: "), binary_expr("*", binary_expr("+", var_name("a"), var_name("b")), var_name("c"))}
-    );
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - with escape sequences") {
-  Parser parser(R"("path: {path}\n")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({string_part("path: "), var_name("path"), string_part("\\n")});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - starting with expression") {
-  Parser parser(R"("{x} is the value")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({var_name("x"), string_part(" is the value")});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - ending with expression") {
-  Parser parser(R"("value is {x}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({string_part("value is "), var_name("x")});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - only expression") {
-  Parser parser(R"("{x}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({var_name("x")});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - adjacent expressions") {
-  Parser parser(R"("{x}{y}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({var_name("x"), var_name("y")});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - empty string with expression") {
-  Parser parser(R"("{}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    // Empty braces {} are treated as literal characters (for format function placeholders)
-    CHECK(to_sexp_string(*expr, 0) == R"((string "\"{}\""))");
-  }
-}
-
-TEST_CASE("Regular string - format placeholders") {
-  Parser parser(R"xxx("({}, {})")xxx");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    // Empty braces should be treated as literal string
-    CHECK(to_sexp_string(*expr, 0) == R"xxx((string "\"({}, {})\""))xxx");
-  }
-}
-
-TEST_CASE("Regular string - no interpolation") {
-  Parser parser(R"("plain string")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "\"plain string\""))");
-  }
-}
-
-TEST_CASE("String with escaped braces - literal braces") {
-  Parser parser(R"("Literal: \{not interpolated\}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    // Escaped braces should result in regular string, not interpolation
-    CHECK(to_sexp_string(*expr, 0) == R"((string "\"Literal: \\{not interpolated\\}\""))");
-  }
-}
-
-TEST_CASE("String with mixed escaped and interpolated braces") {
-  Parser parser(R"("Escaped: \{literal\}, Interpolated: {x}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    // Should be interpolation with escaped braces in literal parts
-    auto const expected = string_interp({string_part("Escaped: \\{literal\\}, Interpolated: "), var_name("x")});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String with only opening escaped brace") {
-  Parser parser(R"("JSON: \{\"key\": \"value\"\}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    // All escaped - should be regular string
-    CHECK(to_sexp_string(*expr, 0) == R"((string "\"JSON: \\{\\\"key\\\": \\\"value\\\"\\}\""))");
-  }
-}
-
-TEST_CASE("String interpolation - comparison expression") {
-  Parser parser(R"("check: {x == y}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({string_part("check: "), binary_expr("==", var_name("x"), var_name("y"))});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-TEST_CASE("String interpolation - array index") {
-  Parser parser(R"("item: {items[0]}")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    auto const expected = string_interp({string_part("item: "), index_expr(var_name("items"), integer("0"))});
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
-
-// NOTE: Tuple field access syntax (pair.0, triple.1, etc.) is not yet implemented in the parser.
-// Once it's added, uncomment this test to verify it works inside string interpolation.
-// TEST_CASE("String interpolation - tuple access") {
-//   Parser parser(R"("first: {pair.0}")");
-//   auto const expr = parser.parse_expr();
-//   REQUIRE(expr.has_value());
-//   if (expr.has_value()) {
-//   auto const expected = string_interp(
-//       {string_part("first: "), field_access(var_name("pair"), "0")});
-//   CHECK(to_sexp_string(*expr, 0) == expected);
-// }
-// }
 
 TEST_CASE("String interpolation - complex expression") {
   Parser parser(R"("value: {data.items[index].name.to_upper()}")");

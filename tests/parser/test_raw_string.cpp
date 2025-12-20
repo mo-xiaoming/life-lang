@@ -1,130 +1,92 @@
-#include <doctest/doctest.h>
-
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "internal_rules.hpp"
 #include "utils.hpp"
 
 using namespace life_lang::parser;
-using namespace life_lang::ast;
 using namespace test_sexp;
 
-TEST_CASE("Raw string - basic") {
-  Parser parser(R"(r"hello world")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r\"hello world\""))");
-  }
-}
+namespace {
 
-TEST_CASE("Raw string - with backslashes") {
-  Parser parser(R"(r"C:\path\to\file.txt")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r\"C:\\path\\to\\file.txt\""))");
-  }
-}
+constexpr auto k_basic_input = R"(r"hello world")";
+inline auto const k_basic_expected = string(R"(r"hello world")");
 
-TEST_CASE("Raw string - with double quotes using delimiter") {
-  Parser parser(R"(r#"He said "hello" to me"#)");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r#\"He said \"hello\" to me\"#"))");
-  }
-}
+constexpr auto k_with_backslashes_input = R"(r"C:\path\to\file.txt")";
+inline auto const k_with_backslashes_expected = string(R"(r"C:\path\to\file.txt")");
 
-TEST_CASE("Raw string - multi-line") {
-  Parser parser(R"(r"line 1
+constexpr auto k_with_double_quotes_input = R"(r#"He said "hello" to me"#)";
+inline auto const k_with_double_quotes_expected = string(R"(r#"He said "hello" to me"#)");
+
+constexpr auto k_multi_line_input = R"(r"line 1
+line 2
+line 3")";
+inline auto const k_multi_line_expected = string(R"(r"line 1
 line 2
 line 3")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    std::string const expected = R"((string "r\"line 1\nline 2\nline 3\""))";
-    CHECK(to_sexp_string(*expr, 0) == expected);
-  }
-}
 
-TEST_CASE("Raw string - regex pattern") {
-  Parser parser(R"(r"\d+\.\d+")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r\"\\d+\\.\\d+\""))");
-  }
-}
+constexpr auto k_regex_pattern_input = R"(r"\d+\.\d+")";
+inline auto const k_regex_pattern_expected = string(R"(r"\d+\.\d+")");
 
-TEST_CASE("Raw string - JSON content") {
-  Parser parser(R"(r#"{"key": "value", "number": 42}"#)");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r#\"{\"key\": \"value\", \"number\": 42}\"#"))");
-  }
-}
+constexpr auto k_json_content_input = R"(r#"{"key": "value", "number": 42}"#)";
+inline auto const k_json_content_expected = string(R"(r#"{"key": "value", "number": 42}"#)");
 
-TEST_CASE("Raw string - empty") {
-  Parser parser(R"(r"")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r\"\""))");
-  }
-}
+constexpr auto k_empty_input = R"(r"")";
+inline auto const k_empty_expected = string(R"(r"")");
 
-TEST_CASE("Raw string - only newlines") {
-  Parser parser("r\"\n\n\n\"");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == "(string \"r\\\"\\n\\n\\n\\\"\")");
-  }
-}
+constexpr auto k_only_newlines_input = "r\"\n\n\n\"";
+inline auto const k_only_newlines_expected = string("r\"\n\n\n\"");
 
-TEST_CASE("Raw string - multiple delimiters") {
-  Parser parser(R"(r##"Contains "# and "#" patterns"##)");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r##\"Contains \"# and \"#\" patterns\"##"))");
-  }
-}
+constexpr auto k_multiple_delimiters_input = R"(r##"Contains "# and "#" patterns"##)";
+inline auto const k_multiple_delimiters_expected = string(R"(r##"Contains "# and "#" patterns"##)");
 
-TEST_CASE("Raw string - no escape processing for \\n") {
-  Parser parser(R"(r"Line 1\nLine 2")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r\"Line 1\\nLine 2\""))");
-  }
-}
+constexpr auto k_no_escape_n_input = R"(r"Line 1\nLine 2")";
+inline auto const k_no_escape_n_expected = string(R"(r"Line 1\nLine 2")");
 
-TEST_CASE("Raw string - no escape processing for \\t") {
-  Parser parser(R"(r"Column1\tColumn2")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r\"Column1\\tColumn2\""))");
-  }
-}
+constexpr auto k_no_escape_t_input = R"(r"Column1\tColumn2")";
+inline auto const k_no_escape_t_expected = string(R"(r"Column1\tColumn2")");
 
-TEST_CASE("Raw string - literal backslash-quote") {
-  Parser parser(R"(r#"Path: \"C:\Users\""#)");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r#\"Path: \\\"C:\\Users\\\"\"#"))");
-  }
-}
+constexpr auto k_literal_backslash_quote_input = R"(r#"Path: \"C:\Users\""#)";
+inline auto const k_literal_backslash_quote_expected = string(R"(r#"Path: \"C:\Users\""#)");
 
-TEST_CASE("Raw string - Windows path") {
-  Parser parser(R"(r"C:\Users\Documents\file.txt")");
-  auto const expr = parser.parse_expr();
-  REQUIRE(expr.has_value());
-  if (expr.has_value()) {
-    CHECK(to_sexp_string(*expr, 0) == R"((string "r\"C:\\Users\\Documents\\file.txt\""))");
+constexpr auto k_windows_path_input = R"(r"C:\Users\Documents\file.txt")";
+inline auto const k_windows_path_expected = string(R"(r"C:\Users\Documents\file.txt")");
+
+}  // namespace
+
+TEST_CASE("Raw string - valid") {
+  struct Test_Case {
+    std::string_view name;
+    std::string_view input;
+    std::string expected;
+  };
+
+  std::vector<Test_Case> const test_cases = {
+      {.name = "basic", .input = k_basic_input, .expected = k_basic_expected},
+      {.name = "with backslashes", .input = k_with_backslashes_input, .expected = k_with_backslashes_expected},
+      {.name = "with double quotes using delimiter",
+       .input = k_with_double_quotes_input,
+       .expected = k_with_double_quotes_expected},
+      {.name = "multi-line", .input = k_multi_line_input, .expected = k_multi_line_expected},
+      {.name = "regex pattern", .input = k_regex_pattern_input, .expected = k_regex_pattern_expected},
+      {.name = "JSON content", .input = k_json_content_input, .expected = k_json_content_expected},
+      {.name = "empty", .input = k_empty_input, .expected = k_empty_expected},
+      {.name = "only newlines", .input = k_only_newlines_input, .expected = k_only_newlines_expected},
+      {.name = "multiple delimiters", .input = k_multiple_delimiters_input, .expected = k_multiple_delimiters_expected},
+      {.name = "no escape processing for \\n", .input = k_no_escape_n_input, .expected = k_no_escape_n_expected},
+      {.name = "no escape processing for \\t", .input = k_no_escape_t_input, .expected = k_no_escape_t_expected},
+      {.name = "literal backslash-quote",
+       .input = k_literal_backslash_quote_input,
+       .expected = k_literal_backslash_quote_expected},
+      {.name = "Windows path", .input = k_windows_path_input, .expected = k_windows_path_expected},
+  };
+
+  for (auto const& tc: test_cases) {
+    SUBCASE(std::string(tc.name).c_str()) {
+      Parser parser(tc.input);
+      auto const expr = parser.parse_expr();
+      REQUIRE(expr.has_value());
+      if (expr.has_value()) {
+        CHECK(to_sexp_string(*expr, 0) == tc.expected);
+      }
+    }
   }
 }
 

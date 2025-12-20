@@ -1,35 +1,67 @@
 #include <doctest/doctest.h>
-#include <parser.hpp>
-#include <sexp.hpp>
+#include "../parser/utils.hpp"
+#include "parser.hpp"
+#include "sexp.hpp"
 
 using life_lang::ast::to_sexp_string;
 using life_lang::parser::Parser;
+using namespace test_sexp;
 
-TEST_CASE("Float special literals integration") {
-  std::string const source = R"(
-    fn is_special(value: F64): Bool {
-      return value == nan || value == inf || value == -inf;
+TEST_CASE("Float special literals - individual expressions") {
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected;
+  };
+
+  static Test_Case const k_test_cases[] = {
+      {.name = "nan literal", .input = "nan", .expected = float_literal("nan")},
+      {.name = "inf literal", .input = "inf", .expected = float_literal("inf")},
+      {.name = "negative inf", .input = "-inf", .expected = unary_expr("-", float_literal("inf"))},
+      {.name = "nan with F32 suffix", .input = "nanF32", .expected = float_literal("nan", "F32")},
+      {.name = "inf with F64 suffix", .input = "infF64", .expected = float_literal("inf", "F64")},
+  };
+
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      Parser parser(tc.input);
+      auto const expr = parser.parse_expr();
+      REQUIRE(expr.has_value());
+      if (expr.has_value()) {
+        CHECK(to_sexp_string(*expr, 0) == tc.expected);
+      }
     }
+  }
+}
 
-    fn get_nan(): F32 {
-      return nanF32;
+TEST_CASE("Float special literals in function bodies") {
+  SUBCASE("function returning nan") {
+    Parser parser("fn get_nan(): F32 { return nanF32; }");
+    auto const func = parser.parse_func_def();
+    REQUIRE(func.has_value());
+    if (func.has_value()) {
+      CHECK(func->declaration.name == "get_nan");
+      CHECK(to_sexp_string(func->declaration.return_type, 0) == type_name("F32"));
+      CHECK(func->body.statements.size() == 1);
+      if (func->body.statements.size() == 1) {
+        auto const expected = return_statement(float_literal("nan", "F32"));
+        CHECK(to_sexp_string(func->body.statements[0], 0) == expected);
+      }
     }
+  }
 
-    fn get_infinity(): F64 {
-      return infF64;
+  SUBCASE("function returning inf") {
+    Parser parser("fn get_infinity(): F64 { return infF64; }");
+    auto const func = parser.parse_func_def();
+    REQUIRE(func.has_value());
+    if (func.has_value()) {
+      CHECK(func->declaration.name == "get_infinity");
+      CHECK(to_sexp_string(func->declaration.return_type, 0) == type_name("F64"));
+      CHECK(func->body.statements.size() == 1);
+      if (func->body.statements.size() == 1) {
+        auto const expected = return_statement(float_literal("inf", "F64"));
+        CHECK(to_sexp_string(func->body.statements[0], 0) == expected);
+      }
     }
-  )";
-
-  Parser parser{source};
-  auto const result = parser.parse_module();
-
-  REQUIRE(result);
-  CHECK(result->items.size() == 3);
-
-  // Verify S-expression output contains our special literals
-  auto const sexp = to_sexp_string(*result, 0);
-  CHECK(sexp.find(R"((float "nan"))") != std::string::npos);
-  CHECK(sexp.find(R"((float "inf"))") != std::string::npos);
-  CHECK(sexp.find(R"((float "nan" "F32"))") != std::string::npos);
-  CHECK(sexp.find(R"((float "inf" "F64"))") != std::string::npos);
+  }
 }

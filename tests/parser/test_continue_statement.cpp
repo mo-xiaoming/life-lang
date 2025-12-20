@@ -52,7 +52,7 @@ TEST_CASE("Parse Continue_Statement") {
        .expected = "",
        .should_succeed = k_continue_with_value_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

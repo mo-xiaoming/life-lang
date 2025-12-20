@@ -10,54 +10,58 @@ namespace {
 // Empty array
 constexpr auto k_empty_array_should_succeed = true;
 constexpr auto k_empty_array_input = "[]";
-inline auto const k_empty_array_expected = "(array_lit ())";
+inline auto const k_empty_array_expected = test_sexp::array_literal({});
 
 // Single element
 constexpr auto k_single_element_should_succeed = true;
 constexpr auto k_single_element_input = "[42]";
-inline auto const k_single_element_expected = R"((array_lit ((integer "42"))))";
+inline auto const k_single_element_expected = test_sexp::array_literal({test_sexp::integer("42")});
 
 // Multiple integers
 constexpr auto k_multiple_integers_should_succeed = true;
 constexpr auto k_multiple_integers_input = "[1, 2, 3, 4, 5]";
-inline auto const k_multiple_integers_expected =
-    R"((array_lit ((integer "1") (integer "2") (integer "3") (integer "4") (integer "5"))))";
+inline auto const k_multiple_integers_expected = test_sexp::array_literal(
+    {test_sexp::integer("1"),
+     test_sexp::integer("2"),
+     test_sexp::integer("3"),
+     test_sexp::integer("4"),
+     test_sexp::integer("5")}
+);
 
 // Mixed types (parser accepts, semantic analysis checks)
 constexpr auto k_mixed_types_should_succeed = true;
 constexpr auto k_mixed_types_input = R"([1, "hello", true])";
-inline std::string const k_mixed_types_expected =
-    std::format(R"((array_lit ((integer "1") (string "\"hello\"") {})))", test_sexp::bool_literal(true));
+inline auto const k_mixed_types_expected =
+    test_sexp::array_literal({test_sexp::integer("1"), test_sexp::string(R"("hello")"), test_sexp::bool_literal(true)});
 
 // Nested arrays
 constexpr auto k_nested_arrays_should_succeed = true;
 constexpr auto k_nested_arrays_input = "[[1, 2], [3, 4]]";
-inline auto const k_nested_arrays_expected =
-    R"((array_lit ((array_lit ((integer "1") (integer "2"))) (array_lit ((integer "3") (integer "4"))))))";
+inline auto const k_nested_arrays_expected = test_sexp::array_literal(
+    {test_sexp::array_literal({test_sexp::integer("1"), test_sexp::integer("2")}),
+     test_sexp::array_literal({test_sexp::integer("3"), test_sexp::integer("4")})}
+);
 
 // Array with expressions
 constexpr auto k_array_with_expressions_should_succeed = true;
 constexpr auto k_array_with_expressions_input = "[1 + 2, x * 3, foo()]";
-inline std::string const k_array_with_expressions_expected = std::format(
-    R"((array_lit ((binary + (integer "1") (integer "2")) (binary * {} (integer "3")) (call {} ()))))",
-    test_sexp::var_name("x"),
-    test_sexp::var_name("foo")
+inline auto const k_array_with_expressions_expected = test_sexp::array_literal(
+    {test_sexp::binary_expr("+", test_sexp::integer("1"), test_sexp::integer("2")),
+     test_sexp::binary_expr("*", test_sexp::var_name("x"), test_sexp::integer("3")),
+     test_sexp::function_call(test_sexp::var_name("foo"), {})}
 );
 
 // Array with variables
 constexpr auto k_array_with_variables_should_succeed = true;
 constexpr auto k_array_with_variables_input = "[x, y, z]";
-inline std::string const k_array_with_variables_expected = std::format(
-    R"((array_lit ({} {} {})))",
-    test_sexp::var_name("x"),
-    test_sexp::var_name("y"),
-    test_sexp::var_name("z")
-);
+inline auto const k_array_with_variables_expected =
+    test_sexp::array_literal({test_sexp::var_name("x"), test_sexp::var_name("y"), test_sexp::var_name("z")});
 
 // Trailing comma
 constexpr auto k_trailing_comma_should_succeed = true;
 constexpr auto k_trailing_comma_input = "[1, 2, 3,]";
-inline auto const k_trailing_comma_expected = R"((array_lit ((integer "1") (integer "2") (integer "3"))))";
+inline auto const k_trailing_comma_expected =
+    test_sexp::array_literal({test_sexp::integer("1"), test_sexp::integer("2"), test_sexp::integer("3")});
 
 // Multiline array
 constexpr auto k_multiline_should_succeed = true;
@@ -66,30 +70,41 @@ constexpr auto k_multiline_input = R"([
   2,
   3
 ])";
-inline auto const k_multiline_expected = R"((array_lit ((integer "1") (integer "2") (integer "3"))))";
+inline auto const k_multiline_expected =
+    test_sexp::array_literal({test_sexp::integer("1"), test_sexp::integer("2"), test_sexp::integer("3")});
 
 // No spaces
 constexpr auto k_no_spaces_should_succeed = true;
 constexpr auto k_no_spaces_input = "[1,2,3]";
-inline auto const k_no_spaces_expected = R"((array_lit ((integer "1") (integer "2") (integer "3"))))";
+inline auto const k_no_spaces_expected =
+    test_sexp::array_literal({test_sexp::integer("1"), test_sexp::integer("2"), test_sexp::integer("3")});
 
 // String array
 constexpr auto k_string_array_should_succeed = true;
 constexpr auto k_string_array_input = R"(["hello", "world"])";
-inline auto const k_string_array_expected = R"((array_lit ((string "\"hello\"") (string "\"world\""))))";
+inline auto const k_string_array_expected =
+    test_sexp::array_literal({test_sexp::string(R"("hello")"), test_sexp::string(R"("world")")});
 
 // Array with struct literals
 constexpr auto k_array_with_structs_should_succeed = true;
 constexpr auto k_array_with_structs_input = "[Point { x: 1, y: 2 }, Point { x: 3, y: 4 }]";
-inline auto const k_array_with_structs_expected =
-    R"((array_lit ((struct_lit "Point" ((field_init "x" (integer "1")) (field_init "y" (integer "2")))) (struct_lit "Point" ((field_init "x" (integer "3")) (field_init "y" (integer "4")))))))";
+inline auto const k_array_with_structs_expected = test_sexp::array_literal(
+    {test_sexp::struct_literal(
+         "Point",
+         {test_sexp::field_init("x", test_sexp::integer("1")), test_sexp::field_init("y", test_sexp::integer("2"))}
+     ),
+     test_sexp::struct_literal(
+         "Point",
+         {test_sexp::field_init("x", test_sexp::integer("3")), test_sexp::field_init("y", test_sexp::integer("4"))}
+     )}
+);
 
 // Array in function call
 constexpr auto k_array_in_func_call_should_succeed = true;
 constexpr auto k_array_in_func_call_input = "process([1, 2, 3])";
-inline std::string const k_array_in_func_call_expected = std::format(
-    R"((call {} ((array_lit ((integer "1") (integer "2") (integer "3"))))))",
-    test_sexp::var_name("process")
+inline auto const k_array_in_func_call_expected = test_sexp::function_call(
+    test_sexp::var_name("process"),
+    {test_sexp::array_literal({test_sexp::integer("1"), test_sexp::integer("2"), test_sexp::integer("3")})}
 );
 
 // Array in let statement
@@ -97,7 +112,7 @@ constexpr auto k_array_in_let_should_succeed = true;
 constexpr auto k_array_in_let_input = "let arr = [1, 2, 3];";
 inline std::string const k_array_in_let_expected = test_sexp::let_statement(
     test_sexp::simple_pattern("arr"),
-    R"((array_lit ((integer "1") (integer "2") (integer "3"))))"
+    test_sexp::array_literal({test_sexp::integer("1"), test_sexp::integer("2"), test_sexp::integer("3")})
 );
 
 }  // namespace
@@ -157,7 +172,7 @@ TEST_CASE("Parse Expr (Array Literals)") {
        .expected = k_array_in_func_call_expected,
        .should_succeed = k_array_in_func_call_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       INFO(params.name);
       check_parse(params);

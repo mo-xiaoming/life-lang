@@ -1,6 +1,8 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
+
 using life_lang::ast::Expr;
+using namespace test_sexp;
 
 PARSE_TEST(Expr, expr)
 
@@ -10,110 +12,86 @@ namespace {
 // Simple range iteration (exclusive)
 constexpr auto k_simple_range_exclusive_should_succeed = true;
 constexpr auto k_simple_range_exclusive_input = "for i in 0..10 { process(i); }";
-inline auto const k_simple_range_exclusive_expected = test_sexp::for_expr(
-    test_sexp::simple_pattern("i"),
-    test_sexp::range_expr(test_sexp::integer(0), test_sexp::integer(10), false),
-    test_sexp::block({test_sexp::function_call_statement(
-        test_sexp::function_call(test_sexp::var_name("process"), {test_sexp::var_name("i")})
-    )})
+inline auto const k_simple_range_exclusive_expected = for_expr(
+    simple_pattern("i"),
+    range_expr(integer("0"), integer("10"), false),
+    block({function_call_statement(function_call(var_name("process"), {var_name("i")}))})
 );
 
 // Simple range iteration (inclusive)
 constexpr auto k_simple_range_inclusive_should_succeed = true;
 constexpr auto k_simple_range_inclusive_input = "for i in 0..=10 { process(i); }";
-inline auto const k_simple_range_inclusive_expected = test_sexp::for_expr(
-    test_sexp::simple_pattern("i"),
-    test_sexp::range_expr(test_sexp::integer(0), test_sexp::integer(10), true),
-    test_sexp::block({test_sexp::function_call_statement(
-        test_sexp::function_call(test_sexp::var_name("process"), {test_sexp::var_name("i")})
-    )})
+inline auto const k_simple_range_inclusive_expected = for_expr(
+    simple_pattern("i"),
+    range_expr(integer("0"), integer("10"), true),
+    block({function_call_statement(function_call(var_name("process"), {var_name("i")}))})
 );
 
 // Variable range
 constexpr auto k_var_range_should_succeed = true;
 constexpr auto k_var_range_input = "for item in start..end { work(item); }";
-inline auto const k_var_range_expected = test_sexp::for_expr(
-    test_sexp::simple_pattern("item"),
-    test_sexp::range_expr(test_sexp::var_name("start"), test_sexp::var_name("end"), false),
-    test_sexp::block({test_sexp::function_call_statement(
-        test_sexp::function_call(test_sexp::var_name("work"), {test_sexp::var_name("item")})
-    )})
+inline auto const k_var_range_expected = for_expr(
+    simple_pattern("item"),
+    range_expr(var_name("start"), var_name("end"), false),
+    block({function_call_statement(function_call(var_name("work"), {var_name("item")}))})
 );
 
 // Collection variable iteration
 constexpr auto k_collection_iteration_should_succeed = true;
 constexpr auto k_collection_iteration_input = "for user in users { handle(user); }";
-inline auto const k_collection_iteration_expected = test_sexp::for_expr(
-    test_sexp::simple_pattern("user"),
-    test_sexp::var_name("users"),
-    test_sexp::block({test_sexp::function_call_statement(
-        test_sexp::function_call(test_sexp::var_name("handle"), {test_sexp::var_name("user")})
-    )})
+inline auto const k_collection_iteration_expected = for_expr(
+    simple_pattern("user"),
+    var_name("users"),
+    block({function_call_statement(function_call(var_name("handle"), {var_name("user")}))})
 );
 
 // Empty body
 constexpr auto k_empty_body_should_succeed = true;
 constexpr auto k_empty_body_input = "for x in 0..10 {}";
-inline auto const k_empty_body_expected = test_sexp::for_expr(
-    test_sexp::simple_pattern("x"),
-    test_sexp::range_expr(test_sexp::integer(0), test_sexp::integer(10), false),
-    test_sexp::block({})
-);
+inline auto const k_empty_body_expected =
+    for_expr(simple_pattern("x"), range_expr(integer("0"), integer("10"), false), block({}));
 
 // Nested for loops
 constexpr auto k_nested_for_loops_should_succeed = true;
 constexpr auto k_nested_for_loops_input = "for i in 0..3 { for j in 0..3 { process(i, j); } }";
-inline auto const k_nested_for_loops_expected = test_sexp::for_expr(
-    test_sexp::simple_pattern("i"),
-    test_sexp::range_expr(test_sexp::integer(0), test_sexp::integer(3), false),
-    test_sexp::block({test_sexp::for_statement(
-        test_sexp::for_expr(
-            test_sexp::simple_pattern("j"),
-            test_sexp::range_expr(test_sexp::integer(0), test_sexp::integer(3), false),
-            test_sexp::block({test_sexp::function_call_statement(
-                test_sexp::function_call(
-                    test_sexp::var_name("process"),
-                    {test_sexp::var_name("i"), test_sexp::var_name("j")}
-                )
-            )})
-        )
-    )})
+inline auto const k_nested_for_loops_expected = for_expr(
+    simple_pattern("i"),
+    range_expr(integer("0"), integer("3"), false),
+    block({for_statement(for_expr(
+        simple_pattern("j"),
+        range_expr(integer("0"), integer("3"), false),
+        block({function_call_statement(function_call(var_name("process"), {var_name("i"), var_name("j")}))})
+    ))})
 );
 
 // For loop with multiple statements
 constexpr auto k_multiple_statements_should_succeed = true;
 constexpr auto k_multiple_statements_input = "for x in 0..5 { print(x); log(x); }";
-inline auto const k_multiple_statements_expected = test_sexp::for_expr(
-    test_sexp::simple_pattern("x"),
-    test_sexp::range_expr(test_sexp::integer(0), test_sexp::integer(5), false),
-    test_sexp::block(
-        {test_sexp::function_call_statement(
-             test_sexp::function_call(test_sexp::var_name("print"), {test_sexp::var_name("x")})
-         ),
-         test_sexp::function_call_statement(
-             test_sexp::function_call(test_sexp::var_name("log"), {test_sexp::var_name("x")})
-         )}
+inline auto const k_multiple_statements_expected = for_expr(
+    simple_pattern("x"),
+    range_expr(integer("0"), integer("5"), false),
+    block(
+        {function_call_statement(function_call(var_name("print"), {var_name("x")})),
+         function_call_statement(function_call(var_name("log"), {var_name("x")}))}
     )
 );
 
 // For with function call as iterator
 constexpr auto k_func_call_iterator_should_succeed = true;
 constexpr auto k_func_call_iterator_input = "for item in get_items() { process(item); }";
-inline auto const k_func_call_iterator_expected = test_sexp::for_expr(
-    test_sexp::simple_pattern("item"),
-    test_sexp::function_call(test_sexp::var_name("get_items"), {}),
-    test_sexp::block({test_sexp::function_call_statement(
-        test_sexp::function_call(test_sexp::var_name("process"), {test_sexp::var_name("item")})
-    )})
+inline auto const k_func_call_iterator_expected = for_expr(
+    simple_pattern("item"),
+    function_call(var_name("get_items"), {}),
+    block({function_call_statement(function_call(var_name("process"), {var_name("item")}))})
 );
 
 // For with spaces
 constexpr auto k_with_spaces_should_succeed = true;
 constexpr auto k_with_spaces_input = "for   x   in   0..10   {   work();   }";
-inline auto const k_with_spaces_expected = test_sexp::for_expr(
-    test_sexp::simple_pattern("x"),
-    test_sexp::range_expr(test_sexp::integer(0), test_sexp::integer(10), false),
-    test_sexp::block({test_sexp::function_call_statement(test_sexp::function_call(test_sexp::var_name("work"), {}))})
+inline auto const k_with_spaces_expected = for_expr(
+    simple_pattern("x"),
+    range_expr(integer("0"), integer("10"), false),
+    block({function_call_statement(function_call(var_name("work"), {}))})
 );
 
 // === Invalid For Loop Expressions ===
@@ -210,7 +188,7 @@ TEST_CASE("Parse For_Expr") {
        .expected = "",
        .should_succeed = k_reserved_keyword_binding_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

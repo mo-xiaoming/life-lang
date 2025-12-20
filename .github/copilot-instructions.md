@@ -233,20 +233,29 @@ std::cout << to_sexp_string(*module, 0) << '\n';
 
 ### S-expression Test Expectations
 
-**CRITICAL**: Always use exact S-expression matching, never substring search.
+**CRITICAL**: Always use helper functions from `tests/parser/utils.hpp` for S-expression comparisons. Never use raw string literals.
 
-#### When to Use Helper Functions vs Raw Strings
+#### Always Use Helper Functions
 
-**✅ USE HELPER FUNCTIONS (from `tests/parser/utils.hpp`)** - For complex expressions:
+**✅ CORRECT - Helper functions for all comparisons**:
 ```cpp
 #include "utils.hpp"
 using namespace test_sexp;
+
+TEST_CASE("Any expression") {
+  Parser parser("42");
+  auto const expr = parser.parse_expr();
+  REQUIRE(expr.has_value());
+  // GOOD: Helper functions are reliable, readable, maintainable
+  auto const expected = integer("42");
+  CHECK(to_sexp_string(*expr, 0) == expected);
+}
 
 TEST_CASE("Complex expression") {
   Parser parser("x + y as I64");
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
-  // GOOD: Helper functions are reliable, readable, maintainable
+  // GOOD: Helper functions prevent typos and parenthesis counting errors
   auto const expected = binary_expr(
       "+",
       var_name("x"),
@@ -256,24 +265,21 @@ TEST_CASE("Complex expression") {
 }
 ```
 
-**✅ USE RAW STRINGS** - Only for very short, simple S-expressions:
+**❌ WRONG - Raw string literals (error-prone, unmaintainable)**:
 ```cpp
-TEST_CASE("Simple literal") {
+TEST_CASE("Bad test - raw string") {
   Parser parser("42");
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
-  // GOOD: Very short, unlikely to have mistakes
+  // BAD: Raw strings are error-prone, even for simple cases
   CHECK(to_sexp_string(*expr, 0) == "(integer \"42\")");
 }
-```
 
-**❌ WRONG - Raw strings for complex expressions (error-prone)**:
-```cpp
-TEST_CASE("Bad test") {
+TEST_CASE("Bad test - complex raw string") {
   Parser parser("x + y as I64");
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
-  // BAD: Long raw strings are error-prone (wrong paren counts, typos)
+  // BAD: Long raw strings have wrong paren counts, typos
   std::string const expected = R"((binary + (var ((var_segment "x"))) (cast (var ((var_segment "y"))) (path ((type_segment "I64")))))";
   CHECK(to_sexp_string(*expr, 0) == expected);  // Likely has errors!
 }
@@ -281,7 +287,7 @@ TEST_CASE("Bad test") {
 
 **❌ WRONG - Substring search (incomplete validation)**:
 ```cpp
-TEST_CASE("Bad test") {
+TEST_CASE("Bad test - substring") {
   Parser parser("fn main(): I32 { return 0o755; }");
   auto const module = parser.parse_module();
   REQUIRE(module);
@@ -304,26 +310,21 @@ See `tests/parser/utils.hpp` for complete list. Common helpers:
 
 #### Guidelines
 
-1. **Prefer helpers** for any S-expression with:
-   - Multiple nested levels
-   - More than ~40 characters
-   - Complex structure (binary ops, casts, calls, etc.)
-2. **Use raw strings** only for:
-   - Single literals: `(integer "42")`, `(bool true)`
-   - Simple references: `(var ((var_segment "x")))`
-   - Very short expressions
-3. **Always exact matching**: Complete AST validation, not substring search
-4. **Focus tests**: Use `parse_expr()`, `parse_statement()` instead of `parse_module()`
+1. **Always use helper functions** - Even for simple cases (single literals, basic references)
+2. **Never use raw strings** - They are error-prone and harder to maintain
+3. **Always exact matching** - Complete AST validation, never substring search
+4. **Focus tests** - Use `parse_expr()`, `parse_statement()` instead of `parse_module()`
+5. **Add helpers as needed** - If a helper doesn't exist, add it to `utils.hpp`
 
 **Why this matters:**
-- Helper functions eliminate manual parenthesis counting errors
-- Raw strings are only safe when trivially short
+- Helper functions eliminate all manual parenthesis counting and escaping errors
+- Consistent approach across all tests improves maintainability
+- Type-safe construction catches errors at compile time
 - Exact matching catches structural regressions immediately
-- Clear expectations make tests self-documenting
+- Self-documenting test expectations
 
 **Reference examples**:
 - `tests/parser/test_cast_expr.cpp` - Uses helpers throughout
-- `tests/integration/test_octal_literals.cpp` - Mix of helpers and short raw strings
 - `tests/parser/test_binary_expr.cpp` - Helper function patterns
 
 ---

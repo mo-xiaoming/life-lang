@@ -174,7 +174,7 @@ TEST_CASE("Parse While_Expr") {
        .expected = k_parentheses_condition_expected,
        .should_succeed = k_parentheses_condition_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

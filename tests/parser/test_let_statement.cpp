@@ -1,8 +1,8 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
+
 using life_lang::ast::Statement;
 
-// PARSE_TEST generates check_parse() function and Statement_Params type
 PARSE_TEST(Statement, statement)
 
 namespace {
@@ -175,7 +175,7 @@ TEST_CASE("Parse Let_Statement") {
        .expected = "",
        .should_succeed = k_let_missing_equals_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

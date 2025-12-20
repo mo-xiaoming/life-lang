@@ -1,6 +1,3 @@
-//! Test trait bounds parsing
-//! Tests: fn foo<T: Display>, struct Bar<T: Clone>, etc.
-
 #include "internal_rules.hpp"
 #include "utils.hpp"
 
@@ -14,8 +11,11 @@ constexpr auto k_single_bound_input = "fn foo<T: Display>(x: T): I32 { return 0;
 inline auto const k_single_bound_expected = test_sexp::func_def(
     test_sexp::func_decl(
         "foo",
-        {R"((type_param (path ((type_segment "T"))) ((trait_bound (path ((type_segment "Display")))))))"},
-        {R"((param false "x" (path ((type_segment "T")))))"},
+        {test_sexp::type_param_with_bounds(
+            test_sexp::type_name("T"),
+            {test_sexp::trait_bound(test_sexp::type_name("Display"))}
+        )},
+        {test_sexp::function_parameter("x", test_sexp::type_name("T"))},
         test_sexp::type_name("I32")
     ),
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
@@ -27,7 +27,7 @@ inline auto const k_no_bound_expected = test_sexp::func_def(
     test_sexp::func_decl(
         "foo",
         {test_sexp::type_param(test_sexp::type_name("T"))},
-        {R"((param false "x" (path ((type_segment "T")))))"},
+        {test_sexp::function_parameter("x", test_sexp::type_name("T"))},
         test_sexp::type_name("I32")
     ),
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
@@ -39,9 +39,13 @@ constexpr auto k_mixed_bounds_input = "fn foo<T: Display, U>(x: T, y: U): I32 { 
 inline auto const k_mixed_bounds_expected = test_sexp::func_def(
     test_sexp::func_decl(
         "foo",
-        {R"((type_param (path ((type_segment "T"))) ((trait_bound (path ((type_segment "Display")))))))",
+        {test_sexp::type_param_with_bounds(
+             test_sexp::type_name("T"),
+             {test_sexp::trait_bound(test_sexp::type_name("Display"))}
+         ),
          test_sexp::type_param(test_sexp::type_name("U"))},
-        {R"((param false "x" (path ((type_segment "T")))))", R"((param false "y" (path ((type_segment "U")))))"},
+        {test_sexp::function_parameter("x", test_sexp::type_name("T")),
+         test_sexp::function_parameter("y", test_sexp::type_name("U"))},
         test_sexp::type_name("I32")
     ),
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
@@ -53,9 +57,11 @@ constexpr auto k_qualified_trait_input = "fn foo<T: Std.Display>(x: T): I32 { re
 inline auto const k_qualified_trait_expected = test_sexp::func_def(
     test_sexp::func_decl(
         "foo",
-        {"(type_param (path ((type_segment \"T\"))) ((trait_bound (path ((type_segment \"Std\") (type_segment "
-         "\"Display\"))))))"},
-        {R"((param false "x" (path ((type_segment "T")))))"},
+        {test_sexp::type_param_with_bounds(
+            test_sexp::type_name("T"),
+            {test_sexp::trait_bound(test_sexp::type_name("Std", "Display"))}
+        )},
+        {test_sexp::function_parameter("x", test_sexp::type_name("T"))},
         test_sexp::type_name("I32")
     ),
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
@@ -67,9 +73,16 @@ constexpr auto k_all_bounded_input = "fn foo<T: Display, U: Clone>(x: T, y: U): 
 inline auto const k_all_bounded_expected = test_sexp::func_def(
     test_sexp::func_decl(
         "foo",
-        {R"((type_param (path ((type_segment "T"))) ((trait_bound (path ((type_segment "Display")))))))",
-         R"((type_param (path ((type_segment "U"))) ((trait_bound (path ((type_segment "Clone")))))))"},
-        {R"((param false "x" (path ((type_segment "T")))))", R"((param false "y" (path ((type_segment "U")))))"},
+        {test_sexp::type_param_with_bounds(
+             test_sexp::type_name("T"),
+             {test_sexp::trait_bound(test_sexp::type_name("Display"))}
+         ),
+         test_sexp::type_param_with_bounds(
+             test_sexp::type_name("U"),
+             {test_sexp::trait_bound(test_sexp::type_name("Clone"))}
+         )},
+        {test_sexp::function_parameter("x", test_sexp::type_name("T")),
+         test_sexp::function_parameter("y", test_sexp::type_name("U"))},
         test_sexp::type_name("I32")
     ),
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
@@ -86,9 +99,12 @@ constexpr auto k_multiple_bounds_input = "fn foo<T: Display + Clone>(x: T): I32 
 inline auto const k_multiple_bounds_expected = test_sexp::func_def(
     test_sexp::func_decl(
         "foo",
-        {"(type_param (path ((type_segment \"T\"))) ((trait_bound (path ((type_segment \"Display\")))) (trait_bound "
-         "(path ((type_segment \"Clone\"))))))"},
-        {R"((param false "x" (path ((type_segment "T")))))"},
+        {test_sexp::type_param_with_bounds(
+            test_sexp::type_name("T"),
+            {test_sexp::trait_bound(test_sexp::type_name("Display")),
+             test_sexp::trait_bound(test_sexp::type_name("Clone"))}
+        )},
+        {test_sexp::function_parameter("x", test_sexp::type_name("T"))},
         test_sexp::type_name("I32")
     ),
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
@@ -100,9 +116,13 @@ constexpr auto k_three_bounds_input = "fn foo<T: Eq + Ord + Hash>(x: T): I32 { r
 inline auto const k_three_bounds_expected = test_sexp::func_def(
     test_sexp::func_decl(
         "foo",
-        {"(type_param (path ((type_segment \"T\"))) ((trait_bound (path ((type_segment \"Eq\")))) (trait_bound (path "
-         "((type_segment \"Ord\")))) (trait_bound (path ((type_segment \"Hash\"))))))"},
-        {R"((param false "x" (path ((type_segment "T")))))"},
+        {test_sexp::type_param_with_bounds(
+            test_sexp::type_name("T"),
+            {test_sexp::trait_bound(test_sexp::type_name("Eq")),
+             test_sexp::trait_bound(test_sexp::type_name("Ord")),
+             test_sexp::trait_bound(test_sexp::type_name("Hash"))}
+        )},
+        {test_sexp::function_parameter("x", test_sexp::type_name("T"))},
         test_sexp::type_name("I32")
     ),
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
@@ -115,11 +135,17 @@ constexpr auto k_multiple_params_multiple_bounds_input =
 inline auto const k_multiple_params_multiple_bounds_expected = test_sexp::func_def(
     test_sexp::func_decl(
         "foo",
-        {"(type_param (path ((type_segment \"T\"))) ((trait_bound (path ((type_segment \"Display\")))) (trait_bound "
-         "(path ((type_segment \"Clone\"))))))",
-         "(type_param (path ((type_segment \"U\"))) ((trait_bound (path ((type_segment \"Eq\")))) (trait_bound (path "
-         "((type_segment \"Ord\"))))))"},
-        {R"((param false "x" (path ((type_segment "T")))))", R"((param false "y" (path ((type_segment "U")))))"},
+        {test_sexp::type_param_with_bounds(
+             test_sexp::type_name("T"),
+             {test_sexp::trait_bound(test_sexp::type_name("Display")),
+              test_sexp::trait_bound(test_sexp::type_name("Clone"))}
+         ),
+         test_sexp::type_param_with_bounds(
+             test_sexp::type_name("U"),
+             {test_sexp::trait_bound(test_sexp::type_name("Eq")), test_sexp::trait_bound(test_sexp::type_name("Ord"))}
+         )},
+        {test_sexp::function_parameter("x", test_sexp::type_name("T")),
+         test_sexp::function_parameter("y", test_sexp::type_name("U"))},
         test_sexp::type_name("I32")
     ),
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
@@ -131,9 +157,12 @@ constexpr auto k_qualified_multiple_bounds_input = "fn foo<T: Std.Display + Std.
 inline auto const k_qualified_multiple_bounds_expected = test_sexp::func_def(
     test_sexp::func_decl(
         "foo",
-        {"(type_param (path ((type_segment \"T\"))) ((trait_bound (path ((type_segment \"Std\") (type_segment "
-         "\"Display\")))) (trait_bound (path ((type_segment \"Std\") (type_segment \"Clone\"))))))"},
-        {R"((param false "x" (path ((type_segment "T")))))"},
+        {test_sexp::type_param_with_bounds(
+            test_sexp::type_name("T"),
+            {test_sexp::trait_bound(test_sexp::type_name("Std", "Display")),
+             test_sexp::trait_bound(test_sexp::type_name("Std", "Clone"))}
+        )},
+        {test_sexp::function_parameter("x", test_sexp::type_name("T"))},
         test_sexp::type_name("I32")
     ),
     test_sexp::block({test_sexp::return_statement(test_sexp::integer("0"))})
@@ -189,7 +218,7 @@ TEST_CASE("Parse Func_Def with trait bounds") {
        .expected = k_missing_trait_expected,
        .should_succeed = k_missing_trait_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

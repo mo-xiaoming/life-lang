@@ -1,5 +1,6 @@
 #include "internal_rules.hpp"
 #include "utils.hpp"
+
 using life_lang::ast::Statement;
 
 // PARSE_TEST generates check_parse() function and Statement_Params type
@@ -102,7 +103,7 @@ TEST_CASE("Parse Break_Statement") {
        .expected = "",
        .should_succeed = k_break_as_var_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

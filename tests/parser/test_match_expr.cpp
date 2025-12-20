@@ -648,7 +648,7 @@ TEST_CASE("Parse Match_Expr") {
        .expected = k_missing_brace_expected,
        .should_succeed = k_missing_brace_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

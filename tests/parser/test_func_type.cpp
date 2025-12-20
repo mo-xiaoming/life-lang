@@ -1,9 +1,8 @@
-// Function Type Parser Tests
-
 #include "internal_rules.hpp"
 #include "utils.hpp"
 
 using life_lang::ast::Function_Type;
+using namespace test_sexp;
 
 PARSE_TEST(Function_Type, function_type)
 
@@ -111,7 +110,7 @@ TEST_CASE("Parse Function_Type") {
        .expected = "",
        .should_succeed = k_missing_parens_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

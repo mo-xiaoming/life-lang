@@ -1,17 +1,3 @@
-// Integration tests for the public parse_module API
-//
-// These tests validate complete parsing workflows from source code to AST,
-// testing the full pipeline that users will interact with through parse_module().
-//
-// Unlike unit tests (tests/parser/*), these test through the public API only,
-// making them resilient to internal implementation changes.
-//
-// Test Strategy:
-// - Use parse_module() public API (not internal parsers)
-// - Validate complete input consumption (partial parses should fail)
-// - For errors, verify diagnostic format matches clang style
-// - Test both successful parses and error cases with diagnostics
-
 #include <doctest/doctest.h>
 #include <sstream>
 
@@ -85,7 +71,7 @@ TEST_CASE("Parse Module - Complete Input Validation") {
        .expected_error_pattern = ""},
   };
 
-  for (auto const& test : tests) {
+  for (auto const& test: tests) {
     SUBCASE(test.name.c_str()) {
       life_lang::parser::Parser parser{test.input, "test.life"};
       auto const result = parser.parse_module();
@@ -170,7 +156,7 @@ TEST_CASE("Parse Module - Struct Literals and Field Access") {
        .should_succeed = false},
   };
 
-  for (auto const& test : tests) {
+  for (auto const& test: tests) {
     SUBCASE(test.name.c_str()) {
       life_lang::parser::Parser parser{test.input, "test.life"};
       auto const result = parser.parse_module();

@@ -37,7 +37,7 @@ namespace detail {
 inline std::string escape_string(std::string_view str_) {
   std::ostringstream oss;
   oss << '"';
-  for (char const ch : str_) {
+  for (char const ch: str_) {
     switch (ch) {
       case '"':
         oss << "\\\"";
@@ -310,7 +310,7 @@ inline void print_sexp(Sexp_Printer& p_, String_Interp_Part const& part_) {
 
 inline void print_sexp(Sexp_Printer& p_, String_Interpolation const& interp_) {
   p_.begin_list("string_interp");
-  for (auto const& part : interp_.parts) {
+  for (auto const& part: interp_.parts) {
     p_.space();
     print_sexp(p_, part);
   }

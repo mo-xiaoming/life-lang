@@ -217,7 +217,7 @@ TEST_CASE("Parse Char") {
        .expected = k_invalid_no_quotes_expected,
        .should_succeed = k_invalid_no_quotes_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

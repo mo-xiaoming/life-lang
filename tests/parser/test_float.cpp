@@ -2,6 +2,7 @@
 #include "utils.hpp"
 
 using life_lang::ast::Float;
+using namespace test_sexp;
 
 PARSE_TEST(Float, float)
 
@@ -9,76 +10,76 @@ namespace {
 
 constexpr auto k_simple_float_should_succeed = true;
 constexpr auto k_simple_float_input = "3.14";
-constexpr auto k_simple_float_expected = R"((float "3.14"))";
+inline auto const k_simple_float_expected = float_literal("3.14");
 
 constexpr auto k_zero_point_zero_should_succeed = true;
 constexpr auto k_zero_point_zero_input = "0.0";
-constexpr auto k_zero_point_zero_expected = R"((float "0.0"))";
+inline auto const k_zero_point_zero_expected = float_literal("0.0");
 
 constexpr auto k_one_point_zero_should_succeed = true;
 constexpr auto k_one_point_zero_input = "1.0";
-constexpr auto k_one_point_zero_expected = R"((float "1.0"))";
+inline auto const k_one_point_zero_expected = float_literal("1.0");
 
 constexpr auto k_many_decimals_should_succeed = true;
 constexpr auto k_many_decimals_input = "123.456789";
-constexpr auto k_many_decimals_expected = R"((float "123.456789"))";
+inline auto const k_many_decimals_expected = float_literal("123.456789");
 
 constexpr auto k_with_underscores_integer_should_succeed = true;
 constexpr auto k_with_underscores_integer_input = "1_000.5";
-constexpr auto k_with_underscores_integer_expected = R"((float "1000.5"))";
+inline auto const k_with_underscores_integer_expected = float_literal("1000.5");
 
 constexpr auto k_with_underscores_decimal_should_succeed = true;
 constexpr auto k_with_underscores_decimal_input = "123.456_789";
-constexpr auto k_with_underscores_decimal_expected = R"((float "123.456789"))";
+inline auto const k_with_underscores_decimal_expected = float_literal("123.456789");
 
 constexpr auto k_with_underscores_both_should_succeed = true;
 constexpr auto k_with_underscores_both_input = "1_234.567_890";
-constexpr auto k_with_underscores_both_expected = R"((float "1234.567890"))";
+inline auto const k_with_underscores_both_expected = float_literal("1234.567890");
 
 constexpr auto k_scientific_lowercase_e_should_succeed = true;
 constexpr auto k_scientific_lowercase_e_input = "1.0e10";
-constexpr auto k_scientific_lowercase_e_expected = R"((float "1.0e10"))";
+inline auto const k_scientific_lowercase_e_expected = float_literal("1.0e10");
 
 constexpr auto k_scientific_uppercase_e_should_succeed = true;
 constexpr auto k_scientific_uppercase_e_input = "2.5E10";
-constexpr auto k_scientific_uppercase_e_expected = R"((float "2.5E10"))";
+inline auto const k_scientific_uppercase_e_expected = float_literal("2.5E10");
 
 constexpr auto k_scientific_negative_exp_should_succeed = true;
 constexpr auto k_scientific_negative_exp_input = "1.5e-10";
-constexpr auto k_scientific_negative_exp_expected = R"((float "1.5e-10"))";
+inline auto const k_scientific_negative_exp_expected = float_literal("1.5e-10");
 
 constexpr auto k_scientific_positive_exp_should_succeed = true;
 constexpr auto k_scientific_positive_exp_input = "3.0e+5";
-constexpr auto k_scientific_positive_exp_expected = R"((float "3.0e+5"))";
+inline auto const k_scientific_positive_exp_expected = float_literal("3.0e+5");
 
 constexpr auto k_scientific_without_decimal_should_succeed = true;
 constexpr auto k_scientific_without_decimal_input = "5e10";
-constexpr auto k_scientific_without_decimal_expected = R"((float "5e10"))";
+inline auto const k_scientific_without_decimal_expected = float_literal("5e10");
 
 constexpr auto k_scientific_with_underscores_should_succeed = true;
 constexpr auto k_scientific_with_underscores_input = "1_234.567e1_0";
-constexpr auto k_scientific_with_underscores_expected = R"((float "1234.567e10"))";
+inline auto const k_scientific_with_underscores_expected = float_literal("1234.567e10");
 
 constexpr auto k_with_trailing_text_should_succeed = false;  // New parser requires full consumption
 constexpr auto k_with_trailing_text_input = "3.14 abc";
-constexpr auto k_with_trailing_text_expected = R"({})";  // Fails due to trailing text
+constexpr auto k_with_trailing_text_expected = "{}";  // Fails due to trailing text
 
 // With type suffixes
 constexpr auto k_with_f32_suffix_should_succeed = true;
 constexpr auto k_with_f32_suffix_input = "3.14F32";
-constexpr auto k_with_f32_suffix_expected = R"((float "3.14" "F32"))";
+inline auto const k_with_f32_suffix_expected = float_literal("3.14", "F32");
 
 constexpr auto k_with_f64_suffix_should_succeed = true;
 constexpr auto k_with_f64_suffix_input = "2.5F64";
-constexpr auto k_with_f64_suffix_expected = R"((float "2.5" "F64"))";
+inline auto const k_with_f64_suffix_expected = float_literal("2.5", "F64");
 
 constexpr auto k_with_suffix_and_exp_should_succeed = true;
 constexpr auto k_with_suffix_and_exp_input = "1.0e10F64";
-constexpr auto k_with_suffix_and_exp_expected = R"((float "1.0e10" "F64"))";
+inline auto const k_with_suffix_and_exp_expected = float_literal("1.0e10", "F64");
 
 constexpr auto k_with_suffix_and_underscores_should_succeed = true;
 constexpr auto k_with_suffix_and_underscores_input = "1_234.567_89F32";
-constexpr auto k_with_suffix_and_underscores_expected = R"((float "1234.56789" "F32"))";
+inline auto const k_with_suffix_and_underscores_expected = float_literal("1234.56789", "F32");
 
 // Invalid cases
 constexpr auto k_invalid_leading_dot_should_succeed = false;
@@ -87,7 +88,7 @@ constexpr auto k_invalid_leading_dot_expected = "{}";
 
 constexpr auto k_invalid_trailing_dot_should_succeed = true;  // Parser accepts trailing dot
 constexpr auto k_invalid_trailing_dot_input = "5.";
-constexpr auto k_invalid_trailing_dot_expected = R"((float "5."))";
+inline auto const k_invalid_trailing_dot_expected = float_literal("5.");
 
 constexpr auto k_invalid_no_dot_no_exp_should_succeed = false;
 constexpr auto k_invalid_no_dot_no_exp_input = "123";
@@ -222,7 +223,7 @@ TEST_CASE("Parse Float") {
        .expected = k_invalid_exp_without_number_expected,
        .should_succeed = k_invalid_exp_without_number_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

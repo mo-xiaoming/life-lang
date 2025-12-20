@@ -12,32 +12,32 @@ namespace {
 // Simple true
 constexpr auto k_true_literal_should_succeed = true;
 constexpr auto k_true_literal_input = "true";
-inline auto const k_true_literal_expected = "(bool true)";
+inline auto const k_true_literal_expected = test_sexp::bool_literal(true);
 
 // Simple false
 constexpr auto k_false_literal_should_succeed = true;
 constexpr auto k_false_literal_input = "false";
-inline auto const k_false_literal_expected = "(bool false)";
+inline auto const k_false_literal_expected = test_sexp::bool_literal(false);
 
 // True with whitespace
 constexpr auto k_true_with_whitespace_should_succeed = true;
 constexpr auto k_true_with_whitespace_input = "  true  ";
-inline auto const k_true_with_whitespace_expected = "(bool true)";
+inline auto const k_true_with_whitespace_expected = test_sexp::bool_literal(true);
 
 // False with whitespace
 constexpr auto k_false_with_whitespace_should_succeed = true;
 constexpr auto k_false_with_whitespace_input = "  false  ";
-inline auto const k_false_with_whitespace_expected = "(bool false)";
+inline auto const k_false_with_whitespace_expected = test_sexp::bool_literal(false);
 
 // True with line comments
 constexpr auto k_true_with_comment_should_succeed = true;
 constexpr auto k_true_with_comment_input = "// comment\ntrue";
-inline auto const k_true_with_comment_expected = "(bool true)";
+inline auto const k_true_with_comment_expected = test_sexp::bool_literal(true);
 
 // False with block comments
 constexpr auto k_false_with_block_comment_should_succeed = true;
 constexpr auto k_false_with_block_comment_input = "/* comment */ false";
-inline auto const k_false_with_block_comment_expected = "(bool false)";
+inline auto const k_false_with_block_comment_expected = test_sexp::bool_literal(false);
 
 // === Invalid Cases - Not Boolean Literals (should fail) ===
 
@@ -149,7 +149,7 @@ TEST_CASE("Parse Bool_Literal") {
        .should_succeed = k_wrong_keyword_should_succeed},
   };
 
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

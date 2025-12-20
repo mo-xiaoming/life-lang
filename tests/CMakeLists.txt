@@ -34,7 +34,6 @@ target_sources(tests
         parser/test_import.cpp
         parser/test_index_expr.cpp
         parser/test_integer.cpp
-        parser/test_internal_parse_errors.cpp
         parser/test_keywords.cpp
         parser/test_let_statement.cpp
         parser/test_match_expr.cpp

@@ -17,7 +17,7 @@ constexpr auto k_generic_single_param_input = "type String_Map<T> = Map<String, 
 inline auto const k_generic_single_param_expected = test_sexp::type_alias(
     "String_Map",
     {test_sexp::type_param(test_sexp::type_name("T"))},
-    R"((path ((type_segment "Map" ((path ((type_segment "String"))) (path ((type_segment "T"))))))))"
+    test_sexp::type_name("Map", {test_sexp::type_name("String"), test_sexp::type_name("T")})
 );
 
 // Generic type alias with multiple parameters
@@ -26,7 +26,7 @@ constexpr auto k_generic_multi_param_input = "type Pair<A, B> = Tuple<A, B>;";
 inline auto const k_generic_multi_param_expected = test_sexp::type_alias(
     "Pair",
     {test_sexp::type_param(test_sexp::type_name("A")), test_sexp::type_param(test_sexp::type_name("B"))},
-    R"((path ((type_segment "Tuple" ((path ((type_segment "A"))) (path ((type_segment "B"))))))))"
+    test_sexp::type_name("Tuple", {test_sexp::type_name("A"), test_sexp::type_name("B")})
 );
 
 // Qualified type path
@@ -41,8 +41,10 @@ constexpr auto k_nested_generics_input = "type Result_List<T, E> = Vec<Result<T,
 inline auto const k_nested_generics_expected = test_sexp::type_alias(
     "Result_List",
     {test_sexp::type_param(test_sexp::type_name("T")), test_sexp::type_param(test_sexp::type_name("E"))},
-    "(path ((type_segment \"Vec\" ((path ((type_segment \"Result\" ((path ((type_segment \"T\"))) (path ((type_segment "
-    "\"E\")))))))))))"
+    test_sexp::type_name(
+        "Vec",
+        {test_sexp::type_name("Result", {test_sexp::type_name("T"), test_sexp::type_name("E")})}
+    )
 );
 
 // Type parameter with trait bounds
@@ -50,8 +52,11 @@ constexpr auto k_type_param_with_bounds_should_succeed = true;
 constexpr auto k_type_param_with_bounds_input = "type Sorted_Vec<T: Ord> = Vec<T>;";
 inline auto const k_type_param_with_bounds_expected = test_sexp::type_alias(
     "Sorted_Vec",
-    {R"((type_param (path ((type_segment "T"))) ((trait_bound (path ((type_segment "Ord")))))))"},
-    R"((path ((type_segment "Vec" ((path ((type_segment "T"))))))))"
+    {test_sexp::type_param_with_bounds(
+        test_sexp::type_name("T"),
+        {test_sexp::trait_bound(test_sexp::type_name("Ord"))}
+    )},
+    test_sexp::type_name("Vec", {test_sexp::type_name("T")})
 );
 
 // Multiple trait bounds
@@ -59,9 +64,11 @@ constexpr auto k_multiple_bounds_should_succeed = true;
 constexpr auto k_multiple_bounds_input = "type Display_Vec<T: Display + Clone> = Vec<T>;";
 inline auto const k_multiple_bounds_expected = test_sexp::type_alias(
     "Display_Vec",
-    {"(type_param (path ((type_segment \"T\"))) ((trait_bound (path ((type_segment \"Display\")))) (trait_bound (path "
-     "((type_segment \"Clone\"))))))"},
-    R"((path ((type_segment "Vec" ((path ((type_segment "T"))))))))"
+    {test_sexp::type_param_with_bounds(
+        test_sexp::type_name("T"),
+        {test_sexp::trait_bound(test_sexp::type_name("Display")), test_sexp::trait_bound(test_sexp::type_name("Clone"))}
+    )},
+    test_sexp::type_name("Vec", {test_sexp::type_name("T")})
 );
 
 // Trailing content (parser stops at semicolon)
@@ -142,7 +149,7 @@ TEST_CASE("Parse Type_Alias") {
        .expected = k_missing_name_expected,
        .should_succeed = k_missing_name_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

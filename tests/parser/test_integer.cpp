@@ -2,6 +2,7 @@
 #include "utils.hpp"
 
 using life_lang::ast::Integer;
+using namespace test_sexp;
 
 PARSE_TEST(Integer, integer)
 
@@ -9,23 +10,23 @@ namespace {
 
 constexpr auto k_zero_should_succeed = true;
 constexpr auto k_zero_input = "0";
-constexpr auto k_zero_expected = R"((integer "0"))";
+inline auto const k_zero_expected = test_sexp::integer("0");
 
 constexpr auto k_simple_number_should_succeed = true;
 constexpr auto k_simple_number_input = "123";
-constexpr auto k_simple_number_expected = R"((integer "123"))";
+inline auto const k_simple_number_expected = test_sexp::integer("123");
 
 constexpr auto k_large_number_should_succeed = true;
 constexpr auto k_large_number_input = "987654321";
-constexpr auto k_large_number_expected = R"((integer "987654321"))";
+inline auto const k_large_number_expected = test_sexp::integer("987654321");
 
 constexpr auto k_with_underscores_should_succeed = true;
 constexpr auto k_with_underscores_input = "12_34_5";
-constexpr auto k_with_underscores_expected = R"((integer "12345"))";
+inline auto const k_with_underscores_expected = test_sexp::integer("12345");
 
 constexpr auto k_multiple_underscores_should_succeed = true;
 constexpr auto k_multiple_underscores_input = "1_2_3_4";
-constexpr auto k_multiple_underscores_expected = R"((integer "1234"))";
+inline auto const k_multiple_underscores_expected = test_sexp::integer("1234");
 
 constexpr auto k_with_trailing_text_should_succeed = false;  // New parser requires full consumption
 constexpr auto k_with_trailing_text_input = "42 abc";
@@ -33,19 +34,19 @@ constexpr auto k_with_trailing_text_input = "42 abc";
 // With type suffixes
 constexpr auto k_with_i32_suffix_should_succeed = true;
 constexpr auto k_with_i32_suffix_input = "42I32";
-constexpr auto k_with_i32_suffix_expected = R"((integer "42" "I32"))";
+inline auto const k_with_i32_suffix_expected = test_sexp::integer("42", "I32");
 
 constexpr auto k_with_u8_suffix_should_succeed = true;
 constexpr auto k_with_u8_suffix_input = "255U8";
-constexpr auto k_with_u8_suffix_expected = R"((integer "255" "U8"))";
+inline auto const k_with_u8_suffix_expected = test_sexp::integer("255", "U8");
 
 constexpr auto k_with_i64_suffix_should_succeed = true;
 constexpr auto k_with_i64_suffix_input = "1000I64";
-constexpr auto k_with_i64_suffix_expected = R"((integer "1000" "I64"))";
+inline auto const k_with_i64_suffix_expected = test_sexp::integer("1000", "I64");
 
 constexpr auto k_with_suffix_and_underscores_should_succeed = true;
 constexpr auto k_with_suffix_and_underscores_input = "1_000_000I32";
-constexpr auto k_with_suffix_and_underscores_expected = R"((integer "1000000" "I32"))";
+inline auto const k_with_suffix_and_underscores_expected = test_sexp::integer("1000000", "I32");
 
 // Invalid cases
 constexpr auto k_invalid_starts_with_zero_should_succeed = false;
@@ -72,39 +73,39 @@ constexpr auto k_invalid_letter_input = "abc";
 // Hexadecimal literals
 constexpr auto k_hex_lowercase_should_succeed = true;
 constexpr auto k_hex_lowercase_input = "0xff";
-constexpr auto k_hex_lowercase_expected = R"((integer "0xff"))";
+inline auto const k_hex_lowercase_expected = test_sexp::integer("0xff");
 
 constexpr auto k_hex_uppercase_should_succeed = true;
 constexpr auto k_hex_uppercase_input = "0xFF";
-constexpr auto k_hex_uppercase_expected = R"((integer "0xFF"))";
+inline auto const k_hex_uppercase_expected = test_sexp::integer("0xFF");
 
 constexpr auto k_hex_mixed_case_should_succeed = true;
 constexpr auto k_hex_mixed_case_input = "0xDeadBeef";
-constexpr auto k_hex_mixed_case_expected = R"((integer "0xDeadBeef"))";
+inline auto const k_hex_mixed_case_expected = test_sexp::integer("0xDeadBeef");
 
 constexpr auto k_hex_with_underscores_should_succeed = true;
 constexpr auto k_hex_with_underscores_input = "0xDEAD_BEEF";
-constexpr auto k_hex_with_underscores_expected = R"((integer "0xDEADBEEF"))";
+inline auto const k_hex_with_underscores_expected = test_sexp::integer("0xDEADBEEF");
 
 constexpr auto k_hex_single_digit_should_succeed = true;
 constexpr auto k_hex_single_digit_input = "0xF";
-constexpr auto k_hex_single_digit_expected = R"((integer "0xF"))";
+inline auto const k_hex_single_digit_expected = test_sexp::integer("0xF");
 
 constexpr auto k_hex_all_digits_should_succeed = true;
 constexpr auto k_hex_all_digits_input = "0x1234567890";
-constexpr auto k_hex_all_digits_expected = R"((integer "0x1234567890"))";
+inline auto const k_hex_all_digits_expected = test_sexp::integer("0x1234567890");
 
 constexpr auto k_hex_all_letters_should_succeed = true;
 constexpr auto k_hex_all_letters_input = "0xABCDEF";
-constexpr auto k_hex_all_letters_expected = R"((integer "0xABCDEF"))";
+inline auto const k_hex_all_letters_expected = test_sexp::integer("0xABCDEF");
 
 constexpr auto k_hex_with_suffix_should_succeed = true;
 constexpr auto k_hex_with_suffix_input = "0xFFU32";
-constexpr auto k_hex_with_suffix_expected = R"((integer "0xFF" "U32"))";
+inline auto const k_hex_with_suffix_expected = test_sexp::integer("0xFF", "U32");
 
 constexpr auto k_hex_large_value_should_succeed = true;
 constexpr auto k_hex_large_value_input = "0x1234_5678_90AB_CDEF";
-constexpr auto k_hex_large_value_expected = R"((integer "0x1234567890ABCDEF"))";
+inline auto const k_hex_large_value_expected = test_sexp::integer("0x1234567890ABCDEF");
 
 // Invalid hexadecimal cases
 constexpr auto k_hex_no_digits_should_succeed = false;
@@ -121,40 +122,40 @@ constexpr auto k_hex_leading_underscore_input = "0x_FF";
 
 constexpr auto k_hex_uppercase_x_should_succeed = true;
 constexpr auto k_hex_uppercase_x_input = "0XFF";
-constexpr auto k_hex_uppercase_x_expected = R"((integer "0xFF"))";
+inline auto const k_hex_uppercase_x_expected = integer("0xFF");
 
 // Binary literals
 constexpr auto k_binary_simple_should_succeed = true;
 constexpr auto k_binary_simple_input = "0b1010";
-constexpr auto k_binary_simple_expected = R"((integer "0b1010"))";
+inline auto const k_binary_simple_expected = integer("0b1010");
 
 constexpr auto k_binary_all_ones_should_succeed = true;
 constexpr auto k_binary_all_ones_input = "0b11111111";
-constexpr auto k_binary_all_ones_expected = R"((integer "0b11111111"))";
+inline auto const k_binary_all_ones_expected = integer("0b11111111");
 
 constexpr auto k_binary_all_zeros_should_succeed = true;
 constexpr auto k_binary_all_zeros_input = "0b00000000";
-constexpr auto k_binary_all_zeros_expected = R"((integer "0b00000000"))";
+inline auto const k_binary_all_zeros_expected = integer("0b00000000");
 
 constexpr auto k_binary_with_underscores_should_succeed = true;
 constexpr auto k_binary_with_underscores_input = "0b1111_0000_1010_0101";
-constexpr auto k_binary_with_underscores_expected = R"((integer "0b1111000010100101"))";
+inline auto const k_binary_with_underscores_expected = integer("0b1111000010100101");
 
 constexpr auto k_binary_single_digit_should_succeed = true;
 constexpr auto k_binary_single_digit_input = "0b1";
-constexpr auto k_binary_single_digit_expected = R"((integer "0b1"))";
+inline auto const k_binary_single_digit_expected = integer("0b1");
 
 constexpr auto k_binary_with_suffix_should_succeed = true;
 constexpr auto k_binary_with_suffix_input = "0b11111111U8";
-constexpr auto k_binary_with_suffix_expected = R"((integer "0b11111111" "U8"))";
+inline auto const k_binary_with_suffix_expected = integer("0b11111111", "U8");
 
 constexpr auto k_binary_uppercase_b_should_succeed = true;
 constexpr auto k_binary_uppercase_b_input = "0B1010";
-constexpr auto k_binary_uppercase_b_expected = R"((integer "0b1010"))";
+inline auto const k_binary_uppercase_b_expected = integer("0b1010");
 
 constexpr auto k_binary_byte_should_succeed = true;
 constexpr auto k_binary_byte_input = "0b1010_1100";
-constexpr auto k_binary_byte_expected = R"((integer "0b10101100"))";
+inline auto const k_binary_byte_expected = integer("0b10101100");
 
 // Invalid binary cases
 constexpr auto k_binary_no_digits_should_succeed = false;
@@ -172,31 +173,31 @@ constexpr auto k_binary_leading_underscore_input = "0b_1010";
 // Octal literals
 constexpr auto k_octal_simple_should_succeed = true;
 constexpr auto k_octal_simple_input = "0o755";
-constexpr auto k_octal_simple_expected = R"((integer "0o755"))";
+inline auto const k_octal_simple_expected = integer("0o755");
 
 constexpr auto k_octal_lowercase_o_should_succeed = true;
 constexpr auto k_octal_lowercase_o_input = "0o644";
-constexpr auto k_octal_lowercase_o_expected = R"((integer "0o644"))";
+inline auto const k_octal_lowercase_o_expected = integer("0o644");
 
 constexpr auto k_octal_uppercase_o_should_succeed = true;
 constexpr auto k_octal_uppercase_o_input = "0O777";
-constexpr auto k_octal_uppercase_o_expected = R"((integer "0o777"))";
+inline auto const k_octal_uppercase_o_expected = integer("0o777");
 
 constexpr auto k_octal_with_underscores_should_succeed = true;
 constexpr auto k_octal_with_underscores_input = "0o7_5_5";
-constexpr auto k_octal_with_underscores_expected = R"((integer "0o755"))";
+inline auto const k_octal_with_underscores_expected = integer("0o755");
 
 constexpr auto k_octal_zero_should_succeed = true;
 constexpr auto k_octal_zero_input = "0o0";
-constexpr auto k_octal_zero_expected = R"((integer "0o0"))";
+inline auto const k_octal_zero_expected = integer("0o0");
 
 constexpr auto k_octal_max_digit_should_succeed = true;
 constexpr auto k_octal_max_digit_input = "0o777";
-constexpr auto k_octal_max_digit_expected = R"((integer "0o777"))";
+inline auto const k_octal_max_digit_expected = integer("0o777");
 
 constexpr auto k_octal_with_suffix_should_succeed = true;
 constexpr auto k_octal_with_suffix_input = "0o644U16";
-constexpr auto k_octal_with_suffix_expected = R"((integer "0o644" "U16"))";
+inline auto const k_octal_with_suffix_expected = integer("0o644", "U16");
 
 // Invalid octal cases
 constexpr auto k_octal_no_digits_should_succeed = false;
@@ -435,7 +436,7 @@ TEST_CASE("Parse Integer") {
        .expected = std::nullopt,
        .should_succeed = k_octal_leading_underscore_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

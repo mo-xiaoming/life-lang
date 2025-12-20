@@ -1,5 +1,3 @@
-// Array Type Parser Tests
-
 #include "internal_rules.hpp"
 #include "utils.hpp"
 
@@ -149,7 +147,7 @@ TEST_CASE("Parse Array_Type") {
        .should_succeed = k_non_integer_size_should_succeed},
   };
 
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       check_parse(params);
     }

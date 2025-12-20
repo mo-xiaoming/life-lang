@@ -50,8 +50,8 @@ constexpr auto k_template_types_should_succeed = true;
 constexpr auto k_template_types_input = "struct Container { items: Vec<I32>, names: Array<String> }";
 inline auto const k_template_types_expected = test_sexp::struct_def(
     "Container",
-    {test_sexp::struct_field("items", R"((path ((type_segment "Vec" ((path ((type_segment "I32"))))))))"),
-     test_sexp::struct_field("names", R"((path ((type_segment "Array" ((path ((type_segment "String"))))))))")}
+    {test_sexp::struct_field("items", test_sexp::type_name("Vec", {test_sexp::type_name("I32")})),
+     test_sexp::struct_field("names", test_sexp::type_name("Array", {test_sexp::type_name("String")}))}
 );
 
 // Complex nested templates
@@ -61,8 +61,10 @@ inline auto const k_complex_nested_expected = test_sexp::struct_def(
     "Complex",
     {test_sexp::struct_field(
         "data",
-        "(path ((type_segment \"Map\" ((path ((type_segment \"String\"))) (path ((type_segment \"Vec\" ((path "
-        "((type_segment \"I32\")))))))))))"
+        test_sexp::type_name(
+            "Map",
+            {test_sexp::type_name("String"), test_sexp::type_name("Vec", {test_sexp::type_name("I32")})}
+        )
     )}
 );
 
@@ -145,9 +147,9 @@ constexpr auto k_generic_map_should_succeed = true;
 constexpr auto k_generic_map_input = "struct Map<K, V> { keys: Vec<K>, values: Vec<V> }";
 inline auto const k_generic_map_expected = test_sexp::struct_def(
     "Map",
-    {"(type_param (path ((type_segment \"K\"))))", "(type_param (path ((type_segment \"V\"))))"},
-    {test_sexp::struct_field("keys", R"((path ((type_segment "Vec" ((path ((type_segment "K"))))))))"),
-     test_sexp::struct_field("values", R"((path ((type_segment "Vec" ((path ((type_segment "V"))))))))")}
+    {test_sexp::type_param(test_sexp::type_name("K")), test_sexp::type_param(test_sexp::type_name("V"))},
+    {test_sexp::struct_field("keys", test_sexp::type_name("Vec", {test_sexp::type_name("K")})),
+     test_sexp::struct_field("values", test_sexp::type_name("Vec", {test_sexp::type_name("V")}))}
 );
 
 constexpr auto k_generic_empty_should_succeed = true;
@@ -276,7 +278,7 @@ TEST_CASE("Parse Struct_Def") {
        .expected = k_invalid_empty_expected,
        .should_succeed = k_invalid_empty_should_succeed},
   };
-  for (auto const& params : params_list) {
+  for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {
       INFO(params.name);
       check_parse(params);

@@ -1,45 +1,74 @@
 #include <doctest/doctest.h>
+#include "../parser/utils.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 
-TEST_CASE("Tuple types and literals in function signatures") {
-  auto const* const input = R"(
-    fn create_point(x: I32, y: I32): (I32, I32) {
-      return (x, y);
-    }
-    
-    fn swap(pair: (I32, I32)): (I32, I32) {
-      let (a, b) = pair;
-      return (b, a);
-    }
-    
-    fn nested_tuples(): ((I32, I32), (String, Bool)) {
-      return ((1, 2), ("hello", true));
-    }
-    
-    fn complex_signature(data: (Vec<I32>, Map<String, I32>)): (Bool, [I32; 4]) {
-      return (true, [1, 2, 3, 4]);
-    }
-  )";
+using namespace life_lang::parser;
+using namespace life_lang::ast;
+using namespace test_sexp;
 
-  life_lang::parser::Parser parser(input);
-  auto const module = parser.parse_module();
+TEST_CASE("Tuple types in function signatures") {
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected_return_type;
+  };
 
-  REQUIRE(module.has_value());
-  CHECK(module->items.size() == 4);
+  static Test_Case const k_test_cases[] = {
+      {.name = "simple tuple return type",
+       .input = "fn create_point(x: I32, y: I32): (I32, I32) { return (x, y); }",
+       .expected_return_type = tuple_type({type_name("I32"), type_name("I32")})},
+      {.name = "tuple parameter type",
+       .input = "fn swap(pair: (I32, I32)): (I32, I32) { let (a, b) = pair; return (b, a); }",
+       .expected_return_type = tuple_type({type_name("I32"), type_name("I32")})},
+      {.name = "nested tuples",
+       .input = "fn nested_tuples(): ((I32, I32), (String, Bool)) { return ((1, 2), (\"hello\", true)); }",
+       .expected_return_type = tuple_type(
+           {tuple_type({type_name("I32"), type_name("I32")}), tuple_type({type_name("String"), type_name("Bool")})}
+       )},
+  };
 
-  // Verify all functions parsed successfully (item.item is a Statement variant)
-  for (auto const& item : module->items) {
-    CHECK(std::holds_alternative<std::shared_ptr<life_lang::ast::Func_Def>>(item.item));
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      Parser parser(tc.input);
+      auto const func = parser.parse_func_def();
+      REQUIRE(func.has_value());
+      if (func.has_value()) {
+        CHECK(to_sexp_string(func->declaration.return_type, 0) == tc.expected_return_type);
+      }
+    }
   }
+}
 
-  // Print S-expression for verification
-  auto const sexp = life_lang::ast::to_sexp_string(*module, 2);
-  INFO("Module S-expression:\n", sexp);
+TEST_CASE("Tuple literals in expressions") {
+  struct Test_Case {
+    char const* name;
+    char const* input;
+    std::string expected;
+  };
 
-  // Verify tuple types appear in signatures
-  CHECK(sexp.find("tuple_type") != std::string::npos);
+  static Test_Case const k_test_cases[] = {
+      {.name = "simple tuple literal", .input = "(x, y)", .expected = tuple_literal({var_name("x"), var_name("y")})},
+      {.name = "nested tuple literal",
+       .input = "((1, 2), (\"hello\", true))",
+       .expected = tuple_literal(
+           {tuple_literal({integer("1"), integer("2")}), tuple_literal({string("\"hello\""), bool_literal(true)})}
+       )},
+      {.name = "tuple with array literal",
+       .input = "(true, [1, 2, 3, 4])",
+       .expected = tuple_literal(
+           {bool_literal(true), array_literal({integer("1"), integer("2"), integer("3"), integer("4")})}
+       )},
+  };
 
-  // Verify tuple literals appear in bodies
-  CHECK(sexp.find("tuple_lit") != std::string::npos);
+  for (auto const& tc: k_test_cases) {
+    SUBCASE(tc.name) {
+      Parser parser(tc.input);
+      auto const expr = parser.parse_expr();
+      REQUIRE(expr.has_value());
+      if (expr.has_value()) {
+        CHECK(to_sexp_string(*expr, 0) == tc.expected);
+      }
+    }
+  }
 }
