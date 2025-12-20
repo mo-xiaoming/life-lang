@@ -37,19 +37,20 @@ jobs:
         gcc --version
         g++ --version
 
-    - name: Install Ninja
+    - name: Install CMake & Ninja
       run: |
+        # Install ninja first to ensure it's in PATH for vcpkg
         sudo apt-get update
         sudo apt-get install -y ninja-build
-        ninja --version
-        which ninja
-        
-    - name: Install CMake from Kitware
-      run: |
+        # Install CMake from Kitware for latest version
         wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
         sudo apt-get update
         sudo apt-get install -y cmake
+        # Verify installations
         cmake --version
+        ninja --version
+        which cmake
+        which ninja
 
     - name: Install lcov
       if: ${{ inputs.coverage }}
