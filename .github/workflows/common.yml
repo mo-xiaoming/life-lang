@@ -39,11 +39,13 @@ jobs:
 
     - name: Install CMake & Ninja
       run: |
+        sudo apt-get install -y ninja-build
         wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
         sudo apt-get remove --purge --auto-remove cmake
-        sudo apt-get install -y cmake ninja-build
+        sudo apt-get install -y cmake
         cmake --version
-        echo ninja $(ninja --version)
+        ninja --version
+        which ninja
 
     - name: Install lcov
       if: ${{ inputs.coverage }}
