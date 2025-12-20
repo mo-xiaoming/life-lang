@@ -37,31 +37,23 @@ jobs:
         gcc --version
         g++ --version
 
-    - name: Install CMake & Ninja
+    - name: Install Ninja
       run: |
-        # Update package index
         sudo apt-get update
-        # Add Kitware repository
-        wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
-        sudo apt-get update
-        # Remove old cmake and install new cmake and ninja together
-        sudo apt-get remove --purge --auto-remove cmake
-        sudo apt-get install -y cmake ninja-build
-        # Verify installations and paths
-        echo "=== CMake ===" 
-        cmake --version
-        which cmake
-        echo "=== Ninja ==="
+        sudo apt-get install -y ninja-build
         ninja --version
+
+    - name: Install CMake
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: '3.31.2'
+
+    - name: Verify tools
+      run: |
+        cmake --version
+        ninja --version
+        which cmake
         which ninja
-        echo "=== GCC ==="
-        gcc --version
-        which gcc
-        echo "=== G++ ==="
-        g++ --version
-        which g++
-        echo "=== PATH ==="
-        echo $PATH
 
     - name: Install lcov
       if: ${{ inputs.coverage }}
@@ -73,11 +65,6 @@ jobs:
       run: |
         git clone https://github.com/microsoft/vcpkg.git
         ./vcpkg/bootstrap-vcpkg.sh
-        # Verify vcpkg can find cmake and ninja
-        echo "=== Verify vcpkg environment ==="
-        ./vcpkg/vcpkg version
-        which cmake
-        which ninja
     
     - name: Install LLVM
       if: ${{ !inputs.coverage }}
@@ -90,16 +77,7 @@ jobs:
         sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 10
 
     - name: Configure
-      run: |
-        echo "=== Environment before configure ==="
-        echo "PATH=$PATH"
-        echo "VCPKG_ROOT=$VCPKG_ROOT"
-        which cmake
-        which ninja
-        cmake --version
-        ninja --version
-        echo "=== Running cmake configure ==="
-        cmake --preset ${{ inputs.preset }} -DCMAKE_VERBOSE_MAKEFILE=ON
+      run: cmake --preset ${{ inputs.preset }}
 
     - name: Build
       run: cmake --build --preset ${{ inputs.preset }}
