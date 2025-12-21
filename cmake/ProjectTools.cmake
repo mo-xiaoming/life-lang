@@ -1,5 +1,5 @@
 # Clang-Tidy
-option(ENABLE_CLANG_TIDY "Enable Clang-Tidy" ON)
+option(ENABLE_CLANG_TIDY "Enable Clang-Tidy" OFF)
 
 if(ENABLE_CLANG_TIDY)
     message(STATUS "Enabling Clang-Tidy")

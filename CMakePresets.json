@@ -38,13 +38,13 @@
       }
     },
     {
-      "name": "no-clang-tidy",
+      "name": "clang-tidy",
       "inherits": "vcpkg",
       "hidden": true,
       "cacheVariables": {
         "ENABLE_CLANG_TIDY": {
           "type": "BOOL",
-          "value": "OFF"
+          "value": "ON"
         }
       }
     },
@@ -91,15 +91,7 @@
       "name": "coverage",
       "inherits": [
         "debug",
-        "coverage-flags",
-        "no-clang-tidy"
-      ]
-    },
-    {
-      "name": "dev",
-      "inherits": [
-        "debug",
-        "no-clang-tidy"
+        "coverage-flags"
       ]
     }
   ],
@@ -133,11 +125,6 @@
       "name": "coverage",
       "inherits": "common",
       "configurePreset": "coverage"
-    },
-    {
-      "name": "dev",
-      "inherits": "common",
-      "configurePreset": "dev"
     }
   ],
   "testPresets": [
@@ -174,11 +161,6 @@
     {
       "name": "coverage",
       "configurePreset": "coverage",
-      "inherits": "common"
-    },
-    {
-      "name": "dev",
-      "configurePreset": "dev",
       "inherits": "common"
     }
   ]
