@@ -10,8 +10,15 @@ Prescriptive guide for working on this C++20 compiler.
 **Next Phase**: Implementing semantic analysis (type checking, name resolution, module system)
 
 ### Build Presets
-- `dev`: Fast iteration, clang-tidy disabled
-- `debug`: Full checks enabled, slower builds
+- `debug`: Daily development, clang-tidy disabled by default for fast iteration
+- `release`: Production builds with optimizations
+
+### Running clang-tidy
+To check for clang-tidy errors, run:
+```bash
+run-clang-tidy -p .
+```
+This uses the `compile_commands.json` file copied to the repo root during CMake configuration.
 
 ### Development Philosophy: Lightweight Solutions First
 

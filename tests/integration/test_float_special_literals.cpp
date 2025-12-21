@@ -1,4 +1,5 @@
 #include <doctest/doctest.h>
+#include <array>
 #include "../parser/utils.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
@@ -14,12 +15,12 @@ TEST_CASE("Float special literals - individual expressions") {
     std::string expected;
   };
 
-  static Test_Case const k_test_cases[] = {
-      {.name = "nan literal", .input = "nan", .expected = float_literal("nan")},
-      {.name = "inf literal", .input = "inf", .expected = float_literal("inf")},
-      {.name = "negative inf", .input = "-inf", .expected = unary_expr("-", float_literal("inf"))},
-      {.name = "nan with F32 suffix", .input = "nanF32", .expected = float_literal("nan", "F32")},
-      {.name = "inf with F64 suffix", .input = "infF64", .expected = float_literal("inf", "F64")},
+  static auto const k_test_cases = std::array{
+      Test_Case{.name = "nan literal", .input = "nan", .expected = float_literal("nan")},
+      Test_Case{.name = "inf literal", .input = "inf", .expected = float_literal("inf")},
+      Test_Case{.name = "negative inf", .input = "-inf", .expected = unary_expr("-", float_literal("inf"))},
+      Test_Case{.name = "nan with F32 suffix", .input = "nanF32", .expected = float_literal("nan", "F32")},
+      Test_Case{.name = "inf with F64 suffix", .input = "infF64", .expected = float_literal("inf", "F64")},
   };
 
   for (auto const& tc: k_test_cases) {

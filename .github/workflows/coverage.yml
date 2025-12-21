@@ -1,29 +1,12 @@
 name: Coverage
 
 on:
-  #schedule:
-  #  - cron: '0 21 * * FRI' # Run every Friday at 21:00 UTC
   workflow_dispatch:       # Allows manual triggering of the workflow
   push:
     branches: [ "master" ]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'CMakeLists.txt'
-      - 'CMakePresets.json'
-      - 'vcpkg.json'
-      - '.github/workflows/**'
   pull_request:
     branches: [ "master" ]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'CMakeLists.txt'
-      - 'CMakePresets.json'
-      - 'vcpkg.json'
-      - '.github/workflows/**'
 
-# This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
   group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
   cancel-in-progress: true

@@ -13,6 +13,10 @@ on:
         required: false
         type: boolean
         default: false
+      clang-tidy:
+        required: false
+        type: boolean
+        default: false
     secrets:
       CODECOV_TOKEN:
         required: false
@@ -80,9 +84,15 @@ jobs:
       run: cmake --preset ${{ inputs.preset }}
 
     - name: Build
+      if: ${{ !inputs.clang-tidy }}
       run: cmake --build --preset ${{ inputs.preset }}
 
+    - name: Clang-Tidy
+      if: ${{ inputs.clang-tidy }}
+      run: run-clang-tidy -p . -quiet -extra-arg=-Wno-unknown-warning-option -j $(nproc)
+
     - name: Test
+      if: ${{ !inputs.clang-tidy }}
       run: ctest --preset ${{ inputs.preset }}
 
     - name: Generate coverage report
@@ -101,7 +111,7 @@ jobs:
         fail_ci_if_error: true
 
     - name: Upload Test Results
-      if: always()
+      if: ${{ always() && !inputs.clang-tidy }}
       uses: actions/upload-artifact@v4
       with:
         name: test-result-${{ inputs.gcc-version }}-${{ inputs.preset }}
