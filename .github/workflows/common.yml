@@ -37,13 +37,23 @@ jobs:
         gcc --version
         g++ --version
 
-    - name: Install CMake & Ninja
+    - name: Install Ninja
       run: |
-        wget https://apt.kitware.com/kitware-archive.sh -O - | sudo bash
-        sudo apt-get remove --purge --auto-remove cmake
-        sudo apt-get install -y cmake ninja-build
+        sudo apt-get update
+        sudo apt-get install -y ninja-build
+        ninja --version
+
+    - name: Install CMake
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: '3.31.2'
+
+    - name: Verify tools
+      run: |
         cmake --version
-        echo ninja $(ninja --version)
+        ninja --version
+        which cmake
+        which ninja
 
     - name: Install lcov
       if: ${{ inputs.coverage }}
@@ -54,7 +64,7 @@ jobs:
     - name: Setup vcpkg
       run: |
         git clone https://github.com/microsoft/vcpkg.git
-        ./vcpkg/bootstrap-vcpkg.sh 
+        ./vcpkg/bootstrap-vcpkg.sh
     
     - name: Install LLVM
       if: ${{ !inputs.coverage }}
