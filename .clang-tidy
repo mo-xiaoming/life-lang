@@ -25,6 +25,7 @@ Checks: >
   -hicpp-avoid-c-arrays,
   -cppcoreguidelines-avoid-c-arrays,
   -modernize-avoid-c-arrays,
+  -portability-avoid-pragma-once,
   -clang-analyzer-cplusplus.NewDelete
 HeaderFilterRegex: '(src|tests)/.*\.(hpp|cpp)$'
 CheckOptions:

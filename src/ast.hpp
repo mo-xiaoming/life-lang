@@ -91,6 +91,7 @@ struct Tuple_Type {
 struct Type_Name : std::variant<Path_Type, Function_Type, Array_Type, Tuple_Type> {
   static constexpr std::string_view k_name = "Type_Name";
   using Base_Type = std::variant<Path_Type, Function_Type, Array_Type, Tuple_Type>;
+  Type_Name() = default;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 

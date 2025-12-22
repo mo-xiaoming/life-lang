@@ -49,6 +49,9 @@
         "echo \"  CC:        $CC\"",
         "echo \"  CXX:       $CXX\"",
         "echo '================================================'"
+      ],
+      "run-tidy": [
+        "run-clang-tidy -p=. -warnings-as-errors=* -quiet -extra-arg=-Wno-unknown-warning-option -j $(nproc)"
       ]
     }
   },
