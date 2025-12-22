@@ -52,8 +52,8 @@ enum Result<T, E> {
 }
 
 // Trait with generic bounds and where clause
-trait Processor<T> 
-where 
+trait Processor<T>
+where
     T: Display + Clone
 {
     fn process(self, item: T): Result<T, String>;
@@ -97,22 +97,112 @@ fn process_result<T: Display>(result: Result<T, String>): I32 {
 fn main(args: Array<String>): I32 {
     let point = Point { x: 3, y: 4 };
     let dist = point.distance();
-    
+
     let result = if dist > 5.0 {
         Result.Ok(point)
     } else {
         Result.Err("Too close")
     };
-    
+
     return process_result(result);
 }
 ```
 
-## How to build
+## Development Setup
 
-Make sure you have vcpkg installed. You can follow the official setup guide [here](https://github.com/microsoft/vcpkg#quick-start).
+This project uses **[Nix flakes](https://nixos.org/manual/nix/stable/)** for reproducible development environments. All dependencies (GCC, Clang, CMake, Ninja, vcpkg, etc.) are managed automatically with exact version pinning.
+
+### Automated Setup (Recommended)
+
+Run the setup script to install Nix, direnv, and all dependencies:
 
 ```bash
+git clone https://github.com/mo-xiaoming/life-lang.git
+cd life-lang
+./scripts/setup-dev-environment.sh
+```
+
+The script will:
+- ✅ Install Nix package manager with flakes support
+- ✅ Install direnv + nix-direnv for automatic environment activation
+- ✅ Download and build all development tools (~760 MB, cached)
+- ✅ Configure shell integration
+- ✅ Install VSCode extensions (optional)
+
+**After installation:**
+- Restart your shell: `source ~/.bashrc` (or `~/.zshrc`)
+- Allow direnv: `direnv allow` (if using direnv)
+- Start coding! Environment auto-activates on `cd`
+
+### Manual Setup
+
+If you prefer manual installation:
+
+1. **Install Nix with flakes:**
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+   ```
+
+2. **Clone and enter environment:**
+   ```bash
+   git clone https://github.com/mo-xiaoming/life-lang.git
+   cd life-lang
+   nix develop  # Enter development shell
+   ```
+
+3. **Optional: Install direnv + nix-direnv for auto-activation:**
+   ```bash
+   # Install direnv and nix-direnv
+   nix profile install nixpkgs#direnv nixpkgs#nix-direnv
+
+   # Configure direnv shell hook
+   echo 'eval "$(direnv hook bash)"' >> ~/.bashrc  # or ~/.zshrc
+
+   # Configure nix-direnv integration
+   mkdir -p ~/.config/direnv
+   echo 'source $HOME/.nix-profile/share/nix-direnv/direnvrc' >> ~/.config/direnv/direnvrc
+
+   # Allow direnv for this project
+   direnv allow
+   ```
+
+### VSCode Setup
+
+1. Open the repo in VSCode
+2. Install recommended extensions when prompted
+3. Includes: clangd, CMake Tools, Nix IDE, direnv, Error Lens, and more
+4. All settings (LSP, formatting, etc.) apply automatically
+5. Terminal automatically uses Nix environment (with direnv extension)
+
+### Building
+
+```bash
+# Configuration and build
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug
+
+# Helper scripts (in PATH automatically)
+show-versions      # Display all tool versions
+run-tidy          # Run clang-tidy on all files
+generate-coverage # Generate code coverage report
+```
+
+### Tool Versions
+
+All tools are pinned via `flake.lock` for reproducibility:
+- GCC 15.2.0 (full package with gcov)
+- Clang 21.1.2
+- CMake 3.31.2
+- vcpkg 2025.12.12
+- See `show-versions` for complete list
+
+**Note:** CI uses identical Nix environment - no version mismatches!
+
+## How to build
+
+```bash
+# Inside Nix environment (or with direnv auto-activation)
 cmake --preset debug
 cmake --build --preset debug
 ctest --preset debug
@@ -121,7 +211,7 @@ ctest --preset debug
 echo 'fn main(args: Std.Array<Std.String>): I32 {
     Std.print("Hello, world!");
     return 0;
-}' | ./build/dev/debug/lifec -
+}' | ./build/debug/src/lifec -
 
 # clang style error message
 echo 'fn main(): I32 {
@@ -129,7 +219,7 @@ echo 'fn main(): I32 {
 }
 
 fn broken_syntax_here
-}' | ./build/dev/debug/lifec -
+}' | ./build/debug/src/lifec -
 <stdin>:5:1: error: Failed to parse module: Expecting: '(' here:
     fn broken_syntax_here
     ^

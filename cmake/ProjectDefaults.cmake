@@ -62,7 +62,8 @@ set_target_properties(default_compile_features PROPERTIES
 add_library(default_compile_options INTERFACE)
 
 # remove -D_GLIBCXX_DEBUG, it causes other libraries, like gtest, built without these flags crash
-target_compile_options(default_compile_options INTERFACE "$<$<NOT:$<CONFIG:Release>>:-U_FORTIFY_SOURCE;-D_GLIBCXX_ASSERTIONS;-O0;-ggdb3;-fno-omit-frame-pointer;-fno-inline;-fno-sanitize-recover=all>")
+# -Og: optimize for debugging (enables _FORTIFY_SOURCE while maintaining debuggability)
+target_compile_options(default_compile_options INTERFACE "$<$<NOT:$<CONFIG:Release>>:-D_GLIBCXX_ASSERTIONS;-Og;-ggdb3;-fno-omit-frame-pointer;-fno-inline;-fno-sanitize-recover=all>")
 
 # target_compile_options(default_compile_options INTERFACE -fno-exceptions -fno-rtti)
 option(ENABLE_NATIVE_OPT "Enable -march=native for Release builds" ON)

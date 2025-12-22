@@ -16,9 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         preset: [ "debug", "release" ]
-        gcc-version: [14]
     uses: ./.github/workflows/common.yml
     with:
-      gcc-version: ${{ matrix.gcc-version }}
       preset: ${{ matrix.preset }}
       clang-tidy: true
