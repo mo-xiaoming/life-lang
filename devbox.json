@@ -1,0 +1,59 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.6/.schema/devbox.schema.json",
+  "packages": [
+    "gcc@latest",
+    "clang@latest",
+    "cmake@latest",
+    "ninja@latest",
+    "lcov@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'life-lang development environment ready'",
+      "export DEVBOX_SHELL_ENABLED=1",
+      "# Bootstrap vcpkg if not already present",
+      "if [ ! -d \"$PWD/vcpkg\" ]; then",
+      "  echo 'vcpkg not found. Cloning and bootstrapping...'",
+      "  VCPKG_VERSION=$(cat .vcpkg-version)",
+      "  git clone https://github.com/microsoft/vcpkg.git",
+      "  cd vcpkg && git checkout $VCPKG_VERSION && ./bootstrap-vcpkg.sh && cd ..",
+      "fi",
+      "# Set VCPKG_ROOT and prepend to PATH",
+      "if [ -d \"$PWD/vcpkg\" ]; then",
+      "  export VCPKG_ROOT=\"$PWD/vcpkg\"",
+      "  export PATH=\"$VCPKG_ROOT:$PATH\"",
+      "fi"
+    ],
+    "scripts": {
+      "show-versions": [
+        "echo '================================================'",
+        "echo 'Tool Versions and Paths:'",
+        "echo '================================================'",
+        "echo \"  GCC:       $(gcc --version | head -n1)\"",
+        "echo \"    Path:    $(which gcc)\"",
+        "echo \"  G++:       $(g++ --version | head -n1)\"",
+        "echo \"    Path:    $(which g++)\"",
+        "echo \"  Clang:     $(clang --version | head -n1)\"",
+        "echo \"    Path:    $(which clang)\"",
+        "echo \"  CMake:     $(cmake --version | head -n1)\"",
+        "echo \"    Path:    $(which cmake)\"",
+        "echo \"  Ninja:     $(ninja --version)\"",
+        "echo \"    Path:    $(which ninja)\"",
+        "echo \"  lcov:      $(lcov --version | head -n1)\"",
+        "echo \"    Path:    $(which lcov)\"",
+        "echo \"  vcpkg:     $(vcpkg version 2>/dev/null | head -n1 || echo 'installed')\"",
+        "echo \"    Path:    $(which vcpkg)\"",
+        "echo \"    Root:    $VCPKG_ROOT\"",
+        "echo '================================================'",
+        "echo 'Environment Variables:'",
+        "echo \"  CC:        $CC\"",
+        "echo \"  CXX:       $CXX\"",
+        "echo '================================================'"
+      ]
+    }
+  },
+  "env": {
+    "CC": "gcc",
+    "CXX": "g++"
+  }
+}

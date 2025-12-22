@@ -52,8 +52,8 @@ enum Result<T, E> {
 }
 
 // Trait with generic bounds and where clause
-trait Processor<T> 
-where 
+trait Processor<T>
+where
     T: Display + Clone
 {
     fn process(self, item: T): Result<T, String>;
@@ -97,22 +97,72 @@ fn process_result<T: Display>(result: Result<T, String>): I32 {
 fn main(args: Array<String>): I32 {
     let point = Point { x: 3, y: 4 };
     let dist = point.distance();
-    
+
     let result = if dist > 5.0 {
         Result.Ok(point)
     } else {
         Result.Err("Too close")
     };
-    
+
     return process_result(result);
 }
 ```
 
+## Development Setup
+
+This project uses **[Devbox](https://www.jetify.com/devbox)** for reproducible development environments. All dependencies (GCC, Clang, CMake, Ninja, etc.) are managed automatically.
+
+### Quick Start
+
+1. **[Install Devbox](https://www.jetify.com/devbox/docs/installing_devbox/)** (one-time setup)
+2. **Clone the repo:**
+   ```bash
+   git clone https://github.com/mo-xiaoming/life-lang.git
+   cd life-lang
+   ```
+
+3. **Environment activation:**
+   - **Option A: Auto-activation with direnv (Recommended)**
+     - [Install direnv](https://direnv.net/docs/installation.html) (one-time)
+   - **Option B: Manual activation**
+     ```bash
+     devbox shell  # Enter the dev environment manually
+     ```
+
+4. **VSCode setup** (optional):
+   - Open the repo in VSCode
+   - When prompted, click **"Install Recommended Extensions"**
+   - Installs: clangd, CMake Tools, Devbox, direnv, Error Lens, and more
+   - All settings (LSP, formatting, etc.) apply automatically
+   - **With direnv extension:** VSCode terminal automatically uses devbox environment
+
+4. **Build and test:**
+   ```bash
+   devbox run configure debug  # or: cmake --preset debug
+   devbox run build debug      # or: cmake --build --preset debug
+   devbox run test debug       # or: ctest --preset debug
+   devbox run lint             # or: run-clang-tidy -p .
+   ```
+
+### Alternative: System Tools
+
+Without Devbox, install manually:
+- GCC 15+ or latest
+- Clang 20+ or latest
+- CMake 3.31+
+- Ninja
+- vcpkg
+
+**Warning:** CI uses Devbox, so tool version mismatches may cause non-reproducible failures.
+
 ## How to build
 
-Make sure you have vcpkg installed. You can follow the official setup guide [here](https://github.com/microsoft/vcpkg#quick-start).
-
 ```bash
+# With Devbox (recommended)
+devbox shell
+devbox run configure && devbox run build && devbox run test
+
+# Or use cmake directly (works with or without Devbox)
 cmake --preset debug
 cmake --build --preset debug
 ctest --preset debug
