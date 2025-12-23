@@ -31,19 +31,6 @@ jobs:
     - name: Cache Nix store
       uses: DeterminateSystems/magic-nix-cache-action@v8
 
-    - name: Set vcpkg version
-      run: echo "VCPKG_VERSION=$(cat .vcpkg-version)" >> $GITHUB_ENV
-
-    - name: Cache vcpkg
-      uses: actions/cache@v4
-      with:
-        path: |
-          vcpkg
-          ~/.cache/vcpkg
-        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_VERSION }}
-        restore-keys: |
-          ${{ runner.os }}-vcpkg-
-
     - name: Show tool versions
       run: nix develop --command show-versions
 
