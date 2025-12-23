@@ -21,9 +21,6 @@ on:
 jobs:
   setup-and-build:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      id-token: write  # For magic-nix-cache
 
     steps:
     - uses: actions/checkout@v4
