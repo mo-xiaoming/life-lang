@@ -1,4 +1,6 @@
-find_package(doctest CONFIG REQUIRED)
+# Vendored doctest (header-only, excluded from coverage and clang-tidy)
+add_library(doctest INTERFACE)
+target_include_directories(doctest SYSTEM INTERFACE ${CMAKE_SOURCE_DIR}/third_party)
 
 add_executable(tests)
 
@@ -6,7 +8,7 @@ target_sources(tests
     PRIVATE
         # Main test runner
         test_main.cpp
-        
+
         # Unit tests - test semantic boundaries only (11 exposed rules)
         parser/test_array_literal.cpp
         parser/test_array_type.cpp
@@ -60,7 +62,7 @@ target_sources(tests
         parser/test_unit_type.cpp
         parser/test_where_clause.cpp
         parser/test_while_expr.cpp
-        
+
         # Integration tests - test complete parse_module workflows
         integration/test_array_type_in_functions.cpp
         integration/test_binary_literals.cpp
@@ -79,8 +81,8 @@ target_sources(tests
 target_link_libraries(tests
     PRIVATE
         life-lang
-        doctest::doctest
+        doctest
 )
 
-include(doctest)
-doctest_discover_tests(tests)
+# Add test to CTest
+add_test(NAME all_tests COMMAND tests)

@@ -23,7 +23,7 @@
         # Custom script to generate coverage
         generate-coverage = pkgs.writeShellScriptBin "generate-coverage" ''
           ${pkgs.lcov}/bin/lcov --gcov-tool ${gcc-unwrapped}/bin/gcov --capture --directory . --output-file coverage.info -rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch --demangle-cpp
-          ${pkgs.lcov}/bin/lcov --remove coverage.info --ignore-errors unused "/usr/*" "/nix/store/*" "*/tests/*" "*/build/*" --output-file coverage.info
+          ${pkgs.lcov}/bin/lcov --remove coverage.info --ignore-errors unused "/usr/*" "/nix/store/*" "*/tests/*" "*/build/*" "*/third_party/*" --output-file coverage.info
           ${pkgs.lcov}/bin/lcov --list coverage.info
         '';
 
@@ -48,9 +48,6 @@
           echo "    Path:    $(which ninja)"
           echo "  lcov:      $(lcov --version | head -n1)"
           echo "    Path:    $(which lcov)"
-          echo "  vcpkg:     $(vcpkg version 2>/dev/null | head -n1 || echo 'installed')"
-          echo "    Path:    $(command -v vcpkg || echo 'not in PATH')"
-          echo "    Root:    ''${VCPKG_ROOT:-not set}"
           echo '================================================'
           echo 'Environment Variables:'
           echo "  CC:        $CC"
@@ -107,20 +104,6 @@
             # Set compiler environment variables to use GCC 15
             export CC="${pkgs.gcc15}/bin/gcc"
             export CXX="${pkgs.gcc15}/bin/g++"
-
-            # Bootstrap vcpkg if not already present
-            if [ ! -d "$PWD/vcpkg" ]; then
-              echo 'vcpkg not found. Cloning and bootstrapping...'
-              VCPKG_VERSION=$(cat .vcpkg-version)
-              git clone https://github.com/microsoft/vcpkg.git
-              cd vcpkg && git checkout $VCPKG_VERSION && ./bootstrap-vcpkg.sh && cd ..
-            fi
-
-            # Set VCPKG_ROOT and prepend to PATH
-            if [ -d "$PWD/vcpkg" ]; then
-              export VCPKG_ROOT="$PWD/vcpkg"
-              export PATH="$VCPKG_ROOT:$PATH"
-            fi
           '';
         };
       }

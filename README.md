@@ -110,7 +110,7 @@ fn main(args: Array<String>): I32 {
 
 ## Development Setup
 
-This project uses **[Nix flakes](https://nixos.org/manual/nix/stable/)** for reproducible development environments. All dependencies (GCC, Clang, CMake, Ninja, vcpkg, etc.) are managed automatically with exact version pinning.
+This project uses **[Nix flakes](https://nixos.org/manual/nix/stable/)** for reproducible development environments. All dependencies (GCC, Clang, CMake, Ninja, etc.) are managed automatically with exact version pinning.
 
 ### Automated Setup (Recommended)
 
@@ -194,7 +194,6 @@ All tools are pinned via `flake.lock` for reproducibility:
 - GCC 15.2.0 (full package with gcov)
 - Clang 21.1.2
 - CMake 3.31.2
-- vcpkg 2025.12.12
 - See `show-versions` for complete list
 
 **Note:** CI uses identical Nix environment - no version mismatches!

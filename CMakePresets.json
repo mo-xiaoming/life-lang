@@ -21,14 +21,8 @@
       }
     },
     {
-      "name": "vcpkg",
-      "inherits": "common",
-      "hidden": true,
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-    },
-    {
       "name": "asan-ubsan-flags",
-      "inherits": "vcpkg",
+      "inherits": "common",
       "hidden": true,
       "cacheVariables": {
         "ENABLE_ASAN_AND_UBSAN": {
@@ -39,7 +33,7 @@
     },
     {
       "name": "clang-tidy",
-      "inherits": "vcpkg",
+      "inherits": "common",
       "hidden": true,
       "cacheVariables": {
         "ENABLE_CLANG_TIDY": {
@@ -50,7 +44,7 @@
     },
     {
       "name": "coverage-flags",
-      "inherits": "vcpkg",
+      "inherits": "common",
       "hidden": true,
       "cacheVariables": {
         "ENABLE_COVERAGE": {
@@ -61,14 +55,14 @@
     },
     {
       "name": "debug",
-      "inherits": "vcpkg",
+      "inherits": "common",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "release",
-      "inherits": "vcpkg",
+      "inherits": "common",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
