@@ -3,9 +3,6 @@ name: Common Steps
 on:
   workflow_call:
     inputs:
-      gcc-version:
-        required: true
-        type: string
       preset:
         required: true
         type: string
@@ -21,86 +18,56 @@ on:
       CODECOV_TOKEN:
         required: false
 
-env:
-  VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-
 jobs:
   setup-and-build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write  # For magic-nix-cache
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup GCC ${{ inputs.gcc-version }}
-      run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-        sudo apt-get update
-        sudo apt-get install -y gcc-${{ inputs.gcc-version }} g++-${{ inputs.gcc-version }}
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ inputs.gcc-version }} 10
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ inputs.gcc-version }} 10
-        gcc --version
-        g++ --version
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@v14
 
-    - name: Install Ninja
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build
-        ninja --version
+    - name: Cache Nix store
+      uses: DeterminateSystems/magic-nix-cache-action@v8
 
-    - name: Install CMake
-      uses: jwlawson/actions-setup-cmake@v2
+    - name: Set vcpkg version
+      run: echo "VCPKG_VERSION=$(cat .vcpkg-version)" >> $GITHUB_ENV
+
+    - name: Cache vcpkg
+      uses: actions/cache@v4
       with:
-        cmake-version: '3.31.2'
+        path: |
+          vcpkg
+          ~/.cache/vcpkg
+        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_VERSION }}
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-
 
-    - name: Verify tools
-      run: |
-        cmake --version
-        ninja --version
-        which cmake
-        which ninja
-
-    - name: Install lcov
-      if: ${{ inputs.coverage }}
-      run: |
-        sudo apt-get install -y lcov
-        lcov --version
-
-    - name: Setup vcpkg
-      run: |
-        git clone https://github.com/microsoft/vcpkg.git
-        ./vcpkg/bootstrap-vcpkg.sh
-    
-    - name: Install LLVM
-      if: ${{ !inputs.coverage }}
-      run: |
-        sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-        sudo apt-get update
-        sudo apt install -y clang-18 clang-tidy-18
-        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 10
-        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 10
-        sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 10
+    - name: Show tool versions
+      run: nix develop --command show-versions
 
     - name: Configure
-      run: cmake --preset ${{ inputs.preset }}
+      run: nix develop --command cmake --preset ${{ inputs.preset }}
 
     - name: Build
       if: ${{ !inputs.clang-tidy }}
-      run: cmake --build --preset ${{ inputs.preset }}
+      run: nix develop --command cmake --build --preset ${{ inputs.preset }}
 
     - name: Clang-Tidy
       if: ${{ inputs.clang-tidy }}
-      run: run-clang-tidy -p . -quiet -extra-arg=-Wno-unknown-warning-option -j $(nproc)
+      run: nix develop --command run-tidy
 
     - name: Test
       if: ${{ !inputs.clang-tidy }}
-      run: ctest --preset ${{ inputs.preset }}
+      run: nix develop --command ctest --preset ${{ inputs.preset }}
 
     - name: Generate coverage report
       if: ${{ inputs.coverage }}
-      run: |
-        lcov --capture --directory . --output-file coverage.info -rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch --demangle-cpp
-        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/build/*' --output-file coverage.info
-        lcov --list coverage.info
+      run: nix develop --command generate-coverage
 
     - name: Upload coverage to Codecov
       if: ${{ inputs.coverage }}
@@ -114,5 +81,5 @@ jobs:
       if: ${{ always() && !inputs.clang-tidy }}
       uses: actions/upload-artifact@v4
       with:
-        name: test-result-${{ inputs.gcc-version }}-${{ inputs.preset }}
+        name: test-result-${{ inputs.preset }}
         path: build/${{ inputs.preset }}/Testing/Temporary/LastTest.log

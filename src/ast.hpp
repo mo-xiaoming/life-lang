@@ -91,7 +91,7 @@ struct Tuple_Type {
 struct Type_Name : std::variant<Path_Type, Function_Type, Array_Type, Tuple_Type> {
   static constexpr std::string_view k_name = "Type_Name";
   using Base_Type = std::variant<Path_Type, Function_Type, Array_Type, Tuple_Type>;
-  using Base_Type::Base_Type;
+  using Base_Type::Base_Type;  // NOLINT(modernize-use-equals-default,hicpp-use-equals-default)
   using Base_Type::operator=;
 
   // Helper to access segments when Type_Name holds a Path_Type
@@ -177,6 +177,7 @@ struct String {
 // Example: "result: {x + 1}" has parts: ["result: ", <expr: x+1>, ""]
 struct String_Interp_Part : std::variant<std::string, std::shared_ptr<Expr>> {
   using Base_Type = std::variant<std::string, std::shared_ptr<Expr>>;
+  String_Interp_Part() = default;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
   static constexpr std::string_view k_name = "String_Interp_Part";
@@ -393,7 +394,8 @@ struct Expr : std::variant<
       Integer,
       Float,
       Char>;
-  using Base_Type::Base_Type;
+  Expr() = default;
+  using Base_Type::Base_Type;  // NOLINT(modernize-use-equals-default,hicpp-use-equals-default)
   using Base_Type::operator=;
 };
 
@@ -524,6 +526,7 @@ struct Statement : std::variant<
       std::shared_ptr<While_Statement>,
       std::shared_ptr<For_Statement>,
       std::shared_ptr<Block>>;
+  Statement() = default;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -636,7 +639,8 @@ struct Pattern : std::variant<
       Tuple_Pattern,
       Enum_Pattern,
       Or_Pattern>;
-  using Base_Type::Base_Type;
+  Pattern() = default;
+  using Base_Type::Base_Type;  // NOLINT(modernize-use-equals-default,hicpp-use-equals-default)
   using Base_Type::operator=;
 };
 
@@ -774,6 +778,7 @@ struct Struct_Variant {
 struct Enum_Variant : std::variant<Unit_Variant, Tuple_Variant, Struct_Variant> {
   static constexpr std::string_view k_name = "Enum_Variant";
   using Base_Type = std::variant<Unit_Variant, Tuple_Variant, Struct_Variant>;
+  Enum_Variant() = default;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };

@@ -1,6 +1,7 @@
 #include "internal_rules.hpp"
 
 #include <doctest/doctest.h>
+#include <array>
 
 namespace {
 
@@ -40,16 +41,24 @@ TEST_CASE("Where clauses in function declarations") {
     char const* input;
   };
 
-  static constexpr Test_Case k_test_cases[] = {
-      {.name = "simple where clause",
-       .input = "fn process<T>(items: Vec<T>): Result where T: Display { return Result {}; }"},
-      {.name = "multiple bounds on one type",
-       .input = "fn compare<T>(a: T, b: T): Bool where T: Eq + Ord { return true; }"},
-      {.name = "multiple predicates",
-       .input = "fn transform<T, U>(input: T): U where T: Display, U: Clone { return input; }"},
-      {.name = "inline bounds and where clause",
-       .input = "fn process<T: Display, U>(a: T, b: U): Unit where U: Clone + Eq { return Unit {}; }"},
-      {.name = "no where clause", .input = "fn process<T: Display>(item: T): Unit { return Unit {}; }"},
+  static constexpr auto k_test_cases = std::array{
+      Test_Case{
+          .name = "simple where clause",
+          .input = "fn process<T>(items: Vec<T>): Result where T: Display { return Result {}; }"
+      },
+      Test_Case{
+          .name = "multiple bounds on one type",
+          .input = "fn compare<T>(a: T, b: T): Bool where T: Eq + Ord { return true; }"
+      },
+      Test_Case{
+          .name = "multiple predicates",
+          .input = "fn transform<T, U>(input: T): U where T: Display, U: Clone { return input; }"
+      },
+      Test_Case{
+          .name = "inline bounds and where clause",
+          .input = "fn process<T: Display, U>(a: T, b: U): Unit where U: Clone + Eq { return Unit {}; }"
+      },
+      Test_Case{.name = "no where clause", .input = "fn process<T: Display>(item: T): Unit { return Unit {}; }"},
   };
 
   for (auto const& test: k_test_cases) {
@@ -70,10 +79,10 @@ TEST_CASE("Where clauses in struct definitions") {
     char const* input;
   };
 
-  static constexpr Test_Case k_test_cases[] = {
-      {.name = "simple where clause", .input = "struct Container<T> where T: Clone { value: T }"},
-      {.name = "multiple predicates", .input = "struct Pair<T, U> where T: Display, U: Clone { first: T, second: U }"},
-      {.name = "empty struct with where", .input = "struct Marker<T> where T: Send {}"},
+  static constexpr auto k_test_cases = std::array{
+      Test_Case{.name = "simple where clause", .input = "struct Container<T> where T: Clone { value: T }"},
+      Test_Case{.name = "multiple predicates", .input = "struct Pair<T, U> where T: Display, U: Clone { first: T, second: U }"},
+      Test_Case{.name = "empty struct with where", .input = "struct Marker<T> where T: Send {}"},
   };
 
   for (auto const& test: k_test_cases) {
@@ -94,9 +103,9 @@ TEST_CASE("Where clauses in enum definitions") {
     char const* input;
   };
 
-  static constexpr Test_Case k_test_cases[] = {
-      {.name = "simple where clause", .input = "enum Option<T> where T: Clone { Some(T), None }"},
-      {.name = "multiple bounds", .input = "enum Result<T, E> where T: Display + Clone, E: Debug { Ok(T), Err(E) }"},
+  static constexpr auto k_test_cases = std::array{
+      Test_Case{.name = "simple where clause", .input = "enum Option<T> where T: Clone { Some(T), None }"},
+      Test_Case{.name = "multiple bounds", .input = "enum Result<T, E> where T: Display + Clone, E: Debug { Ok(T), Err(E) }"},
   };
 
   for (auto const& test: k_test_cases) {
@@ -117,10 +126,10 @@ TEST_CASE("Where clauses in impl blocks") {
     char const* input;
   };
 
-  static constexpr Test_Case k_test_cases[] = {
-      {.name = "simple where clause",
+  static constexpr auto k_test_cases = std::array{
+      Test_Case{.name = "simple where clause",
        .input = "impl<T> Container<T> where T: Clone { fn new(): Container<T> { return Container {}; } }"},
-      {.name = "multiple predicates",
+      Test_Case{.name = "multiple predicates",
        .input = "impl<T, U> Pair<T, U> where T: Display, U: Clone { fn first(self): T { return self.first; } }"},
   };
 
@@ -142,9 +151,9 @@ TEST_CASE("Where clauses in trait definitions") {
     char const* input;
   };
 
-  static constexpr Test_Case k_test_cases[] = {
-      {.name = "simple where clause", .input = "trait Processor<T> where T: Clone { fn process(item: T): Result; }"},
-      {.name = "complex where clause",
+  static constexpr auto k_test_cases = std::array{
+      Test_Case{.name = "simple where clause", .input = "trait Processor<T> where T: Clone { fn process(item: T): Result; }"},
+      Test_Case{.name = "complex where clause",
        .input = "trait Converter<T, U> where T: Display + Clone, U: Debug { fn convert(input: T): U; }"},
   };
 
@@ -166,12 +175,16 @@ TEST_CASE("Where clauses in trait implementations") {
     char const* input;
   };
 
-  static constexpr Test_Case k_test_cases[] = {
-      {.name = "simple where clause",
-       .input = "impl<T> Display for Container<T> where T: Display { fn fmt(self): String { return \"\"; } }"},
-      {.name = "multiple predicates",
-       .input = "impl<T, U> Convert<U> for Wrapper<T> where T: Display, U: Clone { fn convert(self): U { return "
-                "self.value; } }"},
+  static constexpr auto k_test_cases = std::array{
+      Test_Case{
+          .name = "simple where clause",
+          .input = "impl<T> Display for Container<T> where T: Display { fn fmt(self): String { return \"\"; } }"
+      },
+      Test_Case{
+          .name = "multiple predicates",
+          .input = "impl<T, U> Convert<U> for Wrapper<T> where T: Display, U: Clone { fn convert(self): U { return "
+                   "self.value; } }"
+      },
   };
 
   for (auto const& test: k_test_cases) {
