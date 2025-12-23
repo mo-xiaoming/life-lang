@@ -63,12 +63,7 @@ jobs:
 
     - name: Generate coverage report
       if: ${{ inputs.coverage }}
-      run: |
-        devbox run -- bash -c '
-          lcov --capture --directory . --output-file coverage.info -rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch --demangle-cpp
-          lcov --remove coverage.info "/usr/*" "*/tests/*" "*/build/*" --output-file coverage.info
-          lcov --list coverage.info
-        '
+      run: devbox run generate-coverage
 
     - name: Upload coverage to Codecov
       if: ${{ inputs.coverage }}

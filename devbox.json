@@ -52,6 +52,11 @@
       ],
       "run-tidy": [
         "run-clang-tidy -p=. -warnings-as-errors=* -quiet -extra-arg=-Wno-unknown-warning-option -j $(nproc)"
+      ],
+      "generate-coverage": [
+        "lcov --gcov-tool gcov --capture --directory . --output-file coverage.info -rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch --demangle-cpp",
+        "lcov --remove coverage.info \"/usr/*\" \"*/tests/*\" \"*/build/*\" --output-file coverage.info",
+        "lcov --list coverage.info"
       ]
     }
   },
