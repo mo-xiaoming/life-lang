@@ -12,9 +12,6 @@ concurrency:
 
 jobs:
   clang-tidy:
-    permissions:
-      contents: read
-      id-token: write
     strategy:
       fail-fast: false
       matrix:
