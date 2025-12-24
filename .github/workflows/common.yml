@@ -28,7 +28,18 @@ jobs:
     - name: Install Nix
       uses: DeterminateSystems/nix-installer-action@v14
 
+    # Option A: Use Cachix
+    # Offloads Nix cache from GitHub's 10GB limit
+    - name: Setup Cachix
+      uses: cachix/cachix-action@v15
+      with:
+        name: life-lang
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    # Option B: Fallback to magic-nix-cache if CACHIX_AUTH_TOKEN not set
+    # Uses GitHub's cache (10GB limit)
     - name: Cache Nix store
+      if: ${{ secrets.CACHIX_AUTH_TOKEN == '' }}
       uses: DeterminateSystems/magic-nix-cache-action@v8
 
     - name: Setup ccache
@@ -38,6 +49,11 @@ jobs:
         key: ccache-${{ inputs.preset }}-${{ hashFiles('src/**/*.[ch]pp', 'tests/**/*.[ch]pp') }}
         restore-keys: |
           ccache-${{ inputs.preset }}-
+
+    - name: Configure ccache
+      run: |
+        ccache --set-config=compression=true
+        ccache --set-config=compression_level=6
 
     - name: Setup clang-tidy-cache
       if: ${{ inputs.clang-tidy }}
