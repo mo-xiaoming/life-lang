@@ -35,7 +35,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/ccache
-        key: ccache-${{ inputs.preset }}-${{ github.sha }}
+        key: ccache-${{ inputs.preset }}-${{ hashFiles('src/**/*.[ch]pp', 'tests/**/*.[ch]pp') }}
         restore-keys: |
           ccache-${{ inputs.preset }}-
 
@@ -44,7 +44,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.ctcache/cache
-        key: clang-tidy-cache-${{ inputs.preset }}-${{ github.sha }}
+        key: clang-tidy-cache-${{ inputs.preset }}-${{ hashFiles('src/**/*.[ch]pp', 'tests/**/*.[ch]pp', '.clang-tidy') }}
         restore-keys: |
           clang-tidy-cache-${{ inputs.preset }}-
 
@@ -55,7 +55,6 @@ jobs:
       run: nix develop --command cmake --preset ${{ inputs.preset }}
 
     - name: Build
-      if: ${{ !inputs.clang-tidy }}
       run: nix develop --command cmake --build --preset ${{ inputs.preset }}
 
     - name: Clang-Tidy
@@ -63,7 +62,6 @@ jobs:
       run: nix develop --command run-tidy
 
     - name: Test
-      if: ${{ !inputs.clang-tidy }}
       run: nix develop --command ctest --preset ${{ inputs.preset }}
 
     - name: Generate coverage report
