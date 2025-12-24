@@ -19,3 +19,4 @@ jobs:
     uses: ./.github/workflows/common.yml
     with:
       preset: ${{ matrix.preset }}
+      clang-tidy: true

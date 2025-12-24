@@ -15,9 +15,56 @@
         # pkgs.gcc15 is the wrapper, .cc gets the unwrapped package
         gcc-unwrapped = pkgs.gcc15.cc;
 
-        # Custom script to run clang-tidy
+        # Download pre-built clang-tidy-cache binary (Go module build is broken in v0.4.0)
+        clang-tidy-cache = pkgs.stdenv.mkDerivation rec {
+          pname = "clang-tidy-cache";
+          version = "0.4.0";
+
+          src = pkgs.fetchurl {
+            url = "https://github.com/ejfitzgerald/clang-tidy-cache/releases/download/v${version}/clang-tidy-cache-linux-amd64";
+            hash = "sha256-FCGQA0OTIQvUDmGkMnpCNehabpVKlME2fRTV+WazS8U=";
+          };
+
+          dontUnpack = true;
+
+          installPhase = ''
+            mkdir -p $out/bin
+            cp $src $out/bin/clang-tidy-cache
+            chmod +x $out/bin/clang-tidy-cache
+          '';
+        };
+
+        # Custom script to run clang-tidy with caching
         run-tidy = pkgs.writeShellScriptBin "run-tidy" ''
-          run-clang-tidy -p=. -warnings-as-errors=* -quiet -extra-arg=-Wno-unknown-warning-option -j $(nproc)
+          if [ ! -f compile_commands.json ]; then
+            echo "Error: compile_commands.json not found. Run cmake first."
+            exit 1
+          fi
+
+          # Extract source files from compile_commands.json
+          FILES=$(${pkgs.jq}/bin/jq -r '.[].file' compile_commands.json | sort -u)
+
+          # Count total files
+          TOTAL=$(echo "$FILES" | wc -l)
+          echo "Running clang-tidy-cache on $TOTAL files with $(nproc) parallel jobs..."
+          echo ""
+
+          # Function to run clang-tidy-cache with timing and file name
+          run_tidy_on_file() {
+            local file="$1"
+            local start=$(date +%s.%N)
+            ${clang-tidy-cache}/bin/clang-tidy-cache -p . --warnings-as-errors=* --extra-arg=-Wno-unknown-warning-option "$file"
+            local end=$(date +%s.%N)
+            local duration=$(echo "$end - $start" | bc)
+            printf "[%.2fs] $file\n" "$duration"
+          }
+          export -f run_tidy_on_file
+
+          # Run with parallel execution
+          echo "$FILES" | ${pkgs.findutils}/bin/xargs -P $(nproc) -I {} bash -c 'run_tidy_on_file "$@"' _ {}
+
+          echo ""
+          echo "clang-tidy completed."
         '';
 
         # Custom script to generate coverage
@@ -86,8 +133,12 @@
             pkgs.cmake
             pkgs.ninja
             pkgs.lcov
-            pkgs.clang-tools  # provides clang-tidy, run-clang-tidy (matches clang_21 version)
+            pkgs.clang-tools  # provides clang-tidy
             pkgs.git
+            pkgs.ccache  # Compiler cache for faster recompilation
+
+            # Clang-tidy caching (pre-built binary)
+            clang-tidy-cache
 
             # Custom scripts
             run-tidy

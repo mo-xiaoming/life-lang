@@ -17,6 +17,10 @@
         "ENABLE_VERBOSE_BUILD": {
           "type": "BOOL",
           "value": "ON"
+        },
+        "ENABLE_CCACHE": {
+          "type": "BOOL",
+          "value": "ON"
         }
       }
     },
@@ -71,14 +75,16 @@
       "name": "debug-asan-ubsan",
       "inherits": [
         "debug",
-        "asan-ubsan-flags"
+        "asan-ubsan-flags",
+        "clang-tidy"
       ]
     },
     {
       "name": "release-asan-ubsan",
       "inherits": [
         "release",
-        "asan-ubsan-flags"
+        "asan-ubsan-flags",
+        "clang-tidy"
       ]
     },
     {

@@ -31,6 +31,23 @@ jobs:
     - name: Cache Nix store
       uses: DeterminateSystems/magic-nix-cache-action@v8
 
+    - name: Setup ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ccache
+        key: ccache-${{ inputs.preset }}-${{ github.sha }}
+        restore-keys: |
+          ccache-${{ inputs.preset }}-
+
+    - name: Setup clang-tidy-cache
+      if: ${{ inputs.clang-tidy }}
+      uses: actions/cache@v4
+      with:
+        path: ~/.ctcache/cache
+        key: clang-tidy-cache-${{ inputs.preset }}-${{ github.sha }}
+        restore-keys: |
+          clang-tidy-cache-${{ inputs.preset }}-
+
     - name: Show tool versions
       run: nix develop --command show-versions
 
