@@ -17,6 +17,8 @@ on:
     secrets:
       CODECOV_TOKEN:
         required: false
+      CACHIX_AUTH_TOKEN:
+        required: false
 
 jobs:
   setup-and-build:
@@ -28,18 +30,18 @@ jobs:
     - name: Install Nix
       uses: DeterminateSystems/nix-installer-action@v14
 
-    # Option A: Use Cachix
-    # Offloads Nix cache from GitHub's 10GB limit
+    # Use Cachix for Nix binary cache
+    # Reads from cache publicly; pushes only if authToken is provided
     - name: Setup Cachix
       uses: cachix/cachix-action@v15
       with:
         name: life-lang
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-    # Option B: Fallback to magic-nix-cache if CACHIX_AUTH_TOKEN not set
-    # Uses GitHub's cache (10GB limit)
+    # Fallback to magic-nix-cache only if CACHIX_AUTH_TOKEN is not set
+    # Uses GitHub's 10GB cache limit
     - name: Cache Nix store
-      if: ${{ secrets.CACHIX_AUTH_TOKEN == '' }}
+      if: secrets.CACHIX_AUTH_TOKEN == ''
       uses: DeterminateSystems/magic-nix-cache-action@v8
 
     - name: Setup ccache
