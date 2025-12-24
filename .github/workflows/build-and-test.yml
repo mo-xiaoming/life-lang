@@ -20,3 +20,5 @@ jobs:
     with:
       preset: ${{ matrix.preset }}
       clang-tidy: true
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
