@@ -46,8 +46,8 @@ jobs:
 
     - name: Configure ccache
       run: |
-        ccache --set-config=compression=true
-        ccache --set-config=compression_level=6
+        nix develop --command ccache --set-config=compression=true
+        nix develop --command ccache --set-config=compression_level=6
 
     - name: Setup clang-tidy-cache
       if: ${{ inputs.clang-tidy }}
