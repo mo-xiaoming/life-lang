@@ -1,0 +1,8 @@
+InheritParentConfig: true
+Checks: >
+  -readability-identifier-naming,
+  -modernize-*,
+  -readability-simplify-boolean-expr,
+  -readability-else-after-return,
+  -cppcoreguidelines-init-variables,
+  -clang-analyzer-*
