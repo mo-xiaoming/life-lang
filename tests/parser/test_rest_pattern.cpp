@@ -61,7 +61,9 @@ TEST_CASE("Rest patterns") {
 
   for (auto const& tc: test_cases) {
     SUBCASE(std::string(tc.name).c_str()) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const pattern = parser.parse_pattern();
       REQUIRE(pattern.has_value());
       if (pattern.has_value()) {
@@ -72,7 +74,9 @@ TEST_CASE("Rest patterns") {
 }
 
 TEST_CASE("Rest pattern - error: .. not at end") {
-  Parser parser("Config { .., debug }");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", "Config { .., debug }"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const pattern = parser.parse_pattern();
   // Parser should accept .. anywhere for now, semantic analysis will enforce position
   // Actually, the parser enforces that .. must be last
@@ -80,18 +84,22 @@ TEST_CASE("Rest pattern - error: .. not at end") {
 }
 
 TEST_CASE("Rest pattern - error: comma after ..") {
-  Parser parser("User { name, .., }");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", "User { name, .., }"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const pattern = parser.parse_pattern();
   CHECK_FALSE(pattern.has_value());
 }
 
 TEST_CASE("Rest pattern - in match expression") {
-  Parser parser(R"(
+  constexpr std::string_view k_input = R"(
     match value {
       Point { .. } => "point",
       Circle { radius, .. } => "circle",
     }
-  )");
+  )";
+  life_lang::Diagnostic_Engine diagnostics{"<test>", k_input};
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -108,7 +116,9 @@ TEST_CASE("Rest pattern - in match expression") {
 }
 
 TEST_CASE("Rest pattern - nested in tuple pattern") {
-  Parser parser("(Point { x, .. }, Circle { .. })");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", "(Point { x, .. }, Circle { .. })"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const pattern = parser.parse_pattern();
   REQUIRE(pattern.has_value());
   if (pattern.has_value()) {
@@ -121,7 +131,9 @@ TEST_CASE("Rest pattern - nested in tuple pattern") {
 }
 
 TEST_CASE("Rest pattern - with nested patterns") {
-  Parser parser("Request { method, body: Some(data), .. }");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", "Request { method, body: Some(data), .. }"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const pattern = parser.parse_pattern();
   REQUIRE(pattern.has_value());
   if (pattern.has_value()) {

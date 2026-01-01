@@ -1,4 +1,5 @@
 #include <doctest/doctest.h>
+#include "diagnostics.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 #include "utils.hpp"
@@ -38,7 +39,9 @@ TEST_CASE("Unbounded range expressions") {
 
   for (auto const& test: k_test_cases) {
     SUBCASE(test.name) {
-      Parser parser(test.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", test.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -51,7 +54,9 @@ TEST_CASE("Unbounded range expressions") {
 TEST_CASE("Unbounded range - unbounded end inclusive (a..=) - not valid syntax") {
   // Note: a..= doesn't make sense semantically, but parser may accept it
   // Semantic analysis should reject it
-  Parser parser("10..=");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", "10..="};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   // Parser should handle it, semantic analysis will validate
   REQUIRE(expr.has_value());
@@ -72,7 +77,9 @@ TEST_CASE("Unbounded range in context") {
 
   for (auto const& test: k_test_cases) {
     SUBCASE(test.name) {
-      Parser parser(test.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", test.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -85,7 +92,9 @@ TEST_CASE("Unbounded range in context") {
 TEST_CASE("Unbounded range in statements") {
   SUBCASE("in let statement") {
     constexpr auto* k_input = "let range = ..100;";
-    Parser parser(k_input);
+    life_lang::Diagnostic_Engine diagnostics{"<test>", k_input};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
     REQUIRE(stmt.has_value());
     if (stmt.has_value()) {

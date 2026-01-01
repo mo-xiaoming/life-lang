@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 
+#include "diagnostics.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 #include "version.hpp"
@@ -26,14 +27,15 @@ int main(int argc, char* argv[]) {
     if (arg == "-") {
       std::string const input((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
 
-      life_lang::parser::Parser parser{input, "<stdin>"};
+      life_lang::Diagnostic_Engine diagnostics{"<stdin>", input};
+      life_lang::parser::Parser parser{diagnostics};
       auto const result = parser.parse_module();
       if (result) {
         // Print AST as indented S-expression (use 0 for compact)
         std::cout << std::format("{}\n", life_lang::ast::to_sexp_string(*result, 2));
         return 0;
       }
-      std::move(parser).get_diagnostics().print(std::cerr);
+      diagnostics.print(std::cerr);
       return 1;
     }
   }

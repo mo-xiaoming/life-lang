@@ -1,52 +1,32 @@
 {
   "recommendations": [
     // C++ Development (Core)
+    "ms-vscode.cpptools-extension-pack",
     "llvm-vs-code-extensions.vscode-clangd",
     "vadimcn.vscode-lldb",
-
     // CMake
-    "ms-vscode.cmake-tools",
     "twxs.cmake",
-
-    // Testing
-    "hbenl.vscode-test-explorer",
-    "ms-vscode.test-adapter-converter",
-
+    "ms-vscode.cmake-tools",
+    // Markdown Preview & Editing
+    "DavidAnson.vscode-markdownlint", // Markdown linting
     // Development Environment
-    "jnoortheen.nix-ide",               // Nix language support
-    "mkhl.direnv",                       // direnv support (.envrc files)
-
+    "jnoortheen.nix-ide", // Nix language support
+    "mkhl.direnv", // direnv support (.envrc files)
+    "alefragnani.Bookmarks", // Bookmark important lines
     // Git & GitHub
     "eamodio.gitlens",
-    "github.vscode-github-actions",
     "github.copilot",
     "github.copilot-chat",
-
-    // Dependency Management
-    "fill-labs.dependi",
-
-    // File Formats
-    "tamasfe.even-better-toml",
-
     // Quality of Life - Visual Feedback
-    "usernamehw.errorlens",              // Inline error messages
-    "oderwat.indent-rainbow",            // Colorize indentation levels
-    "pkief.material-icon-theme",         // Better file icons
-
-    // Quality of Life - Code Navigation
-    "wayou.vscode-todo-highlight",       // Highlight TODO, FIXME, etc.
-    "alefragnani.bookmarks",             // Bookmark lines for quick navigation
-
+    "usernamehw.errorlens", // Inline error messages
+    "pkief.material-icon-theme", // Better file icons
     // Quality of Life - Editing
     "streetsidesoftware.code-spell-checker", // Spell checking for comments
-    "aaron-bond.better-comments",        // Colorize comment types (TODO, FIXME, etc.)
-
-    // Quality of Life - Terminal
-    "ms-vscode.terminal-suggest"         // Terminal command suggestions
+    "Gruntfuggly.todo-tree", // Highlight TODO comments
   ],
-
   "unwantedRecommendations": [
     // We use clangd, not the Microsoft C++ extension
-    "ms-vscode.cpptools"
+    "ms-vscode.cpptools",
+    "ms-vscode.cpptools-extension-pack"
   ]
 }

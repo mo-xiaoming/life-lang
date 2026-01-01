@@ -1,11 +1,11 @@
 #include <doctest/doctest.h>
 #include <array>
 #include "../parser/utils.hpp"
+#include "diagnostics.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 
 using life_lang::ast::to_sexp_string;
-using life_lang::parser::Parser;
 using namespace test_sexp;
 
 TEST_CASE("Float special literals - individual expressions") {
@@ -25,7 +25,9 @@ TEST_CASE("Float special literals - individual expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -37,7 +39,9 @@ TEST_CASE("Float special literals - individual expressions") {
 
 TEST_CASE("Float special literals in function bodies") {
   SUBCASE("function returning nan") {
-    Parser parser("fn get_nan(): F32 { return nanF32; }");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "fn get_nan(): F32 { return nanF32; }"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const func = parser.parse_func_def();
     REQUIRE(func.has_value());
     if (func.has_value()) {
@@ -52,7 +56,9 @@ TEST_CASE("Float special literals in function bodies") {
   }
 
   SUBCASE("function returning inf") {
-    Parser parser("fn get_infinity(): F64 { return infF64; }");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "fn get_infinity(): F64 { return infF64; }"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const func = parser.parse_func_def();
     REQUIRE(func.has_value());
     if (func.has_value()) {

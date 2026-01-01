@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 #include <sstream>
 
+#include "diagnostics.hpp"
 #include "parser.hpp"
 
 // ============================================================================
@@ -73,15 +74,15 @@ TEST_CASE("Parse Module - Complete Input Validation") {
 
   for (auto const& test: tests) {
     SUBCASE(test.name.c_str()) {
-      life_lang::parser::Parser parser{test.input, "test.life"};
+      life_lang::Diagnostic_Engine diagnostics{"test.life", test.input};
+      life_lang::parser::Parser parser{diagnostics};
       auto const result = parser.parse_module();
 
       // Verify parse success/failure matches expectation
       CHECK(test.should_succeed == result.has_value());
 
       if (!test.should_succeed && !result) {
-        // Verify we got diagnostics with errors (from result.error(), not parser)
-        auto const& diagnostics = result.error();
+        // Verify we got diagnostics with errors
         REQUIRE(diagnostics.has_errors());
         REQUIRE_FALSE(diagnostics.diagnostics().empty());
 
@@ -158,13 +159,14 @@ TEST_CASE("Parse Module - Struct Literals and Field Access") {
 
   for (auto const& test: tests) {
     SUBCASE(test.name.c_str()) {
-      life_lang::parser::Parser parser{test.input, "test.life"};
+      life_lang::Diagnostic_Engine diagnostics{"test.life", test.input};
+      life_lang::parser::Parser parser{diagnostics};
       auto const result = parser.parse_module();
 
       CHECK(test.should_succeed == result.has_value());
 
       if (!test.should_succeed && !result) {
-        REQUIRE(result.error().has_errors());
+        REQUIRE(diagnostics.has_errors());
       }
     }
   }
@@ -177,13 +179,14 @@ TEST_CASE("Parse Module - Struct Literals and Field Access") {
 TEST_CASE("Parse Module - Diagnostic Format Matches Clang Style") {
   SUBCASE("Single-line parse error with source context") {
     std::string const invalid_input = "fn bad syntax here";
-    life_lang::parser::Parser parser{invalid_input, "test.life"};
+    life_lang::Diagnostic_Engine diagnostics{"test.life", invalid_input};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
 
     REQUIRE_FALSE(result.has_value());
 
     std::ostringstream oss;
-    result.error().print(oss);
+    diagnostics.print(oss);
     std::string const output = oss.str();
 
     // New parser generates multiple specific errors - just check it contains key error
@@ -198,21 +201,22 @@ TEST_CASE("Parse Module - Diagnostic Format Matches Clang Style") {
         "}\n"
         "unexpected garbage";
 
-    life_lang::parser::Parser parser{source, "multiline.life"};
+    life_lang::Diagnostic_Engine diagnostics{"multiline.life", source};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
 
     REQUIRE_FALSE(result.has_value());
 
-    auto const& diag = result.error();
-    REQUIRE(diag.has_errors());
+    REQUIRE(diagnostics.has_errors());
 
     // Error should be on line 4
-    auto const& first_error = diag.diagnostics().front();
+    auto const& first_error = diagnostics.diagnostics().front();
     CHECK(first_error.range.start.line == 4);
 
     // Verify clang-style formatting with proper error message
     std::ostringstream oss;
-    diag.print(oss);
+    diagnostics.print(oss);
     std::string const output = oss.str();
 
     // New parser reports specific error about missing semicolon
@@ -225,16 +229,17 @@ TEST_CASE("Parse Module - Diagnostic Format Matches Clang Style") {
         "fn main(): I32 { return 0; }\n"
         "fn bad(";
 
-    life_lang::parser::Parser parser{source, "error_line2.life"};
+    life_lang::Diagnostic_Engine diagnostics{"error_line2.life", source};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
 
     REQUIRE_FALSE(result.has_value());
 
-    auto const& diag = result.error();
-    REQUIRE(diag.has_errors());
+    REQUIRE(diagnostics.has_errors());
 
     // Error should be on line 2
-    auto const& first_error = diag.diagnostics().front();
+    auto const& first_error = diagnostics.diagnostics().front();
     CHECK(first_error.range.start.line == 2);
   }
 }
@@ -246,55 +251,61 @@ TEST_CASE("Parse Module - Diagnostic Format Matches Clang Style") {
 TEST_CASE("Parse Module - Cross-Platform Line Endings") {
   SUBCASE("Unix line endings (LF)") {
     std::string const source = "fn main(): I32 {\n    return 0;\n}\n";
-    life_lang::parser::Parser parser{source, "unix.life"};
+    life_lang::Diagnostic_Engine diagnostics{"unix.life", source};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE(result.has_value());
   }
 
   SUBCASE("Windows line endings (CRLF)") {
     std::string const source = "fn main(): I32 {\r\n    return 0;\r\n}\r\n";
-    life_lang::parser::Parser parser{source, "windows.life"};
+    life_lang::Diagnostic_Engine diagnostics{"windows.life", source};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE(result.has_value());
   }
 
   SUBCASE("Old Mac line endings (CR)") {
     std::string const source = "fn main(): I32 {\r    return 0;\r}\r";
-    life_lang::parser::Parser parser{source, "oldmac.life"};
+    life_lang::Diagnostic_Engine diagnostics{"oldmac.life", source};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE(result.has_value());
   }
 
   SUBCASE("Mixed line endings") {
     std::string const source = "fn main(): I32 {\r\n    return 0;\n}\r";
-    life_lang::parser::Parser parser{source, "mixed.life"};
+    life_lang::Diagnostic_Engine diagnostics{"mixed.life", source};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE(result.has_value());
   }
 
   SUBCASE("Error reporting with CRLF") {
     std::string const source = "fn main(): I32 {\r\n    return 0;\r\n}\r\ngarbag";
-    life_lang::parser::Parser parser{source, "error_crlf.life"};
+    life_lang::Diagnostic_Engine diagnostics{"error_crlf.life", source};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());
 
     // Error should be on line 4
-    auto const& diag = result.error();
-    REQUIRE(diag.has_errors());
-    auto const& first_error = diag.diagnostics().front();
+    // diagnostics already in scope
+    REQUIRE(diagnostics.has_errors());
+    auto const& first_error = diagnostics.diagnostics().front();
     CHECK(first_error.range.start.line == 4);
   }
 
   SUBCASE("Error reporting with CR") {
     std::string const source = "fn main(): I32 {\r    return 0;\r}\rinvalid";
-    life_lang::parser::Parser parser{source, "error_cr.life"};
+    life_lang::Diagnostic_Engine diagnostics{"error_cr.life", source};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());
 
     // Error should be on line 4
-    auto const& diag = result.error();
-    REQUIRE(diag.has_errors());
-    auto const& first_error = diag.diagnostics().front();
+    // diagnostics already in scope
+    REQUIRE(diagnostics.has_errors());
+    auto const& first_error = diagnostics.diagnostics().front();
     CHECK(first_error.range.start.line == 4);
   }
 }
@@ -305,32 +316,35 @@ TEST_CASE("Parse Module - Cross-Platform Line Endings") {
 
 TEST_CASE("Parse Module - Anonymous Module Names") {
   SUBCASE("Default <input> name") {
-    life_lang::parser::Parser parser{"invalid 123", "<input>"};
+    life_lang::Diagnostic_Engine diagnostics{"<input>", "invalid 123"};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());
 
     std::ostringstream oss;
-    result.error().print(oss);
+    diagnostics.print(oss);
     CHECK(oss.str().find("<input>:") != std::string::npos);
   }
 
   SUBCASE("Custom anonymous name <stdin>") {
-    life_lang::parser::Parser parser{"fn bad(", "<stdin>"};
+    life_lang::Diagnostic_Engine diagnostics{"<stdin>", "fn bad("};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());
 
     std::ostringstream oss;
-    result.error().print(oss);
+    diagnostics.print(oss);
     CHECK(oss.str().find("<stdin>:") != std::string::npos);
   }
 
   SUBCASE("No filename defaults to <input>") {
-    life_lang::parser::Parser parser{"garbage", "<input>"};
+    life_lang::Diagnostic_Engine diagnostics{"<input>", "garbage"};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());
 
     std::ostringstream oss;
-    result.error().print(oss);
+    diagnostics.print(oss);
     CHECK(oss.str().find("<input>:") != std::string::npos);
   }
 }

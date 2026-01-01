@@ -9,6 +9,7 @@
 #include <doctest/doctest.h>
 #include <iostream>
 
+#include "diagnostics.hpp"
 #include "parser.hpp"
 
 TEST_CASE("Parse README example code") {
@@ -21,8 +22,8 @@ enum Result<T, E> {
 }
 
 // Trait with generic bounds and where clause
-trait Processor<T> 
-where 
+trait Processor<T>
+where
     T: Display + Clone
 {
     fn process(self, item: T): Result<T, String>;
@@ -66,24 +67,25 @@ fn process_result<T: Display>(result: Result<T, String>): I32 {
 fn main(args: Array<String>): I32 {
     let point = Point { x: 3, y: 4 };
     let dist = point.distance();
-    
+
     let result = if dist > 5.0 {
         Result.Ok(point)
     } else {
         Result.Err("Too close")
     };
-    
+
     return process_result(result);
 }
 )life_code";
 
-  life_lang::parser::Parser parser{k_readme_example, "readme_example.life"};
+  life_lang::Diagnostic_Engine diagnostics{"readme_example.life", k_readme_example};
+  life_lang::parser::Parser parser{diagnostics};
   auto const result = parser.parse_module();
 
   // If parsing fails, print diagnostics for debugging
   if (!result) {
     INFO("Parse failed with diagnostics:");
-    std::move(parser).get_diagnostics().print(std::cerr);
+    diagnostics.print(std::cerr);
   }
 
   // Verify successful parse

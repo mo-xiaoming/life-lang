@@ -186,7 +186,8 @@ TEST_CASE("Parse Let_Statement with Array") {
 
   auto check_let = [](Let_Params const& params_) {
     INFO("Input: ", std::string(params_.input));
-    life_lang::parser::Parser parser(params_.input);
+    life_lang::Diagnostic_Engine diagnostics{"<test>", params_.input};
+    life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_let_statement();
     CHECK(params_.should_succeed == bool(result));
     if (result && params_.expected.has_value()) {

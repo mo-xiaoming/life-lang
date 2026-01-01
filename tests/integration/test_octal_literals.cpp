@@ -1,12 +1,11 @@
 #include <doctest/doctest.h>
 #include "../parser/utils.hpp"
+#include "diagnostics.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 
 using life_lang::ast::to_sexp_string;
-using life_lang::parser::Parser;
 using namespace test_sexp;
-using life_lang::parser::Parser;
 
 TEST_CASE("Octal literals in expressions") {
   struct Test_Case {
@@ -27,7 +26,9 @@ TEST_CASE("Octal literals in expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -39,7 +40,9 @@ TEST_CASE("Octal literals in expressions") {
 
 TEST_CASE("Octal literals with underscores") {
   SUBCASE("octal with underscores") {
-    Parser parser("0o7_7_7");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "0o7_7_7"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -48,7 +51,9 @@ TEST_CASE("Octal literals with underscores") {
   }
 
   SUBCASE("let with octal underscores") {
-    Parser parser("let perms = 0o7_5_5;");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "let perms = 0o7_5_5;"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
     REQUIRE(stmt.has_value());
     if (stmt.has_value()) {
@@ -59,7 +64,9 @@ TEST_CASE("Octal literals with underscores") {
 
 TEST_CASE("Octal literals with type suffixes") {
   SUBCASE("octal with U16 suffix") {
-    Parser parser("0o644U16");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "0o644U16"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -68,7 +75,9 @@ TEST_CASE("Octal literals with type suffixes") {
   }
 
   SUBCASE("octal with I32 suffix") {
-    Parser parser("0o755I32");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "0o755I32"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -79,7 +88,9 @@ TEST_CASE("Octal literals with type suffixes") {
 
 TEST_CASE("Octal literals in let statements") {
   SUBCASE("let with octal value") {
-    Parser parser("let mode = 0o755;");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "let mode = 0o755;"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
     REQUIRE(stmt.has_value());
     if (stmt.has_value()) {
@@ -88,7 +99,9 @@ TEST_CASE("Octal literals in let statements") {
   }
 
   SUBCASE("multiple let statements with octal (Unix permissions)") {
-    Parser parser("let rwx = 0o755; let rw = 0o644;");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "let rwx = 0o755; let rw = 0o644;"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const stmt1 = parser.parse_statement();
     REQUIRE(stmt1.has_value());
     if (stmt1.has_value()) {
@@ -103,7 +116,9 @@ TEST_CASE("Octal literals in let statements") {
   }
 
   SUBCASE("let with octal and type annotation") {
-    Parser parser("let perms: U16 = 0o644;");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "let perms: U16 = 0o644;"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
     REQUIRE(stmt.has_value());
     if (stmt.has_value()) {
@@ -115,7 +130,9 @@ TEST_CASE("Octal literals in let statements") {
 
 TEST_CASE("Octal literals in arrays") {
   SUBCASE("array of octal values (Unix permissions)") {
-    Parser parser("[0o755, 0o644, 0o444]");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "[0o755, 0o644, 0o444]"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -126,7 +143,9 @@ TEST_CASE("Octal literals in arrays") {
   }
 
   SUBCASE("octal permissions in let array") {
-    Parser parser("let modes = [0o777, 0o666, 0o555];");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "let modes = [0o777, 0o666, 0o555];"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
     REQUIRE(stmt.has_value());
     if (stmt.has_value()) {
@@ -139,7 +158,9 @@ TEST_CASE("Octal literals in arrays") {
 
 TEST_CASE("Octal uppercase O prefix") {
   SUBCASE("uppercase O in octal literal") {
-    Parser parser("0O777");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "0O777"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -152,7 +173,9 @@ TEST_CASE("Octal uppercase O prefix") {
 
 TEST_CASE("Mixed number bases") {
   SUBCASE("decimal, hex, octal, and binary in one expression") {
-    Parser parser("100 + 0xFF + 0o77 + 0b11");
+    life_lang::Diagnostic_Engine diagnostics{"<test>", "100 + 0xFF + 0o77 + 0b11"};
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -168,7 +191,12 @@ TEST_CASE("Mixed number bases") {
   }
 
   SUBCASE("let statements with all number bases") {
-    Parser parser("let dec = 100; let hex = 0xFF; let oct = 0o77; let bin = 0b11;");
+    life_lang::Diagnostic_Engine diagnostics{
+        "<test>",
+        "let dec = 100; let hex = 0xFF; let oct = 0o77; let bin = 0b11;"
+    };
+
+    life_lang::parser::Parser parser{diagnostics};
     auto const stmt1 = parser.parse_statement();
     REQUIRE(stmt1.has_value());
     if (stmt1.has_value()) {

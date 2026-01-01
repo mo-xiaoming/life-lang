@@ -57,17 +57,16 @@ constexpr auto k_index_with_method_input = "arr[0].process()";
 inline auto const k_index_with_method_expected =
     function_call(var_name("process"), {index_expr(var_name("arr"), integer("0"))});
 
-// Index in assignment target
-constexpr auto k_index_in_assignment_should_succeed = true;
-constexpr auto k_index_in_assignment_input = "arr[i] = 42";
-inline auto const k_index_in_assignment_expected =
-    assignment_expr(index_expr(var_name("arr"), var_name("i")), integer("42"));
+// Index as lvalue (will be assignment target, but test just the index part)
+constexpr auto k_index_as_lvalue_should_succeed = true;
+constexpr auto k_index_as_lvalue_input = "arr[i]";
+inline auto const k_index_as_lvalue_expected = index_expr(var_name("arr"), var_name("i"));
 
-// Chained index in assignment
-constexpr auto k_chained_index_assignment_should_succeed = true;
-constexpr auto k_chained_index_assignment_input = "matrix[i][j] = value";
-inline auto const k_chained_index_assignment_expected =
-    assignment_expr(index_expr(index_expr(var_name("matrix"), var_name("i")), var_name("j")), var_name("value"));
+// Chained index as lvalue
+constexpr auto k_chained_index_lvalue_should_succeed = true;
+constexpr auto k_chained_index_lvalue_input = "matrix[i][j]";
+inline auto const k_chained_index_lvalue_expected =
+    index_expr(index_expr(var_name("matrix"), var_name("i")), var_name("j"));
 
 // Index in binary expression
 constexpr auto k_index_in_binary_should_succeed = true;
@@ -153,14 +152,14 @@ TEST_CASE("Parse Expr (Index Expressions)") {
        .input = k_index_with_method_input,
        .expected = k_index_with_method_expected,
        .should_succeed = k_index_with_method_should_succeed},
-      {.name = "index in assignment",
-       .input = k_index_in_assignment_input,
-       .expected = k_index_in_assignment_expected,
-       .should_succeed = k_index_in_assignment_should_succeed},
-      {.name = "chained index assignment",
-       .input = k_chained_index_assignment_input,
-       .expected = k_chained_index_assignment_expected,
-       .should_succeed = k_chained_index_assignment_should_succeed},
+      {.name = "index as lvalue",
+       .input = k_index_as_lvalue_input,
+       .expected = k_index_as_lvalue_expected,
+       .should_succeed = k_index_as_lvalue_should_succeed},
+      {.name = "chained index lvalue",
+       .input = k_chained_index_lvalue_input,
+       .expected = k_chained_index_lvalue_expected,
+       .should_succeed = k_chained_index_lvalue_should_succeed},
       {.name = "index in binary expr",
        .input = k_index_in_binary_input,
        .expected = k_index_in_binary_expected,

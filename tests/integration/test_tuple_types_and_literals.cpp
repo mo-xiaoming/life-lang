@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include "../parser/utils.hpp"
+#include "diagnostics.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 
@@ -30,7 +31,9 @@ TEST_CASE("Tuple types in function signatures") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const func = parser.parse_func_def();
       REQUIRE(func.has_value());
       if (func.has_value()) {
@@ -63,7 +66,9 @@ TEST_CASE("Tuple literals in expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
