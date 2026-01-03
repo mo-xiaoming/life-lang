@@ -123,8 +123,10 @@ void print_sexp(Sexp_Printer& p_, Array_Type const& arr_) {
   p_.begin_list("array_type");
   p_.space();
   print_sexp(p_, *arr_.element_type);
-  p_.space();
-  p_.write_quoted(arr_.size);
+  if (arr_.size.has_value()) {
+    p_.space();
+    p_.write_quoted(arr_.size.value());
+  }
   p_.end_list();
 }
 

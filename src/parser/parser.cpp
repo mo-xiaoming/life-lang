@@ -1992,27 +1992,30 @@ std::optional<ast::Array_Type> Parser::parse_array_type() {
   }
 
   m_impl->skip_whitespace_and_comments();
-  if (!m_impl->expect(';')) {
-    m_impl->error("Expected ';' after element type in array type", m_impl->make_range(start_pos));
-    return std::nullopt;
-  }
 
-  m_impl->skip_whitespace_and_comments();
+  // Check for optional size: [T; N] vs [T]
+  std::optional<std::string> size;
+  if (m_impl->expect(';')) {
+    // Sized array: [T; N]
+    m_impl->skip_whitespace_and_comments();
 
-  // Parse array size (integer literal)
-  if (std::isdigit(static_cast<unsigned char>(m_impl->peek())) == 0) {
-    m_impl->error("Expected integer literal for array size", m_impl->make_range(start_pos));
-    return std::nullopt;
-  }
+    // Parse array size (integer literal)
+    if (std::isdigit(static_cast<unsigned char>(m_impl->peek())) == 0) {
+      m_impl->error("Expected integer literal for array size", m_impl->make_range(start_pos));
+      return std::nullopt;
+    }
 
-  std::string size;
-  while (std::isdigit(static_cast<unsigned char>(m_impl->peek())) != 0) {
-    size += m_impl->advance();
+    std::string size_str;
+    while (std::isdigit(static_cast<unsigned char>(m_impl->peek())) != 0) {
+      size_str += m_impl->advance();
+    }
+    size = std::move(size_str);
   }
+  // else: unsized array [T]
 
   m_impl->skip_whitespace_and_comments();
   if (!m_impl->expect(']')) {
-    m_impl->error("Expected ']' after array size", m_impl->make_range(start_pos));
+    m_impl->error("Expected ']' after array type", m_impl->make_range(start_pos));
     return std::nullopt;
   }
 

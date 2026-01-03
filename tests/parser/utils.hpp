@@ -926,8 +926,11 @@ inline std::string func_type(std::vector<std::string> const& param_types_, std::
 }
 
 // Array type
-inline std::string array_type(std::string_view element_type_, std::string_view size_) {
-  return std::format("(array_type {} \"{}\")", element_type_, size_);
+inline std::string array_type(std::string_view element_type_, std::optional<std::string_view> size_ = std::nullopt) {
+  if (size_.has_value()) {
+    return std::format("(array_type {} \"{}\")", element_type_, size_.value());
+  }
+  return std::format("(array_type {})", element_type_);
 }
 
 // Tuple type

@@ -81,8 +81,7 @@ struct Function_Type {
   [[nodiscard]] bool operator==(Function_Type const& other_) const;
 };
 
-// Array type: [T; N]
-// TODO(mx): Parser needs to support unsized arrays (no size expression)
+// Array type: [T; N] (sized) or [T] (unsized)
 struct Array_Type {
   static constexpr std::string_view k_name = "Array_Type";
 

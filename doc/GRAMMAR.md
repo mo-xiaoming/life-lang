@@ -28,6 +28,7 @@ These principles prioritize **correctness and user-friendliness over raw perform
 ## Lexical Elements
 
 ### Keywords
+
 ```ebnf
 keyword = "fn" | "struct" | "enum" | "impl" | "trait" | "let" | "mut"
         | "if" | "else" | "match" | "for" | "in" | "while" | "break" | "continue"
@@ -35,12 +36,14 @@ keyword = "fn" | "struct" | "enum" | "impl" | "trait" | "let" | "mut"
 ```
 
 ### Identifiers
+
 ```ebnf
 var_name = letter { letter | digit | "_" } ;
 type_name = upper { letter | digit | "_" } ;
 ```
 
 ### Literals
+
 ```ebnf
 integer = ( decimal_int | hex_int | octal_int | binary_int ) [ int_suffix ] ;
 decimal_int = digit { digit | "_" } ;
@@ -69,6 +72,7 @@ unit_literal = "(" ")" ;
 ```
 
 **Notes:**
+
 - Integers support decimal, hexadecimal (0x prefix), octal (0o prefix), and binary (0b prefix) formats
 - Underscores can be used for readability: `1_000_000`, `0xFF_FF`, `0o755`, `0b1111_0000`
 - Type suffixes specify exact numeric type: `42I32`, `255U8`, `3.14F32`
@@ -117,6 +121,7 @@ unit_literal = "(" ")" ;
 - **String concatenation**: No special operator (`+` or `++`)
 
   **Idiomatic approach - use string interpolation**:
+
   ```rust
   // Instead of: a + b + c
   let result = "{a}{b}{c}";           // Clean, one allocation
@@ -136,6 +141,7 @@ unit_literal = "(" ")" ;
   - **Interpolation covers 90% of use cases**: Most concatenation is for messages, paths, formatting
 
   **For explicit array joining** (future standard library):
+
   ```rust
   String::concat([a, b, c])           // Join array of strings
   String::join([a, b, c], ", ")       // Join with separator
@@ -148,6 +154,7 @@ unit_literal = "(" ")" ;
   - **Life-lang**: Interpolation (ergonomic) + library functions (explicit edge cases) = best of both
 
 ### Comments
+
 ```ebnf
 comment = "//" { any_char - newline } newline
         | "/*" { any_char } "*/" ;
@@ -176,6 +183,7 @@ item = [ "pub" ] ( func_def
 ```
 
 **Notes:**
+
 - Import statements must appear before items (conventional ordering)
 - The `pub` modifier makes items visible outside the module
 - Module path uses `.` separator (e.g., `Geometry.Shapes`)
@@ -186,6 +194,7 @@ item = [ "pub" ] ( func_def
 ## Declarations
 
 ### Function Definitions
+
 ```ebnf
 func_def = "fn" var_name [ template_params ] "(" [ param_list ] ")" ":" type_name [ where_clause ] block ;
 
@@ -196,6 +205,7 @@ func_param = [ "mut" ] var_name ":" type_name ;
 **Note:** The optional `pub` modifier is specified at the item level (see Module Structure).
 
 ### Struct Definitions
+
 ```ebnf
 struct_def = "struct" type_name [ template_params ] [ where_clause ] "{" [ field_list ] "}" ;
 
@@ -204,6 +214,7 @@ struct_field = [ "pub" ] var_name ":" type_name ;
 ```
 
 ### Enum Definitions
+
 ```ebnf
 enum_def = "enum" type_name [ template_params ] [ where_clause ] "{" variant_list "}" ;
 
@@ -212,22 +223,26 @@ enum_variant = type_name [ "(" type_name { "," type_name } ")" ] ;
 ```
 
 ### Impl Blocks
+
 ```ebnf
 impl_block = "impl" [ template_params ] type_name [ where_clause ] "{" { impl_method } "}" ;
 impl_method = [ "pub" ] func_def ;
 ```
 
 ### Trait Definitions
+
 ```ebnf
 trait_def = "trait" type_name [ template_params ] [ ":" trait_bound_list ] [ where_clause ] "{" { trait_member } "}" ;
 ```
 
 ### Trait Implementations
+
 ```ebnf
 trait_impl = "impl" [ template_params ] type_name "for" type_name [ where_clause ] "{" { func_def } "}" ;
 ```
 
 ### Type Aliases
+
 ```ebnf
 type_alias = "type" type_name [ template_params ] "=" type_name [ where_clause ] ";" ;
 ```
@@ -235,18 +250,21 @@ type_alias = "type" type_name [ template_params ] "=" type_name [ where_clause ]
 ## Generic Parameters
 
 ### Template Parameters
+
 ```ebnf
 template_params = "<" type_param { "," type_param } ">" ;
 type_param = type_name [ ":" trait_bound_list ] ;
 ```
 
 ### Trait Bounds
+
 ```ebnf
 trait_bound_list = trait_bound { "+" trait_bound } ;
 trait_bound = type_name [ "<" type_name { "," type_name } ">" ] ;
 ```
 
 ### Where Clauses
+
 ```ebnf
 where_clause = "where" where_predicate { "," where_predicate } ;
 where_predicate = type_name ":" trait_bound_list ;
@@ -267,7 +285,7 @@ function_type = "fn" "(" [ type_name { "," type_name } ] ")" [ ":" type_name ] ;
 
 tuple_type = "(" type_name { "," type_name } ")" ;
 
-array_type = "[" type_name ";" integer "]" ;
+array_type = "[" type_name [ ";" integer ] "]" ;
 ```
 
 ## Statements
@@ -333,12 +351,14 @@ binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
 **Arithmetic Overflow and Error Behavior:**
 
 **Design Philosophy:**
+
 - **Consistent behavior** across all build modes (debug, release, optimized)
 - **Fail fast** on programmer errors (division by zero, overflow)
 - **Predictable results** - same code always produces same behavior
 - Prioritizes correctness and user-friendliness over raw performance
 
 **Integer Arithmetic (`+`, `-`, `*`):**
+
 - **Always panics on overflow/underflow** (all build modes)
 - Examples:
   - `I32::MAX + 1` → panic
@@ -352,6 +372,7 @@ binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
   - No overflow panic for these specific literals, as they represent valid constants
 
 **Division and Modulo (`/`, `%`):**
+
 - **Division by zero**: Always panics
   - Integer: `x / 0` → panic, `x % 0` → panic
   - Float: `x / 0.0` → `Infinity` or `-Infinity` (IEEE 754 standard, no panic)
@@ -361,6 +382,7 @@ binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
 - **Rationale**: Division by zero is always a logic error
 
 **Bitwise Shift (`<<`, `>>`):**
+
 - **Shift amount ≥ bit width**: Always panics
   - `1u32 << 32` → panic
   - `1i64 >> 64` → panic
@@ -370,17 +392,20 @@ binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
 
 **Explicit Overflow Handling (Future):**
 When overflow is intentional or needs special handling:
+
 - `wrapping_add()`, `wrapping_mul()` → explicit wrap-around (two's complement)
 - `saturating_add()`, `saturating_mul()` → clamp to min/max
 - `checked_add()`, `checked_mul()` → `Option<T>` (None on overflow, avoids panic)
 - `overflowing_add()` → `(T, Bool)` (result and overflow flag)
 
 **Float Arithmetic:**
+
 - Follows IEEE 754: `NaN`, `Infinity`, `-Infinity`, denormals
 - No panics: `1.0 / 0.0` → `Infinity`, `0.0 / 0.0` → `NaN`
 - Use `is_nan()`, `is_infinite()` to check for special values
 
 **Comparison with Other Languages:**
+
 - **Rust**: Debug=panic, Release=wrap (inconsistent, requires testing both)
 - **Swift**: Always traps on overflow (consistent, like life-lang)
 - **Python/Java**: No overflow on arbitrary-precision/BigInt types
@@ -388,6 +413,7 @@ When overflow is intentional or needs special handling:
 - **life-lang**: Always panic (consistent, safe, predictable)
 
 **Operator Precedence** (highest to lowest):
+
 1. Field access, method calls, indexing: `.`, `()`, `[]`
 2. **Type cast**: `as`
 3. Unary: `-`, `!`, `~`
@@ -404,12 +430,14 @@ When overflow is intentional or needs special handling:
 14. Range: `..`, `..=`
 
 **Notes:**
+
 - Precedence follows standard C/Rust conventions
 - Logical operators have lower precedence than bitwise operators
 - Within bitwise operators: AND binds tighter than XOR, XOR tighter than OR
 - Higher precedence = tighter binding (evaluates first)
 
 **Type Cast Semantics:**
+
 - `expr as Type` - Explicit type conversion
 - **Never panics** - truncates, wraps, or saturates on overflow
 - Allowed conversions (enforced in semantic analysis):
@@ -437,6 +465,7 @@ unary_op = "-" | "+" | "!" | "~" ;
 ```
 
 **Notes:**
+
 - `-`: Arithmetic negation (e.g., `-5`, `-x`)
 - `+`: Arithmetic positive/identity (e.g., `+5`, `+x`)
 - `!`: Logical NOT (e.g., `!flag`, `!condition`)
@@ -536,12 +565,14 @@ enum_pattern = type_name [ "(" pattern { "," pattern } ")" ] ;
 ```
 
 **Rest Pattern (`..`) Notes:**
+
 - **Purpose**: Ignore remaining/private fields in struct patterns
 - **Type-only matching**: `Point { .. }` - matches any Point, ignores all fields
 - **Partial matching**: `Config { debug, timeout, .. }` - match specific fields, ignore rest
 - **Required for private fields**: When matching structs from other modules with private fields
 - **Position**: Must come after named fields (if any)
 - **Examples**:
+
   ```rust
   // Type-only matching
   match shape {
@@ -563,12 +594,14 @@ enum_pattern = type_name [ "(" pattern { "," pattern } ")" ] ;
   ```
 
 **Visibility Rules for Pattern Matching:**
+
 - **Same module**: Can match all fields (pub and private)
 - **Other modules**: Can ONLY match `pub` fields
   - Must use `..` to ignore private fields
   - Error if attempting to name a private field from another module
 - **Rationale**: Preserves encapsulation while allowing practical pattern matching
 - **Examples**:
+
   ```rust
   // Module A
   pub struct User {
@@ -590,6 +623,7 @@ enum_pattern = type_name [ "(" pattern { "," pattern } ")" ] ;
   ```
 
 **Or-Pattern Notes:**
+
 - **Top-level or-patterns**: `Some(1) | Some(2) | None` - matches any of the alternatives
 - **Nested or-patterns**: `Some(1 | 2 | 3)` - same as `Some(1) | Some(2) | Some(3)` for this case
 - **Mixed variants**: `Ok(()) | Err(SpecificError)` - can mix different enum variants
@@ -597,6 +631,7 @@ enum_pattern = type_name [ "(" pattern { "," pattern } ")" ] ;
   - Valid: `Point { x: 0, y } | Point { x: 1, y }` - both bind `y`
   - Invalid: `Point { x: 0, y } | Point { x, y: 1 }` - different variables
 - **Examples**:
+
   ```rust
   match char {
     'a' | 'e' | 'i' | 'o' | 'u' => "vowel",  // Simple alternatives
