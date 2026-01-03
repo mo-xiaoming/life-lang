@@ -109,7 +109,7 @@
 #include <variant>
 
 #include "expected.hpp"
-#include "sexp.hpp"  // For future S-expression comparison
+#include "parser/sexp.hpp"  // For future S-expression comparison
 
 // Helper functions for building S-expressions for testing
 namespace test_sexp {
@@ -1025,7 +1025,7 @@ inline std::string normalize_sexp(std::string_view sexp_) {
 }
 
 #include "diagnostics.hpp"
-#include "parser.hpp"
+#include "parser/parser.hpp"
 
 // Helper to parse using Parser class directly
 // Returns nullopt if parsing fails OR if input is not fully consumed

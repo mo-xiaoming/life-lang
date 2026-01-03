@@ -9,9 +9,10 @@
 //
 // Production code should use Parser class directly.
 
-#include <diagnostics.hpp>
-#include <expected.hpp>
-#include <parser.hpp>
+#include "diagnostics.hpp"
+#include "expected.hpp"
+#include "parser/parser.hpp"
+
 #include <string_view>
 
 namespace life_lang::internal {

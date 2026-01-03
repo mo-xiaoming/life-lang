@@ -66,6 +66,10 @@ target_sources(tests
         parser/test_where_clause.cpp
         parser/test_while_expr.cpp
 
+        # Semantic analysis tests
+        semantic/test_type.cpp
+        semantic/test_symbol_table.cpp
+
         # Integration tests - test complete parse_module workflows
         integration/test_array_type_in_functions.cpp
         integration/test_binary_literals.cpp

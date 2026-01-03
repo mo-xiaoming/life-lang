@@ -6,18 +6,26 @@ configure_file(
 )
 
 # Library with public headers
-add_library(life-lang diagnostics.cpp parser.cpp sexp.cpp)
+add_library(life-lang
+  diagnostics.cpp
+  parser/parser.cpp
+  parser/sexp.cpp
+  semantic/type.cpp
+  semantic/symbol_table.cpp
+)
 target_sources(life-lang
   PUBLIC FILE_SET HEADERS
   BASE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
   FILES
-    ast.hpp
+    parser/ast.hpp
+    parser/parser.hpp
+    parser/sexp.hpp
     diagnostics.hpp
     expected.hpp
-    parser.hpp
-    sexp.hpp
+    semantic/type.hpp
+    semantic/symbol_table.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/version.hpp
 )
 target_link_libraries(life-lang

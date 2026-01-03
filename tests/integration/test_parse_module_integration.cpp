@@ -2,7 +2,7 @@
 #include <sstream>
 
 #include "diagnostics.hpp"
-#include "parser.hpp"
+#include "parser/parser.hpp"
 
 // ============================================================================
 // Complete Input Validation Tests

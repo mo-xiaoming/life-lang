@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "diagnostics.hpp"
-#include "parser.hpp"
+#include "parser/parser.hpp"
 
 TEST_CASE("Array types in function signatures") {
   auto const* const input = R"(

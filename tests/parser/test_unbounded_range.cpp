@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 #include "diagnostics.hpp"
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "parser/parser.hpp"
+#include "parser/sexp.hpp"
 #include "utils.hpp"
 
 using namespace life_lang;

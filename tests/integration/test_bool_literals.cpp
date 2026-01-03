@@ -1,8 +1,8 @@
 #include <doctest/doctest.h>
 #include "../parser/utils.hpp"
 #include "diagnostics.hpp"
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "parser/parser.hpp"
+#include "parser/sexp.hpp"
 
 using namespace test_sexp;
 
@@ -28,7 +28,7 @@ TEST_CASE("Boolean literals in expressions") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -39,7 +39,7 @@ life_lang::parser::Parser parser{diagnostics};
 
   SUBCASE("complex boolean expression") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "!false && true || false"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -78,7 +78,7 @@ TEST_CASE("Boolean literals in let statements") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const stmt = parser.parse_statement();
       REQUIRE(stmt.has_value());
       if (stmt.has_value()) {
@@ -107,7 +107,7 @@ TEST_CASE("Boolean literals in function calls") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -139,7 +139,7 @@ TEST_CASE("Boolean literals in if expressions") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -158,7 +158,7 @@ TEST_CASE("Boolean literals in match expressions") {
       }
     )";
     life_lang::Diagnostic_Engine diagnostics{"<test>", input};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -177,7 +177,7 @@ life_lang::parser::Parser parser{diagnostics};
 TEST_CASE("Boolean literals in arrays") {
   SUBCASE("array of booleans") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "[true, false, true]"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -192,7 +192,7 @@ life_lang::parser::Parser parser{diagnostics};
 TEST_CASE("Boolean literals in tuples") {
   SUBCASE("tuple with booleans") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "(true, false)"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -202,7 +202,7 @@ life_lang::parser::Parser parser{diagnostics};
 
   SUBCASE("tuple with mixed types including booleans") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "(42, true, \"hello\", false)"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -217,7 +217,7 @@ life_lang::parser::Parser parser{diagnostics};
 TEST_CASE("Boolean literals in struct literals") {
   SUBCASE("struct with boolean field") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "Config { enabled: true, debug: false }"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -248,7 +248,7 @@ TEST_CASE("Boolean literals vs identifiers") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -273,7 +273,7 @@ TEST_CASE("Boolean literals in return statements") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const stmt = parser.parse_statement();
       REQUIRE(stmt.has_value());
       if (stmt.has_value()) {
@@ -295,7 +295,7 @@ TEST_CASE("Complete function with boolean literals") {
   )";
 
   life_lang::Diagnostic_Engine diagnostics{"<test>", input};
-life_lang::parser::Parser parser{diagnostics};
+  life_lang::parser::Parser parser{diagnostics};
   auto const func = parser.parse_func_def();
   REQUIRE(func.has_value());
   if (func.has_value()) {

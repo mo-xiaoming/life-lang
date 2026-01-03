@@ -10,7 +10,7 @@
 #include <iostream>
 
 #include "diagnostics.hpp"
-#include "parser.hpp"
+#include "parser/parser.hpp"
 
 TEST_CASE("Parse README example code") {
   // *** EXACT COPY FROM README.md - DO NOT MODIFY WITHOUT UPDATING README ***
