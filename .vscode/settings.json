@@ -164,6 +164,7 @@
     "lifec",
     "NOLINTNEXTLINE",
     "scrutinee",
+    "symtab",
     "ubsan",
     "vcpkg"
   ],

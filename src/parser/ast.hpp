@@ -73,7 +73,7 @@ struct Path_Type {
 struct Array_Type {
   static constexpr std::string_view k_name = "Array_Type";
   std::shared_ptr<Type_Name> element_type;  // Element type
-  std::string size;                         // Array size (stored as string to preserve literal)
+  std::optional<std::string> size;          // Array size (optional for unsized arrays like [T])
 };
 
 // Tuple type: (T, U, V, ...)

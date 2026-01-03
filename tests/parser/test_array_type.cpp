@@ -50,6 +50,34 @@ constexpr auto k_size_one_should_succeed = true;
 constexpr auto k_size_one_input = "[Bool; 1]";
 inline std::string const k_size_one_expected = test_sexp::array_type(test_sexp::type_name("Bool"), "1");
 
+// Unsized array - basic
+constexpr auto k_unsized_basic_should_succeed = true;
+constexpr auto k_unsized_basic_input = "[I32]";
+inline std::string const k_unsized_basic_expected = test_sexp::array_type(test_sexp::type_name("I32"));
+
+// Unsized array with String
+constexpr auto k_unsized_string_should_succeed = true;
+constexpr auto k_unsized_string_input = "[String]";
+inline std::string const k_unsized_string_expected = test_sexp::array_type(test_sexp::type_name("String"));
+
+// Unsized array with qualified type
+constexpr auto k_unsized_qualified_should_succeed = true;
+constexpr auto k_unsized_qualified_input = "[Std.Vec]";
+inline std::string const k_unsized_qualified_expected =
+    test_sexp::array_type(test_sexp::type_name_path({"Std", "Vec"}));
+
+// Unsized array with generic type
+constexpr auto k_unsized_generic_should_succeed = true;
+constexpr auto k_unsized_generic_input = "[Vec<I32>]";
+inline std::string const k_unsized_generic_expected =
+    test_sexp::array_type(R"((path ((type_segment "Vec" ((path ((type_segment "I32"))))))))");
+
+// Unsized nested array (array of unsized arrays)
+constexpr auto k_unsized_nested_should_succeed = true;
+constexpr auto k_unsized_nested_input = "[[I32]]";
+inline std::string const k_unsized_nested_expected =
+    test_sexp::array_type(test_sexp::array_type(test_sexp::type_name("I32")));
+
 // Array with spaces
 constexpr auto k_with_spaces_should_succeed = true;
 constexpr auto k_with_spaces_input = "[ I32 ; 4 ]";
@@ -117,6 +145,26 @@ TEST_CASE("Parse Array_Type") {
        .input = k_size_one_input,
        .expected = k_size_one_expected,
        .should_succeed = k_size_one_should_succeed},
+      {.name = "unsized basic",
+       .input = k_unsized_basic_input,
+       .expected = k_unsized_basic_expected,
+       .should_succeed = k_unsized_basic_should_succeed},
+      {.name = "unsized string",
+       .input = k_unsized_string_input,
+       .expected = k_unsized_string_expected,
+       .should_succeed = k_unsized_string_should_succeed},
+      {.name = "unsized qualified",
+       .input = k_unsized_qualified_input,
+       .expected = k_unsized_qualified_expected,
+       .should_succeed = k_unsized_qualified_should_succeed},
+      {.name = "unsized generic",
+       .input = k_unsized_generic_input,
+       .expected = k_unsized_generic_expected,
+       .should_succeed = k_unsized_generic_should_succeed},
+      {.name = "unsized nested",
+       .input = k_unsized_nested_input,
+       .expected = k_unsized_nested_expected,
+       .should_succeed = k_unsized_nested_should_succeed},
       {.name = "with spaces",
        .input = k_with_spaces_input,
        .expected = k_with_spaces_expected,
