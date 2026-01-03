@@ -117,7 +117,9 @@ TEST_CASE("parse_impl_block - pub methods") {
 
   for (auto const& tc: test_cases) {
     SUBCASE(std::string(tc.name).c_str()) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const result = parser.parse_impl_block();
       REQUIRE(result.has_value());
       if (result.has_value()) {

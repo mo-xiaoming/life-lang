@@ -29,7 +29,7 @@ These principles prioritize **correctness and user-friendliness over raw perform
 
 ### Keywords
 ```ebnf
-keyword = "fn" | "struct" | "enum" | "impl" | "trait" | "let" | "mut" 
+keyword = "fn" | "struct" | "enum" | "impl" | "trait" | "let" | "mut"
         | "if" | "else" | "match" | "for" | "in" | "while" | "break" | "continue"
         | "return" | "type" | "where" | "self" | "Self" | "pub" | "import" | "as" ;
 ```
@@ -85,11 +85,11 @@ unit_literal = "(" ")" ;
   - Negative infinity: `-inf`, `-Inf`, `-INF` (unary minus applied to infinity literal)
   - Rationale: More user-friendly than requiring `F32::NAN` constants; aligns with Python, JavaScript, C99
 - **String types - three distinct forms with different purposes**:
-  
+
   1. **Regular strings** (`"..."`): Escape sequences processed
      - Example: `"Hello\nWorld"` → newline between words
      - Use for: User-facing text with escape sequences
-  
+
   2. **String interpolation** (`"...{expr}..."`): Escape sequences + expression substitution
      - Example: `"Hello, {name}! You are {age} years old."`
      - Full expression support: `"result is {x + y * 2}"`
@@ -97,7 +97,7 @@ unit_literal = "(" ")" ;
      - Empty `{}` not treated as interpolation (literal braces in format strings)
      - Use for: Dynamic user-facing messages, logging with values
      - Rationale: More ergonomic than format functions; aligns with Python f-strings, JavaScript, Kotlin, Swift
-  
+
   3. **Raw strings** (`r"..."`, `r#"..."#`): No processing at all - everything is literal
      - Basic syntax: `r"C:\path\to\file"` - backslashes are literal
      - With embedded quotes: `r#"He said "hello""#` - delimiter allows quotes in content
@@ -107,7 +107,7 @@ unit_literal = "(" ")" ;
      - **No interpolation**: `r"value: {x}"` contains literal braces, not an expression
      - Use for: Regex patterns, Windows file paths, JSON/XML templates, SQL queries
      - Rationale: Avoid escaping hell for regex, file paths, embedded languages; aligns with Rust, Python, C++11
-  
+
   **Design principle**: Raw strings and interpolation serve opposite purposes:
   - Interpolation: Dynamic content with escape processing (`"user: {name}\n"`)
   - Raw strings: Static literal content, no processing (`r"regex: \d+\.\w+"`)
@@ -115,32 +115,32 @@ unit_literal = "(" ")" ;
   - If you need both, use interpolation with escaped backslashes: `"path: {user}\\Documents"`
 
 - **String concatenation**: No special operator (`+` or `++`)
-  
+
   **Idiomatic approach - use string interpolation**:
   ```rust
   // Instead of: a + b + c
   let result = "{a}{b}{c}";           // Clean, one allocation
-  
+
   // Path building
   let path = "{base_dir}/{user}/{file}.txt";
-  
+
   // Message construction
   let msg = "{prefix} {content} {suffix}";
   ```
-  
+
   **Rationale for no `+` operator**:
   - **Preserves value semantics**: `+` has consistent meaning (numeric addition only)
   - **Avoids type confusion**: `1 + 2` is always arithmetic, never string concatenation
   - **Better performance**: `"{a}{b}{c}"` allocates once; `a + b + c` creates intermediate copies
   - **More explicit**: String building is intentional, not hidden behind overloaded operators
   - **Interpolation covers 90% of use cases**: Most concatenation is for messages, paths, formatting
-  
+
   **For explicit array joining** (future standard library):
   ```rust
   String::concat([a, b, c])           // Join array of strings
   String::join([a, b, c], ", ")       // Join with separator
   ```
-  
+
   **Comparison with other languages**:
   - Python/JavaScript: `+` operator creates performance issues (`a + b + c + d` = multiple copies)
   - Rust: `.to_owned() + &b` is verbose and awkward
@@ -167,7 +167,7 @@ import_item = identifier [ "as" identifier ] ;
 identifier = var_name | type_name ;
 
 item = [ "pub" ] ( func_def
-                 | struct_def  
+                 | struct_def
                  | enum_def
                  | impl_block
                  | trait_def
@@ -326,7 +326,7 @@ block = "{" { statement } [ expr ] "}" ;
 
 ```ebnf
 binary_expr = expr binary_op expr ;
-binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">=" 
+binary_op = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
           | "&&" | "||" | "&" | "|" | "^" | "<<" | ">>" | "as" ;
 ```
 
@@ -454,7 +454,7 @@ range_expr = expr ".." [ "=" ] expr      (* bounded range: start to end *)
 (* Range Expression Semantics:
    - '..' (exclusive): half-open interval, excludes endpoint
    - '..=' (inclusive): closed interval, includes endpoint
-   
+
    Conceptual model:
    - 'a..b'   ≡ [a, b)   = {x | a ≤ x < b}
    - 'a..=b'  ≡ [a, b]   = {x | a ≤ x ≤ b}
@@ -462,11 +462,11 @@ range_expr = expr ".." [ "=" ] expr      (* bounded range: start to end *)
    - '..b'    ≡ (-∞, b)  = {x | type_min ≤ x < b}  (excludes b)
    - '..=b'   ≡ (-∞, b]  = {x | type_min ≤ x ≤ b}  (includes b)
    - '..'     ≡ (-∞, ∞)  = {x | type_min ≤ x ≤ type_max}  (all values)
-   
+
    Key insight: Unbounded ranges are infinite intervals clipped to type bounds.
    - 'a..' includes type_max because [a, ∞) has no "next value" beyond max
    - 'a..b' excludes b per half-open interval definition
-   
+
    Examples:
    - 0..10    = 0,1,2,3,4,5,6,7,8,9          (excludes 10)
    - 0..=10   = 0,1,2,3,4,5,6,7,8,9,10       (includes 10)
@@ -528,7 +528,7 @@ wildcard_pattern = "_" ;
 
 tuple_pattern = "(" pattern { "," pattern } ")" ;
 
-struct_pattern = type_name "{" [ pattern_field { "," pattern_field } [ "," ".." ] ] "}" 
+struct_pattern = type_name "{" [ pattern_field { "," pattern_field } [ "," ".." ] ] "}"
                | type_name "{" ".." "}" ;
 pattern_field = var_name [ ":" pattern ] ;
 
@@ -548,13 +548,13 @@ enum_pattern = type_name [ "(" pattern { "," pattern } ")" ] ;
     Point { .. } => "it's a point",
     Circle { .. } => "it's a circle",
   }
-  
+
   // Partial field matching
   match config {
     Config { debug: true, .. } => enable_logging(),
     Config { host, port, .. } => connect(host, port),
   }
-  
+
   // Cross-module matching (User has private fields)
   match user {
     User { name: "admin", .. } => grant_access(),  // Ignores private fields
@@ -575,14 +575,14 @@ enum_pattern = type_name [ "(" pattern { "," pattern } ")" ] ;
     pub name: String,
     age: I32,  // private
   }
-  
+
   // Module B (importing User)
   match user {
     User { name, .. } => {}              // ✅ OK: ignores private age
     User { name: "Alice", .. } => {}     // ✅ OK: matches pub field
     User { name, age } => {}             // ❌ ERROR: age is private
   }
-  
+
   // Module A (same module as User)
   match user {
     User { name, age } => {}             // ✅ OK: all fields visible
@@ -602,13 +602,13 @@ enum_pattern = type_name [ "(" pattern { "," pattern } ")" ] ;
     'a' | 'e' | 'i' | 'o' | 'u' => "vowel",  // Simple alternatives
     _ => "consonant",
   }
-  
+
   match value {
     Some(1 | 2 | 3) => "small",              // Nested or-pattern
     Some(x) => "other: {x}",
     None => "nothing",
   }
-  
+
   match result {
     Ok(()) | Err(RecoverableError) => continue,  // Mixed variants
     Err(e) => panic("Fatal: {e}"),

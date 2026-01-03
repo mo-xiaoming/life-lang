@@ -65,8 +65,9 @@ TEST_CASE("Var_Name vs Keyword Distinction") {
     SUBCASE(std::string(test.name).c_str()) {
       auto const got = life_lang::internal::parse_type_name(test.input);
       REQUIRE(bool(got));
-      CHECK((*got).segments().size() == 1);
-      CHECK((*got).segments()[0].value == test.expected_name);
+      auto const& segments = std::get<life_lang::ast::Path_Type>(*got).segments;
+      CHECK(segments.size() == 1);
+      CHECK(segments[0].value == test.expected_name);
     }
   }
 }

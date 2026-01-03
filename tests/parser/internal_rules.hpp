@@ -9,6 +9,7 @@
 //
 // Production code should use Parser class directly.
 
+#include <diagnostics.hpp>
 #include <expected.hpp>
 #include <parser.hpp>
 #include <string_view>
@@ -19,18 +20,19 @@ namespace life_lang::internal {
 // Returns parsed AST on success, or Diagnostic_Engine with errors on failure
 template <typename Ast, typename Parse_Method>
 Expected<Ast, Diagnostic_Engine> parse_with_parser(std::string_view source_, Parse_Method parse_method_) {
-  parser::Parser parser{source_, "<test>"};
+  Diagnostic_Engine diagnostics{"<test>", source_};
+  parser::Parser parser{diagnostics};
 
   auto result = parse_method_(parser);
 
   if (!result.has_value()) {
-    return unexpected(std::move(parser).get_diagnostics());
+    return Unexpected(diagnostics);
   }
 
   // Check if all input was consumed
-  if (!parser.is_at_end()) {
-    // Not all input consumed - this is typically an error in tests
-    return unexpected(std::move(parser).get_diagnostics());
+  // Note: parse_module() enforces this, but other parse_* methods don't
+  if (!parser.all_input_consumed()) {
+    return Unexpected(diagnostics);
   }
 
   return std::move(*result);

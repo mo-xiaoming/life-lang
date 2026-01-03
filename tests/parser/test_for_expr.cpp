@@ -84,6 +84,33 @@ inline auto const k_func_call_iterator_expected = for_expr(
     function_call(var_name("get_items"), {}),
     block({function_call_statement(function_call(var_name("process"), {var_name("item")}))})
 );
+// For with unbounded range - tests that block is not consumed as range endpoint
+// This verifies that `for i in ..{ }` parses as unbounded range followed by loop body
+constexpr auto k_unbounded_range_should_succeed = true;
+constexpr auto k_unbounded_range_input = "for i in .. { process(i); }";
+inline auto const k_unbounded_range_expected = for_expr(
+    simple_pattern("i"),
+    range_expr("nil", "nil", false),  // Unbounded range
+    block({function_call_statement(function_call(var_name("process"), {var_name("i")}))})
+);
+
+// For with unbounded start range
+constexpr auto k_unbounded_start_should_succeed = true;
+constexpr auto k_unbounded_start_input = "for i in ..10 { process(i); }";
+inline auto const k_unbounded_start_expected = for_expr(
+    simple_pattern("i"),
+    range_expr("nil", integer("10"), false),
+    block({function_call_statement(function_call(var_name("process"), {var_name("i")}))})
+);
+
+// For with block expression as range endpoint (requires parentheses)
+constexpr auto k_block_endpoint_should_succeed = true;
+constexpr auto k_block_endpoint_input = "for i in 0..({ get_max() }) { process(i); }";
+inline auto const k_block_endpoint_expected = for_expr(
+    simple_pattern("i"),
+    range_expr(integer("0"), block({}, function_call(var_name("get_max"), {})), false),
+    block({function_call_statement(function_call(var_name("process"), {var_name("i")}))})
+);
 
 // For with spaces
 constexpr auto k_with_spaces_should_succeed = true;
@@ -157,6 +184,18 @@ TEST_CASE("Parse For_Expr") {
        .input = k_func_call_iterator_input,
        .expected = k_func_call_iterator_expected,
        .should_succeed = k_func_call_iterator_should_succeed},
+      {.name = "unbounded range",
+       .input = k_unbounded_range_input,
+       .expected = k_unbounded_range_expected,
+       .should_succeed = k_unbounded_range_should_succeed},
+      {.name = "unbounded start range",
+       .input = k_unbounded_start_input,
+       .expected = k_unbounded_start_expected,
+       .should_succeed = k_unbounded_start_should_succeed},
+      {.name = "block endpoint with parens",
+       .input = k_block_endpoint_input,
+       .expected = k_block_endpoint_expected,
+       .should_succeed = k_block_endpoint_should_succeed},
       {.name = "with spaces",
        .input = k_with_spaces_input,
        .expected = k_with_spaces_expected,

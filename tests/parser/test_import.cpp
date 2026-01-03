@@ -40,7 +40,9 @@ TEST_CASE("parse_import_statement") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const result = parser.parse_import_statement();
       REQUIRE(result.has_value());
       if (result.has_value()) {

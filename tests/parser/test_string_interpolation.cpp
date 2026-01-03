@@ -134,7 +134,9 @@ TEST_CASE("String interpolation") {
 
   for (auto const& tc: test_cases) {
     SUBCASE(std::string(tc.name).c_str()) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -145,7 +147,9 @@ TEST_CASE("String interpolation") {
 }
 
 TEST_CASE("String interpolation - tuple access") {
-  Parser parser(R"("first: {pair.0}")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("first: {pair.0}")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -155,7 +159,9 @@ TEST_CASE("String interpolation - tuple access") {
 }
 
 TEST_CASE("String interpolation - complex expression") {
-  Parser parser(R"("value: {data.items[index].name.to_upper()}")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("value: {data.items[index].name.to_upper()}")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {

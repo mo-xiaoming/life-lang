@@ -90,7 +90,9 @@ TEST_CASE("Or patterns") {
 
   for (auto const& tc: test_cases) {
     SUBCASE(std::string(tc.name).c_str()) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const pattern = parser.parse_pattern();
       REQUIRE(pattern.has_value());
       if (pattern.has_value()) {
@@ -101,7 +103,9 @@ TEST_CASE("Or patterns") {
 }
 
 TEST_CASE("Or pattern - in let statement") {
-  Parser parser(k_in_let_statement_input);
+  life_lang::Diagnostic_Engine diagnostics{"<test>", k_in_let_statement_input};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const stmt = parser.parse_statement();
   REQUIRE(stmt.has_value());
   if (stmt.has_value()) {

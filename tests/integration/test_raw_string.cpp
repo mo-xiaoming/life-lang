@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../parser/utils.hpp"
+#include "diagnostics.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 
@@ -26,7 +27,9 @@ TEST_CASE("Raw string literals - simple expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -38,11 +41,13 @@ TEST_CASE("Raw string literals - simple expressions") {
 
 TEST_CASE("Raw strings in function return statements") {
   SUBCASE("function with raw string path") {
-    Parser parser(R"(
+    constexpr std::string_view k_source = R"(
     fn get_path(): String {
       return r"C:\Users\Documents\file.txt";
     }
-  )");
+  )";
+    life_lang::Diagnostic_Engine diagnostics{"<test>", k_source};
+    life_lang::parser::Parser parser{diagnostics};
 
     auto const func = parser.parse_func_def();
     REQUIRE(func.has_value());
@@ -58,11 +63,13 @@ TEST_CASE("Raw strings in function return statements") {
   }
 
   SUBCASE("function with regex pattern") {
-    Parser parser(R"(
+    constexpr std::string_view k_source = R"(
     fn email_pattern(): String {
       return r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}";
     }
-  )");
+  )";
+    life_lang::Diagnostic_Engine diagnostics{"<test>", k_source};
+    life_lang::parser::Parser parser{diagnostics};
 
     auto const func = parser.parse_func_def();
     REQUIRE(func.has_value());

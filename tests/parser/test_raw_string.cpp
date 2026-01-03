@@ -80,7 +80,9 @@ TEST_CASE("Raw string - valid") {
 
   for (auto const& tc: test_cases) {
     SUBCASE(std::string(tc.name).c_str()) {
-      Parser parser(tc.input);
+      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -91,19 +93,25 @@ TEST_CASE("Raw string - valid") {
 }
 
 TEST_CASE("Raw string - unterminated error") {
-  Parser parser(R"(r"unterminated)");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"(r"unterminated)"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   CHECK_FALSE(expr.has_value());
 }
 
 TEST_CASE("Raw string - unterminated with delimiter") {
-  Parser parser(R"(r#"unterminated)");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"(r#"unterminated)"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   CHECK_FALSE(expr.has_value());
 }
 
 TEST_CASE("Raw string - wrong delimiter count") {
-  Parser parser(R"(r##"wrong delimiter"#)");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"(r##"wrong delimiter"#)"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   CHECK_FALSE(expr.has_value());
 }

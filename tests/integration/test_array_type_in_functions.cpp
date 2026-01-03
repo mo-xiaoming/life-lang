@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include "diagnostics.hpp"
 #include "parser.hpp"
 
 TEST_CASE("Array types in function signatures") {
@@ -13,16 +14,19 @@ fn matrix_func(mat: [[I32; 4]; 3]): Bool {
 }
 )";
 
-  life_lang::parser::Parser parser{input, "test.life"};
+  life_lang::Diagnostic_Engine diagnostics{"test.life", input};
+  life_lang::parser::Parser parser{diagnostics};
   auto const result = parser.parse_module();
 
   REQUIRE(result.has_value());
-  auto const& module = *result;
+  if (result.has_value()) {
+    auto const& module = *result;
 
-  // Should have 2 function definitions
-  REQUIRE(module.items.size() == 2);
+    // Should have 2 function definitions
+    REQUIRE(module.items.size() == 2);
 
-  // Check both are function definitions (Item.item is the Statement variant containing shared_ptr<Func_Def>)
-  REQUIRE(std::holds_alternative<std::shared_ptr<life_lang::ast::Func_Def>>(module.items[0].item));
-  REQUIRE(std::holds_alternative<std::shared_ptr<life_lang::ast::Func_Def>>(module.items[1].item));
+    // Check both are function definitions (Item.item is the Statement variant containing shared_ptr<Func_Def>)
+    REQUIRE(std::holds_alternative<std::shared_ptr<life_lang::ast::Func_Def>>(module.items[0].item));
+    REQUIRE(std::holds_alternative<std::shared_ptr<life_lang::ast::Func_Def>>(module.items[1].item));
+  }
 }

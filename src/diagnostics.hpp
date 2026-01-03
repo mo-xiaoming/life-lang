@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <ostream>
@@ -41,10 +40,9 @@ struct Diagnostic {
 };
 
 // Collection of diagnostics with source text access
-class Diagnostic_Engine {
-public:
-  explicit Diagnostic_Engine(std::string filename_ = "<input>", std::string source_ = "")
-      : m_filename(std::move(filename_)), m_source(std::move(source_)) {
+struct Diagnostic_Engine {
+  explicit Diagnostic_Engine(std::string filename_, std::string_view source_)
+      : m_filename(std::move(filename_)), m_source(source_) {
     // Pre-compute line offsets for fast line lookup
     build_line_index();
   }
@@ -63,29 +61,17 @@ public:
   }
 
   // Check if any errors were reported
-  [[nodiscard]] bool has_errors() const {
-    return std::ranges::any_of(m_diagnostics, [](auto const& diag_) { return diag_.level == Diagnostic_Level::Error; });
-  }
+  [[nodiscard]] bool has_errors() const;
 
   [[nodiscard]] std::vector<Diagnostic> const& diagnostics() const { return m_diagnostics; }
   [[nodiscard]] std::string const& filename() const { return m_filename; }
-  [[nodiscard]] std::string const& source() const { return m_source; }
+  [[nodiscard]] std::string_view source() const { return m_source; }
 
   // Get source line by line number (1-indexed)
-  [[nodiscard]] std::string_view get_line(std::size_t line_number_) const {
-    if (line_number_ == 0 || line_number_ > m_line_offsets.size()) {
-      return "";
-    }
-    std::size_t const start = m_line_offsets[line_number_ - 1];
-    std::size_t const end = (line_number_ < m_line_offsets.size()) ? m_line_offsets[line_number_] : m_source.size();
+  [[nodiscard]] std::string_view get_line(std::size_t line_number_) const;
 
-    // Trim trailing newline if present
-    std::size_t length = end - start;
-    if (length > 0 && m_source[end - 1] == '\n') {
-      --length;
-    }
-    return {m_source.data() + start, length};
-  }
+  // Convert byte offset to line/column position (1-indexed)
+  [[nodiscard]] Source_Position offset_to_position(std::size_t offset_) const;
 
   // Format all diagnostics in clang style
   void print(std::ostream& out_) const;
@@ -97,30 +83,11 @@ public:
 
 private:
   std::string m_filename;
-  std::string m_source;
+  std::string_view m_source;
   std::vector<Diagnostic> m_diagnostics;
   std::vector<std::size_t> m_line_offsets;  // Start offset of each line
 
-  void build_line_index() {
-    m_line_offsets.push_back(0);  // Line 1 starts at offset 0
-    for (std::size_t i = 0; i < m_source.size(); ++i) {
-      // Handle all line ending conventions:
-      // - Unix/Linux: \n (LF)
-      // - Windows: \r\n (CRLF)
-      // - Old Mac: \r (CR)
-      if (m_source[i] == '\n') {
-        m_line_offsets.push_back(i + 1);
-      } else if (m_source[i] == '\r') {
-        // Check if it's \r\n (Windows) or standalone \r (old Mac)
-        if (i + 1 < m_source.size() && m_source[i + 1] == '\n') {
-          // Windows CRLF: skip the \r, let \n handling record the line start
-          continue;
-        }
-        // Old Mac CR: treat as line ending
-        m_line_offsets.push_back(i + 1);
-      }
-    }
-  }
+  void build_line_index();
 
   // Print single diagnostic
   void print_diagnostic(std::ostream& out_, Diagnostic const& diag_) const;

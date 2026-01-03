@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../parser/utils.hpp"
+#include "diagnostics.hpp"
 #include "parser.hpp"
 #include "sexp.hpp"
 
@@ -9,7 +10,9 @@ using namespace life_lang::ast;
 using namespace test_sexp;
 
 TEST_CASE("String interpolation - simple variable") {
-  Parser parser(R"("Hello, {name}!")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Hello, {name}!")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -19,7 +22,9 @@ TEST_CASE("String interpolation - simple variable") {
 }
 
 TEST_CASE("String interpolation - multiple variables") {
-  Parser parser(R"xxx("Point: ({x}, {y})")xxx");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"xxx("Point: ({x}, {y})")xxx"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -30,7 +35,9 @@ TEST_CASE("String interpolation - multiple variables") {
 }
 
 TEST_CASE("String interpolation - expression") {
-  Parser parser(R"("Result: {x + y}")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Result: {x + y}")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -40,7 +47,9 @@ TEST_CASE("String interpolation - expression") {
 }
 
 TEST_CASE("String interpolation - field access") {
-  Parser parser(R"("Name: {user.name}")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Name: {user.name}")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -50,7 +59,9 @@ TEST_CASE("String interpolation - field access") {
 }
 
 TEST_CASE("String interpolation - function call") {
-  Parser parser(R"("Value: {get_value()}")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Value: {get_value()}")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -60,7 +71,9 @@ TEST_CASE("String interpolation - function call") {
 }
 
 TEST_CASE("String interpolation - method chain") {
-  Parser parser(R"("Upper: {name.to_upper()}")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Upper: {name.to_upper()}")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -71,7 +84,9 @@ TEST_CASE("String interpolation - method chain") {
 }
 
 TEST_CASE("Empty braces - not interpolation") {
-  Parser parser(R"("Format: {}")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Format: {}")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -81,7 +96,9 @@ TEST_CASE("Empty braces - not interpolation") {
 }
 
 TEST_CASE("Escaped braces - literal") {
-  Parser parser(R"("Literal: \{value\}")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Literal: \{value\}")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -91,7 +108,9 @@ TEST_CASE("Escaped braces - literal") {
 }
 
 TEST_CASE("Mixed escaped and interpolated") {
-  Parser parser(R"("Literal \{x\}, interpolated {y}")");
+  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Literal \{x\}, interpolated {y}")"};
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
   if (expr.has_value()) {
@@ -107,7 +126,10 @@ fn greet(name: String): String {
 }
 )";
 
-  Parser parser(k_input);
+  life_lang::Diagnostic_Engine diagnostics{"<test>", k_input};
+
+
+  life_lang::parser::Parser parser{diagnostics};
   auto const module = parser.parse_module();
   REQUIRE(module);
   if (module) {

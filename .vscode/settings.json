@@ -2,6 +2,7 @@
   // ============================================================
   // File Handling
   // ============================================================
+  // Map file extensions to their language modes
   "files.associations": {
     "*.hpp": "cpp",
     "*.cpp": "cpp",
@@ -11,185 +12,172 @@
     "*.hxx.in": "cmake",
     "*.in": "cmake"
   },
+  // Remove trailing whitespace on save
   "files.trimTrailingWhitespace": true,
+  // Ensure files end with a newline
   "files.insertFinalNewline": true,
+  // Remove extra blank lines at end of file
   "files.trimFinalNewlines": true,
+  // Use Unix-style line endings (LF)
   "files.eol": "\n",
-
   // ============================================================
   // Editor - Visual & Behavior
   // ============================================================
-  "editor.rulers": [100],
+  // Disable highlighting at overview ruler (right scrollbar) of all occurrences of the symbol under cursor
+  "editor.occurrencesHighlight": "off",
+  // Show inlay hints (type hints, parameter names) only when Ctrl/Cmd is pressed
+  "editor.inlayHints.enabled": "offUnlessPressed",
+  // Show vertical ruler at column 100
+  "editor.rulers": [
+    100
+  ],
+  // Auto-format code when saving
   "editor.formatOnSave": true,
+  // Don't auto-format when pasting
   "editor.formatOnPaste": false,
-  "editor.renderWhitespace": "boundary",
+  // Color matching bracket pairs
   "editor.bracketPairColorization.enabled": true,
+  // Show vertical guides for bracket pairs
   "editor.guides.bracketPairs": true,
+  // Keep current scope visible at top when scrolling
   "editor.stickyScroll.enabled": true,
+  // Disable minimap (code overview on right side)
   "editor.minimap.enabled": false,
-  "editor.minimap.maxColumn": 100,
-  "editor.cursorBlinking": "smooth",
-  "editor.cursorSmoothCaretAnimation": "on",
-  "editor.smoothScrolling": true,
+  // Allow zooming editor with mouse wheel + Ctrl/Cmd
   "editor.mouseWheelZoom": true,
+  // Auto-rename matching HTML/XML tags
   "editor.linkedEditing": true,
+  // Enable inline suggestions (like GitHub Copilot)
   "editor.inlineSuggest.enabled": true,
+  // Show preview of suggestion before accepting
   "editor.suggest.preview": true,
+  // Show status bar for suggestions
   "editor.suggest.showStatusBar": true,
+  // Accept suggestion with Enter key
   "editor.acceptSuggestionOnEnter": "on",
-
   // ============================================================
   // C++ / Clangd Configuration
   // ============================================================
   // Disable C/C++ extension IntelliSense (we use clangd)
   "C_Cpp.intelliSenseEngine": "disabled",
+  // Hide .in template files from C++ extension
   "C_Cpp.files.exclude": {
     "**/*.in": true
   },
-
-  // Clangd LSP
+  // Clangd LSP - Use system clangd from PATH
   "clangd.path": "clangd",
+  // Clangd command-line arguments
   "clangd.arguments": [
-    "--compile-commands-dir=${workspaceFolder}",
-    "--background-index",
-    "--clang-tidy",
-    "--completion-style=detailed",
-    "--header-insertion=iwyu",
-    "--header-insertion-decorators",
-    "--all-scopes-completion",
-    "--pch-storage=memory"
+    "--compile-commands-dir=${workspaceFolder}", // Use compile_commands.json from project root
+    "--background-index", // Index project in background for faster navigation
+    "--clang-tidy", // Enable clang-tidy checks
+    "--completion-style=detailed", // Show detailed completion information
+    "--header-insertion=iwyu", // Use include-what-you-use style for header insertion
+    "--header-insertion-decorators", // Show decorators for auto-inserted headers
+    "--all-scopes-completion", // Complete symbols from all scopes
+    "--pch-storage=memory" // Store precompiled headers in memory
   ],
+  // Restart clangd when clangd config file changes
   "clangd.onConfigChanged": "restart",
-
   // Code formatting (C++)
-  "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+  // Use clangd for all formatting (it uses .clang-format)
   "[cpp]": {
     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
-    "editor.tabSize": 2,
-    "editor.insertSpaces": true
+    "editor.tabSize": 2, // 2 spaces per tab
+    "editor.insertSpaces": true // Use spaces, not tabs
   },
   "[c]": {
     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
   },
-
   // ============================================================
   // CMake Configuration
   // ============================================================
+  // Don't automatically run CMake configure when opening project
   "cmake.configureOnOpen": false,
+  // Use system cmake from PATH
   "cmake.cmakePath": "cmake",
+  // Put build files in build/${buildPreset} (e.g., build/debug, build/release)
   "cmake.buildDirectory": "${workspaceFolder}/build/${buildPreset}",
-  "cmake.statusbar.advanced": {
-    "build": {
-      "visibility": "visible"
-    },
-    "launch": {
-      "visibility": "visible"
-    },
-    "debug": {
-      "visibility": "visible"
-    }
-  },
-
-  // ============================================================
-  // Testing
-  // ============================================================
-  "testExplorer.useNativeTesting": true,
-  "testExplorer.onStart": "clearOutput",
-
   // ============================================================
   // Terminal
   // ============================================================
-  "terminal.integrated.smoothScrolling": true,
-  "terminal.integrated.cursorBlinking": true,
-  "terminal.integrated.fontSize": 13,
+  // Use bash as default shell on Linux
+  "terminal.integrated.defaultProfile.linux": "bash",
+  // Don't show shell integration decorations (like command success/fail indicators)
+  "terminal.integrated.shellIntegration.decorationsEnabled": "never",
+  // Keep 10,000 lines of scrollback history
   "terminal.integrated.scrollback": 10000,
-
   // ============================================================
   // Git & Version Control
   // ============================================================
-  "git.autofetch": true,
-  "git.confirmSync": false,
-  "git.enableSmartCommit": true,
-  "git.suggestSmartCommit": false,
-  "gitlens.codeLens.enabled": false,
-  "gitlens.currentLine.enabled": true,
-  "gitlens.hovers.currentLine.over": "line",
-
+  // Show diff decorations only in left gutter, not in overview ruler (right scrollbar)
+  // This prevents duplicate change indicators from native Git and GitLens
+  "scm.diffDecorations": "gutter",
   // ============================================================
   // Search & Explorer
   // ============================================================
+  // Exclude these from search results
   "search.exclude": {
     "**/build": true,
-    "**/vcpkg_installed": true,
     "**/.cache": true,
-    "**/compile_commands.json": true
+    "**/compile_commands.json": true,
+    "/.direnv/": true
   },
+  // Hide these from file explorer
   "files.exclude": {
     "**/.git": true,
-    "**/.cache": true
+    "**/.cache": true,
+    "/.direnv/": true
   },
+  // Don't ask for confirmation when deleting files
   "explorer.confirmDelete": false,
+  // Don't ask for confirmation when dragging files
   "explorer.confirmDragAndDrop": false,
-
   // ============================================================
   // Error Lens (Inline Error Display)
   // ============================================================
+  // Enable Error Lens extension
   "errorLens.enabled": true,
-  "errorLens.enabledDiagnosticLevels": ["error", "warning", "info"],
-  "errorLens.followCursor": "activeLine",
+  // Show errors, warnings, and info messages inline
+  "errorLens.enabledDiagnosticLevels": [
+    "error",
+    "warning",
+    "info"
+  ],
+  // Show icons in gutter for errors/warnings
   "errorLens.gutterIconsEnabled": true,
-
   // ============================================================
   // Spell Checker
   // ============================================================
+  // Enable spell checking
   "cSpell.enabled": true,
+  // Use English dictionary
   "cSpell.language": "en",
-  "cSpell.enableFiletypes": [
-    "cpp",
-    "markdown",
-    "cmake"
-  ],
+  // Custom words to add to dictionary (project-specific terms)
   "cSpell.words": [
-    "clangd",
-    "vcpkg",
-    "devbox",
-    "lifec",
     "asan",
+    "clangd",
+    "devbox",
+    "doctest",
+    "EBNF",
+    "hicpp",
+    "lifec",
+    "NOLINTNEXTLINE",
+    "scrutinee",
     "ubsan",
-    "doctest"
+    "vcpkg"
   ],
-
-  // ============================================================
-  // Todo Highlight
-  // ============================================================
-  "todohighlight.keywords": [
-    {
-      "text": "TODO:",
-      "color": "#fff",
-      "backgroundColor": "#ffbd2a",
-      "overviewRulerColor": "rgba(255,189,42,0.8)"
-    },
-    {
-      "text": "FIXME:",
-      "color": "#fff",
-      "backgroundColor": "#f06292",
-      "overviewRulerColor": "rgba(240,98,146,0.8)"
-    },
-    {
-      "text": "NOTE:",
-      "color": "#fff",
-      "backgroundColor": "#64b5f6",
-      "overviewRulerColor": "rgba(100,181,246,0.8)"
-    }
-  ],
-
   // ============================================================
   // Workbench & UI
   // ============================================================
+  // VSCode color theme
   "workbench.colorTheme": "Default Dark Modern",
+  // File icon theme
   "workbench.iconTheme": "material-icon-theme",
-  "workbench.list.smoothScrolling": true,
+  // Don't show file preview when clicking once (requires double-click to open permanently)
   "workbench.editor.enablePreview": false,
+  // Automatically close editor when file is deleted
   "workbench.editor.closeOnFileDelete": true,
+  // Show breadcrumb navigation at top of editor
   "breadcrumbs.enabled": true
 }

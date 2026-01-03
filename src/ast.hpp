@@ -27,7 +27,6 @@ struct Where_Clause;
 struct Var_Name_Segment;
 struct Func_Call_Expr;
 struct Field_Access_Expr;
-struct Assignment_Expr;
 struct Array_Literal;
 struct Index_Expr;
 struct Binary_Expr;
@@ -93,12 +92,6 @@ struct Type_Name : std::variant<Path_Type, Function_Type, Array_Type, Tuple_Type
   using Base_Type = std::variant<Path_Type, Function_Type, Array_Type, Tuple_Type>;
   using Base_Type::Base_Type;  // NOLINT(modernize-use-equals-default,hicpp-use-equals-default)
   using Base_Type::operator=;
-
-  // Helper to access segments when Type_Name holds a Path_Type
-  // Throws std::bad_variant_access if Type_Name is not a Path_Type
-  [[nodiscard]] std::vector<Type_Name_Segment> const& segments() const { return std::get<Path_Type>(*this).segments; }
-
-  [[nodiscard]] std::vector<Type_Name_Segment>& segments() { return std::get<Path_Type>(*this).segments; }
 };
 
 // Example: Map<String, I32> where "Map" is value, type_params = [String, I32]
@@ -130,11 +123,11 @@ struct Type_Param {
 // Where clause predicate: type constraint in where clause
 // Where predicates support more complex type expressions than inline bounds:
 // - Simple type parameters: T: Display
-// - Associated types (future): T::Item: Display, <T as Iterator>::Item: Clone
+// - Associated types (future): T.Item: Display, <T as Iterator>.Item: Clone
 // Example: T: Display + Clone (in "where T: Display + Clone")
 struct Where_Predicate {
   static constexpr std::string_view k_name = "Where_Predicate";
-  Type_Name type_name;              // Type being constrained (e.g., T, U::Item, <T as Iterator>::Item)
+  Type_Name type_name;              // Type being constrained (e.g., T, U.Item, <T as Iterator>.Item)
   std::vector<Trait_Bound> bounds;  // Required trait bounds
 };
 
@@ -177,7 +170,6 @@ struct String {
 // Example: "result: {x + 1}" has parts: ["result: ", <expr: x+1>, ""]
 struct String_Interp_Part : std::variant<std::string, std::shared_ptr<Expr>> {
   using Base_Type = std::variant<std::string, std::shared_ptr<Expr>>;
-  String_Interp_Part() = default;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
   static constexpr std::string_view k_name = "String_Interp_Part";
@@ -358,7 +350,6 @@ struct Expr : std::variant<
                   std::shared_ptr<Match_Expr>,
                   std::shared_ptr<Block>,
                   std::shared_ptr<Range_Expr>,
-                  std::shared_ptr<Assignment_Expr>,
                   Struct_Literal,
                   Array_Literal,
                   Tuple_Literal,
@@ -383,7 +374,6 @@ struct Expr : std::variant<
       std::shared_ptr<Match_Expr>,
       std::shared_ptr<Block>,
       std::shared_ptr<Range_Expr>,
-      std::shared_ptr<Assignment_Expr>,
       Struct_Literal,
       Array_Literal,
       Tuple_Literal,
@@ -394,7 +384,6 @@ struct Expr : std::variant<
       Integer,
       Float,
       Char>;
-  Expr() = default;
   using Base_Type::Base_Type;  // NOLINT(modernize-use-equals-default,hicpp-use-equals-default)
   using Base_Type::operator=;
 };
@@ -421,17 +410,18 @@ struct Index_Expr {
   std::shared_ptr<Expr> index;   // The index expression
 };
 
-// Example: x = 42 or point.x = 10 or arr[i] = value (future)
-// Assignment requires target to be mutable (checked in semantic analysis)
-struct Assignment_Expr {
-  static constexpr std::string_view k_name = "Assignment_Expr";
-  std::shared_ptr<Expr> target;  // LHS: variable or field access
-  std::shared_ptr<Expr> value;   // RHS: expression to assign
-};
-
 // ============================================================================
 // Statement Types
 // ============================================================================
+
+// Example: x = 42 or point.x = 10 or arr[i] = value
+// Assignment is a statement, not an expression - prevents confusing patterns
+// like `x = y = z` and aligns with immutability-by-default philosophy
+struct Assignment_Statement {
+  static constexpr std::string_view k_name = "Assignment_Statement";
+  std::shared_ptr<Expr> target;  // LHS: variable or field access
+  std::shared_ptr<Expr> value;   // RHS: expression to assign
+};
 
 // Example: Std.print("Hello"); as a standalone statement (not an expression)
 struct Func_Call_Statement {
@@ -499,6 +489,7 @@ struct Statement : std::variant<
                        std::shared_ptr<Trait_Impl>,
                        std::shared_ptr<Type_Alias>,
                        std::shared_ptr<Let_Statement>,
+                       std::shared_ptr<Assignment_Statement>,
                        Func_Call_Statement,
                        std::shared_ptr<Expr_Statement>,
                        Return_Statement,
@@ -517,6 +508,7 @@ struct Statement : std::variant<
       std::shared_ptr<Trait_Impl>,
       std::shared_ptr<Type_Alias>,
       std::shared_ptr<Let_Statement>,
+      std::shared_ptr<Assignment_Statement>,
       Func_Call_Statement,
       std::shared_ptr<Expr_Statement>,
       Return_Statement,
@@ -526,7 +518,6 @@ struct Statement : std::variant<
       std::shared_ptr<While_Statement>,
       std::shared_ptr<For_Statement>,
       std::shared_ptr<Block>>;
-  Statement() = default;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -551,7 +542,6 @@ struct If_Expr {
   std::shared_ptr<Expr> condition;
   std::shared_ptr<Block> then_block;
   std::vector<Else_If_Clause> else_ifs;
-  // std::optional to avoid use-after-free issues caused by std::optional
   std::optional<std::shared_ptr<Block>> else_block;
 };
 
@@ -571,6 +561,8 @@ struct Literal_Pattern {
   std::shared_ptr<Expr> value;  // Integer, Float, or String literal
 };
 
+// Simple identifier pattern: binds matched value to a variable
+// Examples: x, value, item (in let x = 42; or match expr { x => ... } or for item in items { ... })
 struct Simple_Pattern {
   static constexpr std::string_view k_name = "Simple_Pattern";
   std::string name;
@@ -639,7 +631,6 @@ struct Pattern : std::variant<
       Tuple_Pattern,
       Enum_Pattern,
       Or_Pattern>;
-  Pattern() = default;
   using Base_Type::Base_Type;  // NOLINT(modernize-use-equals-default,hicpp-use-equals-default)
   using Base_Type::operator=;
 };
@@ -740,7 +731,7 @@ struct Struct_Field {
 };
 
 // Example: struct Point { x: I32, y: I32, metadata: Option<String> }
-// Example: struct Box<T> { value: T }
+// Example: struct Cache<K, V> where K: Eq + Hash, V: Clone { items: Map<K, V> }
 struct Struct_Def {
   static constexpr std::string_view k_name = "Struct_Def";
   std::string name;
@@ -778,7 +769,6 @@ struct Struct_Variant {
 struct Enum_Variant : std::variant<Unit_Variant, Tuple_Variant, Struct_Variant> {
   static constexpr std::string_view k_name = "Enum_Variant";
   using Base_Type = std::variant<Unit_Variant, Tuple_Variant, Struct_Variant>;
-  Enum_Variant() = default;
   using Base_Type::Base_Type;
   using Base_Type::operator=;
 };
@@ -1112,9 +1102,6 @@ inline Expr make_expr(Func_Call_Expr&& call_) {
 inline Expr make_expr(Field_Access_Expr&& access_) {
   return Expr{std::make_shared<Field_Access_Expr>(std::move(access_))};
 }
-inline Expr make_expr(Assignment_Expr&& assignment_) {
-  return Expr{std::make_shared<Assignment_Expr>(std::move(assignment_))};
-}
 inline Expr make_expr(Binary_Expr&& binary_) {
   return Expr{std::make_shared<Binary_Expr>(std::move(binary_))};
 }
@@ -1172,8 +1159,8 @@ inline Index_Expr make_index_expr(Expr&& object_, Expr&& index_) {
   };
 }
 
-inline Assignment_Expr make_assignment_expr(Expr&& target_, Expr&& value_) {
-  return Assignment_Expr{
+inline Assignment_Statement make_assignment_statement(Expr&& target_, Expr&& value_) {
+  return Assignment_Statement{
       .target = std::make_shared<Expr>(std::move(target_)),
       .value = std::make_shared<Expr>(std::move(value_))
   };

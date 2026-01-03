@@ -108,6 +108,7 @@
 #include <string_view>
 #include <variant>
 
+#include "expected.hpp"
 #include "sexp.hpp"  // For future S-expression comparison
 
 // Helper functions for building S-expressions for testing
@@ -541,6 +542,22 @@ inline std::string block(std::vector<std::string> const& statements_) {
   return std::format("(block {})", statements_sexp);
 }
 
+// Block with statements and trailing expression
+inline std::string block(std::vector<std::string> const& statements_, std::string_view trailing_expr_) {
+  if (statements_.empty()) {
+    return std::format("(block {})", trailing_expr_);
+  }
+  std::string statements_sexp = "(";
+  for (size_t i = 0; i < statements_.size(); ++i) {
+    if (i > 0) {
+      statements_sexp += " ";
+    }
+    statements_sexp += statements_[i];
+  }
+  statements_sexp += ")";
+  return std::format("(block {} {})", statements_sexp, trailing_expr_);
+}
+
 // Return statement
 inline std::string return_statement(std::string_view expr_) {
   return std::format("(return {})", expr_);
@@ -572,8 +589,8 @@ inline std::string function_call_statement(std::string_view expr_) {
   return std::format("(call_stmt {})", expr_);
 }
 
-// Assignment expression
-inline std::string assignment_expr(std::string_view target_, std::string_view value_) {
+// Assignment statement
+inline std::string assignment_statement(std::string_view target_, std::string_view value_) {
   return std::format("(assign {} {})", target_, value_);
 }
 
@@ -1007,6 +1024,7 @@ inline std::string normalize_sexp(std::string_view sexp_) {
   return result;
 }
 
+#include "diagnostics.hpp"
 #include "parser.hpp"
 
 // Helper to parse using Parser class directly
@@ -1019,11 +1037,12 @@ struct Parse_Helper;
   template <>                                                                   \
   struct Parse_Helper<life_lang::ast::Type> {                                   \
     static std::optional<life_lang::ast::Type> parse(std::string_view input_) { \
-      life_lang::parser::Parser parser{input_, "test.life"};                    \
+      life_lang::Diagnostic_Engine diagnostics{"test.life", input_};            \
+      life_lang::parser::Parser parser{diagnostics};                            \
       auto result = parser.method();                                            \
       if (!result)                                                              \
         return std::nullopt;                                                    \
-      if (!parser.is_at_end())                                                  \
+      if (!parser.all_input_consumed())                                         \
         return std::nullopt;                                                    \
       return result;                                                            \
     }                                                                           \
@@ -1036,7 +1055,6 @@ DEFINE_PARSE_HELPER(If_Expr, parse_if_expr)
 DEFINE_PARSE_HELPER(Match_Expr, parse_match_expr)
 DEFINE_PARSE_HELPER(For_Expr, parse_for_expr)
 DEFINE_PARSE_HELPER(While_Expr, parse_while_expr)
-DEFINE_PARSE_HELPER(Range_Expr, parse_range_expr)
 DEFINE_PARSE_HELPER(Let_Statement, parse_let_statement)
 DEFINE_PARSE_HELPER(Return_Statement, parse_return_statement)
 DEFINE_PARSE_HELPER(Break_Statement, parse_break_statement)
@@ -1051,30 +1069,22 @@ DEFINE_PARSE_HELPER(Type_Alias, parse_type_alias)
 DEFINE_PARSE_HELPER(Type_Name, parse_type_name)
 DEFINE_PARSE_HELPER(Function_Type, parse_function_type)
 DEFINE_PARSE_HELPER(Array_Type, parse_array_type)
+DEFINE_PARSE_HELPER(Statement, parse_statement)
 
 #undef DEFINE_PARSE_HELPER
 
 // Statement and Module need special handling
-template <>
-struct Parse_Helper<life_lang::ast::Statement> {
-  static std::optional<life_lang::ast::Statement> parse(std::string_view input_) {
-    life_lang::parser::Parser parser{input_, "test.life"};
-    auto result = parser.parse_statement();
-    if (!result) {
-      return std::nullopt;
-    }
-    if (!parser.is_at_end()) {
-      return std::nullopt;
-    }
-    return result;
-  }
-};
 
 template <>
 struct Parse_Helper<life_lang::ast::Module> {
   static life_lang::Expected<life_lang::ast::Module, life_lang::Diagnostic_Engine> parse(std::string_view input_) {
-    life_lang::parser::Parser parser{input_, "test.life"};
-    return parser.parse_module();
+    life_lang::Diagnostic_Engine diagnostics{"test.life", input_};
+    life_lang::parser::Parser parser{diagnostics};
+    auto result = parser.parse_module();
+    if (!result) {
+      return life_lang::Unexpected(diagnostics);
+    }
+    return *result;
   }
 };
 
@@ -1104,11 +1114,12 @@ std::optional<T> extract_from_expr(life_lang::ast::Expr const& expr_) {
   template <>                                                                   \
   struct Parse_Helper<life_lang::ast::Type> {                                   \
     static std::optional<life_lang::ast::Type> parse(std::string_view input_) { \
-      life_lang::parser::Parser parser{input_, "test.life"};                    \
+      life_lang::Diagnostic_Engine diagnostics{"test.life", input_};            \
+      life_lang::parser::Parser parser{diagnostics};                            \
       auto expr = parser.parse_expr();                                          \
       if (!expr)                                                                \
         return std::nullopt;                                                    \
-      if (!parser.is_at_end())                                                  \
+      if (!parser.all_input_consumed())                                         \
         return std::nullopt;                                                    \
       return extract_from_expr<life_lang::ast::Type>(*expr);                    \
     }                                                                           \
@@ -1117,7 +1128,6 @@ std::optional<T> extract_from_expr(life_lang::ast::Expr const& expr_) {
 // Types that are parsed as expressions but need extraction
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(Binary_Expr)
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(Unary_Expr)
-DEFINE_PARSE_HELPER_WITH_EXTRACTION(Assignment_Expr)
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(Integer)
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(Float)
 DEFINE_PARSE_HELPER_WITH_EXTRACTION(Bool_Literal)
@@ -1126,28 +1136,19 @@ DEFINE_PARSE_HELPER_WITH_EXTRACTION(Char)
 
 #undef DEFINE_PARSE_HELPER_WITH_EXTRACTION
 
-#define PARSE_TEST(AstType, fn_name)                                                                \
-  namespace {                                                                                       \
-  using AstType##_Params = Parse_Test_Params<AstType>;                                              \
-  void check_parse(AstType##_Params const& params) {                                                \
-    INFO("Input: ", std::string(params.input));                                                     \
-    auto const result = Parse_Helper<life_lang::ast::AstType>::parse(params.input);                 \
-    if constexpr (std::is_same_v<decltype(result), std::optional<life_lang::ast::AstType> const>) { \
-      CHECK(params.should_succeed == bool(result));                                                 \
-      if (result && params.expected.has_value()) {                                                  \
-        auto const actual_sexp = life_lang::ast::to_sexp_string(*result, 0);                        \
-        auto const expected_sexp = get_expected_sexp(*params.expected);                             \
-        CHECK(normalize_sexp(actual_sexp) == normalize_sexp(expected_sexp));                        \
-      }                                                                                             \
-    } else {                                                                                        \
-      CHECK(params.should_succeed == bool(result));                                                 \
-      if (result && params.expected.has_value()) {                                                  \
-        auto const actual_sexp = life_lang::ast::to_sexp_string(*result, 0);                        \
-        auto const expected_sexp = get_expected_sexp(*params.expected);                             \
-        CHECK(normalize_sexp(actual_sexp) == normalize_sexp(expected_sexp));                        \
-      }                                                                                             \
-    }                                                                                               \
-  }                                                                                                 \
+#define PARSE_TEST(AstType, fn_name)                                                \
+  namespace {                                                                       \
+  using AstType##_Params = Parse_Test_Params<AstType>;                              \
+  void check_parse(AstType##_Params const& params) {                                \
+    INFO("Input: ", std::string(params.input));                                     \
+    auto const result = Parse_Helper<life_lang::ast::AstType>::parse(params.input); \
+    CHECK(params.should_succeed == bool(result));                                   \
+    if (result && params.expected.has_value()) {                                    \
+      auto const actual_sexp = life_lang::ast::to_sexp_string(*result, 0);          \
+      auto const expected_sexp = get_expected_sexp(*params.expected);               \
+      CHECK(normalize_sexp(actual_sexp) == normalize_sexp(expected_sexp));          \
+    }                                                                               \
+  }                                                                                 \
   }  // namespace
 
 template <typename Ast_Type>

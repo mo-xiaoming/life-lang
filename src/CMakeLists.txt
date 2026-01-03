@@ -6,7 +6,7 @@ configure_file(
 )
 
 # Library with public headers
-add_library(life-lang diagnostics.cpp parser.cpp)
+add_library(life-lang diagnostics.cpp parser.cpp sexp.cpp)
 target_sources(life-lang
   PUBLIC FILE_SET HEADERS
   BASE_DIRS
@@ -17,6 +17,7 @@ target_sources(life-lang
     diagnostics.hpp
     expected.hpp
     parser.hpp
+    sexp.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/version.hpp
 )
 target_link_libraries(life-lang

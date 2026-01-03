@@ -75,6 +75,36 @@ constexpr auto k_only_dots_should_succeed = true;
 constexpr auto k_only_dots_input = "..";
 inline auto const k_only_dots_expected = test_sexp::range_expr("nil", "nil", false);
 
+// Unbounded range before block - should not consume the block as endpoint
+// This tests that `..{` parses as unbounded range, not range with block endpoint
+constexpr auto k_unbounded_before_block_should_succeed = true;
+constexpr auto k_unbounded_before_block_input = "..";  // Will be tested in context where { follows
+inline auto const k_unbounded_before_block_expected = test_sexp::range_expr("nil", "nil", false);
+
+// Block expression as range endpoint with explicit parentheses
+constexpr auto k_block_endpoint_with_parens_should_succeed = true;
+constexpr auto k_block_endpoint_with_parens_input = "0..({ 10 })";
+inline auto const k_block_endpoint_with_parens_expected =
+    test_sexp::range_expr(test_sexp::integer("0"), test_sexp::block({}, test_sexp::integer("10")), false);
+
+// Unbounded start with block endpoint
+constexpr auto k_unbounded_start_block_endpoint_should_succeed = true;
+constexpr auto k_unbounded_start_block_endpoint_input = "..({ compute_end() })";
+inline auto const k_unbounded_start_block_endpoint_expected = test_sexp::range_expr(
+    "nil",
+    test_sexp::block({}, test_sexp::function_call(test_sexp::var_name("compute_end"), {})),
+    false
+);
+
+// Range with block expressions on both sides
+constexpr auto k_both_blocks_should_succeed = true;
+constexpr auto k_both_blocks_input = "({ 0 })..({ 10 })";
+inline auto const k_both_blocks_expected = test_sexp::range_expr(
+    test_sexp::block({}, test_sexp::integer("0")),
+    test_sexp::block({}, test_sexp::integer("10")),
+    false
+);
+
 }  // namespace
 
 TEST_CASE("Parse Range_Expr") {
@@ -126,6 +156,22 @@ TEST_CASE("Parse Range_Expr") {
        .input = k_only_dots_input,
        .expected = k_only_dots_expected,
        .should_succeed = k_only_dots_should_succeed},
+      {.name = "unbounded before block",
+       .input = k_unbounded_before_block_input,
+       .expected = k_unbounded_before_block_expected,
+       .should_succeed = k_unbounded_before_block_should_succeed},
+      {.name = "block endpoint with parens",
+       .input = k_block_endpoint_with_parens_input,
+       .expected = k_block_endpoint_with_parens_expected,
+       .should_succeed = k_block_endpoint_with_parens_should_succeed},
+      {.name = "unbounded start with block endpoint",
+       .input = k_unbounded_start_block_endpoint_input,
+       .expected = k_unbounded_start_block_endpoint_expected,
+       .should_succeed = k_unbounded_start_block_endpoint_should_succeed},
+      {.name = "both blocks with parens",
+       .input = k_both_blocks_input,
+       .expected = k_both_blocks_expected,
+       .should_succeed = k_both_blocks_should_succeed},
   };
   for (auto const& params: params_list) {
     SUBCASE(std::string(params.name).c_str()) {

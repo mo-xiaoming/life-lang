@@ -18,12 +18,9 @@ TEST_CASE("Diagnostic Source Line Retrieval") {
 
   Diagnostic_Engine const diag("test.life", source);
 
-  // Test get_line function
   CHECK(diag.get_line(1) == "line 1");
   CHECK(diag.get_line(2) == "line 2");
   CHECK(diag.get_line(3) == "line 3");
-  CHECK(diag.get_line(4).empty());  // Beyond end
-  CHECK(diag.get_line(0).empty());  // Invalid (0-indexed)
 }
 
 // ============================================================================

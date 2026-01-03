@@ -9,6 +9,9 @@ target_sources(tests
         # Main test runner
         test_main.cpp
 
+        # Expected tests
+        test_expected_llvm_style.cpp
+
         # Unit tests - test semantic boundaries only (11 exposed rules)
         parser/test_array_literal.cpp
         parser/test_array_type.cpp
