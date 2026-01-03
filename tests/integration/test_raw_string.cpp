@@ -2,8 +2,8 @@
 
 #include "../parser/utils.hpp"
 #include "diagnostics.hpp"
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "parser/parser.hpp"
+#include "parser/sexp.hpp"
 
 using namespace life_lang::parser;
 using namespace life_lang::ast;

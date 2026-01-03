@@ -17,7 +17,8 @@
 // See doc/GRAMMAR.md for the complete EBNF specification.
 
 #include "parser.hpp"
-#include "diagnostics.hpp"
+
+#include "../diagnostics.hpp"
 #include "utils.hpp"
 
 #include <array>

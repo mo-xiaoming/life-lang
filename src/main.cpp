@@ -4,8 +4,8 @@
 #include <string_view>
 
 #include "diagnostics.hpp"
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "parser/parser.hpp"
+#include "parser/sexp.hpp"
 #include "version.hpp"
 
 int main(int argc, char* argv[]) {

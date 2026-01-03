@@ -2,8 +2,8 @@
 
 #include "../parser/utils.hpp"
 #include "diagnostics.hpp"
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "parser/parser.hpp"
+#include "parser/sexp.hpp"
 
 using namespace life_lang::parser;
 using namespace life_lang::ast;
@@ -127,7 +127,6 @@ fn greet(name: String): String {
 )";
 
   life_lang::Diagnostic_Engine diagnostics{"<test>", k_input};
-
 
   life_lang::parser::Parser parser{diagnostics};
   auto const module = parser.parse_module();

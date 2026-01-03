@@ -27,11 +27,13 @@ These principles prioritize **correctness and user-friendliness over raw perform
 ## Language Overview
 
 **Design Principles**:
+
 - **Value semantics by default**: Immutability without explicit keywords, modifications return new values
 - **Expression-oriented**: If, match, and blocks are expressions that return values
 - **Explicit and safe**: No implicit conversions, no null pointers, clear(?) error handling
 
 **Key Features**:
+
 - ✅ Structs with named fields
 - ✅ Enums with unit, tuple, and struct variants
 - ✅ Pattern matching (match expressions, let bindings)
@@ -123,6 +125,7 @@ cd life-lang
 ```
 
 The script will:
+
 - ✅ Install Nix package manager with flakes support
 - ✅ Install direnv + nix-direnv for automatic environment activation
 - ✅ Download and build all development tools (~760 MB, cached)
@@ -130,6 +133,7 @@ The script will:
 - ✅ Install VSCode extensions (optional)
 
 **After installation:**
+
 - Restart your shell: `source ~/.bashrc` (or `~/.zshrc`)
 - Allow direnv: `direnv allow` (if using direnv)
 - Start coding! Environment auto-activates on `cd`
@@ -139,11 +143,13 @@ The script will:
 If you prefer manual installation:
 
 1. **Install Nix with flakes:**
+
    ```bash
    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
    ```
 
 2. **Clone and enter environment:**
+
    ```bash
    git clone https://github.com/mo-xiaoming/life-lang.git
    cd life-lang
@@ -151,6 +157,7 @@ If you prefer manual installation:
    ```
 
 3. **Optional: Install direnv + nix-direnv for auto-activation:**
+
    ```bash
    # Install direnv and nix-direnv
    nix profile install nixpkgs#direnv nixpkgs#nix-direnv
@@ -191,6 +198,7 @@ generate-coverage # Generate code coverage report
 ### Tool Versions
 
 All tools are pinned via `flake.lock` for reproducibility:
+
 - GCC 15.2.0 (full package with gcov)
 - Clang 21.1.2
 - CMake 3.31.2

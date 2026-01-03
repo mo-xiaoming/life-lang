@@ -3,8 +3,8 @@
 #include "../parser/internal_rules.hpp"
 #include "../parser/utils.hpp"
 #include "diagnostics.hpp"
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "parser/parser.hpp"
+#include "parser/sexp.hpp"
 
 using life_lang::ast::to_sexp_string;
 using namespace test_sexp;

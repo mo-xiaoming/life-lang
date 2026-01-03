@@ -1,8 +1,8 @@
 #include <doctest/doctest.h>
 #include "../parser/utils.hpp"
 #include "diagnostics.hpp"
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "parser/parser.hpp"
+#include "parser/sexp.hpp"
 
 using namespace test_sexp;
 
@@ -26,7 +26,7 @@ TEST_CASE("Hexadecimal literals in expressions") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -55,7 +55,7 @@ TEST_CASE("Hexadecimal literals in let statements") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const stmt = parser.parse_statement();
       REQUIRE(stmt.has_value());
       if (stmt.has_value()) {
@@ -68,7 +68,7 @@ life_lang::parser::Parser parser{diagnostics};
 TEST_CASE("Hexadecimal literals in arrays") {
   SUBCASE("array of hex values") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "[0x00, 0xFF, 0x7F]"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -79,7 +79,7 @@ life_lang::parser::Parser parser{diagnostics};
 
   SUBCASE("color palette array") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "[0xFF0000, 0x00FF00, 0x0000FF]"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -92,7 +92,7 @@ life_lang::parser::Parser parser{diagnostics};
 TEST_CASE("Hexadecimal literals with type suffixes") {
   SUBCASE("hex U8") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "0xFFU8"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -102,7 +102,7 @@ life_lang::parser::Parser parser{diagnostics};
 
   SUBCASE("hex U32") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "0xDEADBEEFU32"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -112,7 +112,7 @@ life_lang::parser::Parser parser{diagnostics};
 
   SUBCASE("hex I64") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "0x7FFF_FFFF_FFFF_FFFFI64"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -124,7 +124,7 @@ life_lang::parser::Parser parser{diagnostics};
 TEST_CASE("Hexadecimal in function calls") {
   SUBCASE("function call with hex argument") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "set_color(0xFF00FF)"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -135,7 +135,7 @@ life_lang::parser::Parser parser{diagnostics};
 
   SUBCASE("multiple hex arguments") {
     life_lang::Diagnostic_Engine diagnostics{"<test>", "create_rgb(0xFF, 0x80, 0x00)"};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -157,7 +157,7 @@ TEST_CASE("Hexadecimal in match expressions") {
       }
     )";
     life_lang::Diagnostic_Engine diagnostics{"<test>", input};
-life_lang::parser::Parser parser{diagnostics};
+    life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
     if (expr.has_value()) {
@@ -180,7 +180,7 @@ TEST_CASE("Complete function with hexadecimal literals") {
   )";
 
   life_lang::Diagnostic_Engine diagnostics{"<test>", input};
-life_lang::parser::Parser parser{diagnostics};
+  life_lang::parser::Parser parser{diagnostics};
   auto const func = parser.parse_func_def();
   REQUIRE(func.has_value());
   if (func.has_value()) {

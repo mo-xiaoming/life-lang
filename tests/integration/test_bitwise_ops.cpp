@@ -1,8 +1,8 @@
 #include <doctest/doctest.h>
 #include "../parser/utils.hpp"
 #include "diagnostics.hpp"
-#include "parser.hpp"
-#include "sexp.hpp"
+#include "parser/parser.hpp"
+#include "parser/sexp.hpp"
 
 using namespace test_sexp;
 
@@ -37,7 +37,7 @@ TEST_CASE("Bitwise operators in let statements") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const stmt = parser.parse_statement();
       REQUIRE(stmt.has_value());
       if (stmt.has_value()) {
@@ -66,7 +66,7 @@ TEST_CASE("Bitwise AND in expressions") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -93,7 +93,7 @@ TEST_CASE("Bitwise OR in expressions") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -120,7 +120,7 @@ TEST_CASE("Bitwise XOR in expressions") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -147,7 +147,7 @@ TEST_CASE("Shift left operations") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -180,7 +180,7 @@ TEST_CASE("Shift right operations") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -223,7 +223,7 @@ TEST_CASE("Complex bitwise expressions") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
@@ -272,7 +272,7 @@ TEST_CASE("Bitwise operators with binary literals") {
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
       life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
-life_lang::parser::Parser parser{diagnostics};
+      life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
       if (expr.has_value()) {
