@@ -2,8 +2,16 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
+
+namespace life_lang {
+struct Diagnostic_Engine;
+namespace ast {
+struct Module;
+}
+}  // namespace life_lang
 
 namespace life_lang::semantic {
 
@@ -42,6 +50,11 @@ public:
   // Returns list of all discovered modules (both file-modules and folder-modules)
   // src_root: Path to "src/" directory (can be relative or absolute, will be canonicalized)
   [[nodiscard]] static std::vector<Module_Descriptor> discover_modules(std::filesystem::path const& src_root_);
+
+  // Load and parse all files in a module
+  // Parses each .life file and merges all top-level items into a single Module AST
+  // Returns the merged module on success, or std::nullopt if any file fails to parse
+  [[nodiscard]] static std::optional<ast::Module> load_module(Module_Descriptor const& descriptor_);
 };
 
 }  // namespace life_lang::semantic

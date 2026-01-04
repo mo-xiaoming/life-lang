@@ -86,6 +86,7 @@ target_sources(tests
         integration/test_string_interpolation.cpp
         integration/test_tuple_types_and_literals.cpp
         integration/test_module_discovery.cpp
+        integration/test_module_loading.cpp
 )
 
 target_link_libraries(tests
