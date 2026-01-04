@@ -132,13 +132,13 @@ class Module_Registry {
 
 **Tasks:**
 
-- [ ] Implement `Symbol` struct with all metadata
-- [ ] Implement `Scope` with symbol lookup and insertion
-- [ ] Implement `Symbol_Table` with scope stack management
-- [ ] Implement `Type` representation with all variants
-- [ ] Register builtin types (I32, Bool, String, etc.)
-- [ ] Implement `Module_Registry` for tracking all modules
-- [ ] Add tests for symbol table operations
+- [x] ~~Implement `Symbol` struct with all metadata~~
+- [x] ~~Implement `Scope` with symbol lookup and insertion~~
+- [x] ~~Implement `Symbol_Table` with scope stack management~~
+- [x] ~~Implement `Type` representation with all variants~~
+- [x] ~~Register builtin types (I32, Bool, String, etc.)~~
+- [x] ~~Implement `Module_Registry` for tracking all modules~~
+- [x] ~~Add tests for symbol table operations~~
 
 ---
 
@@ -175,10 +175,24 @@ struct Module_Descriptor {
 
 **Tasks:**
 
-- [ ] Implement module discovery from filesystem
-- [ ] Parse and merge files within a module
-- [ ] Build module path names (handle nesting)
-- [ ] Add tests for module discovery
+- [x] ~~**2.1.1** Create `Module_Descriptor` struct with name, path, directory, files~~
+- [x] ~~**2.1.2** Implement filesystem scanning to find all `.life` files~~
+  - ~~Distinguish file-modules (single `.life` file) from folder-modules (directory with `.life` files)~~
+  - ~~Handle nested directories for qualified module names (e.g., `Geometry.Shapes`)~~
+  - ~~Implement lowercase filesystem → Camel_Snake_Case conversion~~
+  - ~~Enforce `src/` directory convention~~
+- [x] ~~**2.1.3** Implement `Module_Loader::discover_modules()` to scan project root~~
+  - ~~Build module descriptors for all discovered modules~~
+  - ~~Automatic module name/path derivation from filesystem~~
+- [x] ~~**2.1.5** Add comprehensive tests~~
+  - ~~Test single-file modules~~
+  - ~~Test folder modules with multiple files~~
+  - ~~Test nested modules~~
+  - ~~Test case conversion~~
+- [ ] **2.1.4** Implement `Module_Loader::load_module()` to parse all files in a module
+  - Parse each `.life` file in the module
+  - Merge all top-level items into single `ast::Module`
+  - Report errors for conflicting declarations within module
 
 ### 2.2 Import Resolution
 
@@ -219,13 +233,36 @@ class Import_Resolver {
 
 **Tasks:**
 
-- [ ] Implement import statement processing
-- [ ] Resolve module paths to `Module_Info`
-- [ ] Check symbol visibility during import
-- [ ] Handle import aliases (`Item as Alias`)
-- [ ] Track module dependencies
-- [ ] Add comprehensive error reporting
-- [ ] Add tests for import resolution (success + error cases)
+- [ ] **2.2.1** Create `Import_Resolver` class with Symbol_Table and Module_Registry access
+- [ ] **2.2.2** Implement `resolve_imports()` to process all imports in a module
+  - Iterate through all import statements in module AST
+  - Process each import item sequentially
+- [ ] **2.2.3** Implement module path resolution
+  - Parse dot-separated module path (e.g., `Geometry.Shapes`)
+  - Lookup module in Module_Registry
+  - Report error if module not found
+- [ ] **2.2.4** Implement symbol lookup in imported module
+  - For each imported item, lookup symbol in source module's scope
+  - Check symbol exists
+  - Verify symbol has `pub` visibility
+  - Report detailed errors with source location
+- [ ] **2.2.5** Handle import aliases
+  - Support `Item as Alias` syntax
+  - Add symbol to current scope with alias name
+  - Preserve original symbol metadata
+- [ ] **2.2.6** Implement dependency tracking
+  - Record edge from current module to each imported module
+  - Build dependency graph for compilation order
+  - Detect and report circular dependencies
+- [ ] **2.2.7** Add comprehensive tests
+  - Test simple imports: `import Geometry.{Point};`
+  - Test multiple items: `import Geometry.{Point, Circle, Line};`
+  - Test aliases: `import Geometry.{Circle as C};`
+  - Test nested modules: `import Std.Collections.{Vec, Map};`
+  - Test error: module not found
+  - Test error: symbol not found in module
+  - Test error: symbol not public
+  - Test error: circular dependencies
 
 ### 2.3 Name Resolution
 
@@ -233,20 +270,49 @@ class Import_Resolver {
 
 ```cpp
 class Name_Resolver {
-  Symbol_Table& symtab;
+  Symbol_Table* symtab;  // Non-owning
+  Diagnostic_Engine* diag;  // Non-owning
 
   // Resolve variable/function references
-  auto resolve_var_name(ast::Var_Name const& name) -> Result<Symbol>;
+  auto resolve_var_name(ast::Var_Name const& name) -> Expected<Symbol, Diagnostic_Engine>;
 
   // Resolve type references
-  auto resolve_type_name(ast::Type_Name const& name) -> Result<Type>;
+  auto resolve_type_name(ast::Type_Name const& name) -> Expected<Type, Diagnostic_Engine>;
 
   // Traverse AST and resolve all names
-  auto resolve_module(ast::Module const& module) -> Result<void>;
+  auto resolve_module(ast::Module const& module) -> Expected<void, Diagnostic_Engine>;
 };
 ```
 
+**Status:** ✅ Basic implementation complete (single-segment names)
+
 **Resolution Rules:**
+
+**Tasks:**
+
+- [x] ~~**2.3.1** Basic Name_Resolver implementation with single-segment names~~
+- [x] ~~**2.3.2** Implement `resolve_var_name()` for simple identifiers~~
+- [x] ~~**2.3.3** Implement `resolve_type_name()` for simple type names~~
+- [x] ~~**2.3.4** Add basic tests for name resolution~~
+- [ ] **2.3.5** Extend `resolve_var_name()` for qualified names (multi-segment paths)
+  - Parse path segments (e.g., `Geometry.Point.x`)
+  - Resolve module path prefix
+  - Lookup symbol in target module's scope
+- [ ] **2.3.6** Extend `resolve_type_name()` for qualified type names
+  - Support paths like `Std.Collections.Vec<T>`
+  - Handle generic type parameters
+- [ ] **2.3.7** Implement `resolve_module()` for full AST traversal
+  - Visit all expressions and resolve variable references
+  - Visit all type annotations and resolve type names
+  - Visit all statements (let bindings, assignments, returns)
+  - Visit all function definitions and register symbols
+- [ ] **2.3.8** Add comprehensive tests
+  - Test qualified variable names across modules
+  - Test qualified type names
+  - Test nested field access
+  - Test error cases (undefined qualified names)
+
+**Resolution Rules (continued):**
 
 - **Variables/Functions**: Search scope stack (local → module → imports)
 - **Types**: Search type scope (struct/enum/trait names)
@@ -257,13 +323,6 @@ class Name_Resolver {
 - Undefined variable: `let x = unknown_var;`
 - Undefined type: `let p: UnknownType = ...;`
 - Ambiguous import: Two modules export same name (require qualification)
-
-**Tasks:**
-
-- [ ] Implement variable name resolution
-- [ ] Implement type name resolution
-- [ ] Handle qualified names (multi-segment paths)
-- [ ] Check for shadowing (local vs module vs import)
 - [ ] Add error diagnostics for unresolved names
 - [ ] Add tests for name resolution
 

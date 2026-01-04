@@ -1,12 +1,12 @@
 # life-lang Compiler - Development Guide
 
-Prescriptive guide for working on this C++20 compiler.  
+Prescriptive guide for working on this C++20 compiler.
 **Check existing code patterns first - they're the source of truth.**
 
 ## Project Overview
 
-**Current Status**: Hand-written recursive descent parser complete, AST definitions complete  
-**Parser Features**: Full language syntax including `pub` visibility and `import` statements  
+**Current Status**: Hand-written recursive descent parser complete, AST definitions complete
+**Parser Features**: Full language syntax including `pub` visibility and `import` statements
 **Next Phase**: Implementing semantic analysis (type checking, name resolution, module system)
 
 ### Build Presets
@@ -345,6 +345,9 @@ See `tests/parser/utils.hpp` for complete list. Common helpers:
 - **Private members**: `m_` prefix - `m_data`, `m_count`
 - **Global constants**: `k_` prefix - `k_kw_fn`, `k_max_depth`
 - **Test files**: `test_<node>.cpp` - `test_binary_expr.cpp`
+- **Function declarations**: Traditional return type syntax (NOT trailing return types)
+  - ✅ `std::string foo(int x)`
+  - ❌ `auto foo(int x) -> std::string`
 
 ### JSON Output
 All `to_json()` functions use **snake_case** keys:

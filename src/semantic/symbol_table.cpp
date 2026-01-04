@@ -8,13 +8,14 @@ namespace life_lang::semantic {
 // Scope Implementation
 // ============================================================================
 
-std::optional<std::string> Scope::declare(std::string name_, Symbol symbol_) {
-  if (contains(name_)) {
-    return "Symbol '" + name_ + "' already declared in this scope at " + m_symbols.at(name_).location.filename + ":" +
-           std::to_string(m_symbols.at(name_).location.position.line);
+std::optional<std::string> Scope::declare(Symbol symbol_) {
+  auto const& name = symbol_.name;
+  if (contains(name)) {
+    return "Symbol '" + name + "' already declared in this scope at " + m_symbols.at(name).location.filename + ":" +
+           std::to_string(m_symbols.at(name).location.position.line);
   }
 
-  m_symbols[std::move(name_)] = std::move(symbol_);
+  m_symbols[symbol_.name] = std::move(symbol_);
   return std::nullopt;
 }
 
@@ -99,12 +100,12 @@ Scope const* Symbol_Table::current_scope() const {
   return m_scope_stack.back();
 }
 
-std::optional<std::string> Symbol_Table::declare(std::string name_, Symbol symbol_) {
+std::optional<std::string> Symbol_Table::declare(Symbol symbol_) {
   auto* scope = current_scope();
   if (scope == nullptr) {
     return "No active scope for declaration";
   }
-  return scope->declare(std::move(name_), std::move(symbol_));
+  return scope->declare(std::move(symbol_));
 }
 
 std::optional<Symbol> Symbol_Table::lookup(std::string_view name_) const {

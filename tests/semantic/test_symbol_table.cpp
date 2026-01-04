@@ -25,7 +25,7 @@ TEST_SUITE("Symbol Table") {
     auto i32 = make_primitive_type(Primitive_Type::Kind::I32);
 
     SUBCASE("Declare and lookup") {
-      auto error = scope.declare("x", make_symbol("x", Symbol_Kind::Variable, i32));
+      auto error = scope.declare(make_symbol("x", Symbol_Kind::Variable, i32));
       CHECK(!error);
 
       auto sym = scope.lookup("x");
@@ -37,10 +37,10 @@ TEST_SUITE("Symbol Table") {
     }
 
     SUBCASE("Duplicate declaration fails") {
-      auto error1 = scope.declare("x", make_symbol("x", Symbol_Kind::Variable, i32));
+      auto error1 = scope.declare(make_symbol("x", Symbol_Kind::Variable, i32));
       CHECK(!error1);
 
-      auto error2 = scope.declare("x", make_symbol("x", Symbol_Kind::Variable, i32));
+      auto error2 = scope.declare(make_symbol("x", Symbol_Kind::Variable, i32));
       REQUIRE(error2.has_value());
       if (error2.has_value()) {
         CHECK(error2.value().find("already declared") != std::string::npos);
@@ -53,7 +53,7 @@ TEST_SUITE("Symbol Table") {
     }
 
     SUBCASE("Contains check") {
-      auto error = scope.declare("x", make_symbol("x", Symbol_Kind::Variable, i32));
+      auto error = scope.declare(make_symbol("x", Symbol_Kind::Variable, i32));
       CHECK(!error);
 
       CHECK(scope.contains("x"));
@@ -64,7 +64,7 @@ TEST_SUITE("Symbol Table") {
       auto sym = scope.lookup_local("x");
       CHECK_FALSE(sym.has_value());
 
-      auto error = scope.declare("x", make_symbol("x", Symbol_Kind::Variable, i32));
+      auto error = scope.declare(make_symbol("x", Symbol_Kind::Variable, i32));
       CHECK(!error);
       sym = scope.lookup_local("x");
       CHECK(sym.has_value());
@@ -76,10 +76,10 @@ TEST_SUITE("Symbol Table") {
     auto string_t = make_primitive_type(Primitive_Type::Kind::String);
 
     Scope parent_scope(Scope_Kind::Module);
-    [[maybe_unused]] auto err1 = parent_scope.declare("x", make_symbol("x", Symbol_Kind::Variable, i32));
+    [[maybe_unused]] auto err1 = parent_scope.declare(make_symbol("x", Symbol_Kind::Variable, i32));
 
     Scope child_scope(Scope_Kind::Block, &parent_scope);
-    [[maybe_unused]] auto err2 = child_scope.declare("y", make_symbol("y", Symbol_Kind::Variable, string_t));
+    [[maybe_unused]] auto err2 = child_scope.declare(make_symbol("y", Symbol_Kind::Variable, string_t));
 
     SUBCASE("Child can see parent symbols") {
       auto sym = child_scope.lookup("x");
@@ -112,7 +112,7 @@ TEST_SUITE("Symbol Table") {
 
     SUBCASE("Shadowing") {
       // Declare 'x' in child scope (shadows parent's 'x')
-      [[maybe_unused]] auto err = child_scope.declare("x", make_symbol("x", Symbol_Kind::Variable, string_t));
+      [[maybe_unused]] auto err = child_scope.declare(make_symbol("x", Symbol_Kind::Variable, string_t));
 
       auto sym = child_scope.lookup("x");
       REQUIRE(sym.has_value());
@@ -180,7 +180,7 @@ TEST_SUITE("Symbol Table") {
     }
 
     SUBCASE("Declare in current scope") {
-      auto error = symtab.declare("x", make_symbol("x", Symbol_Kind::Variable, i32));
+      auto error = symtab.declare(make_symbol("x", Symbol_Kind::Variable, i32));
       CHECK(!error);
 
       auto sym = symtab.lookup("x");
@@ -191,7 +191,7 @@ TEST_SUITE("Symbol Table") {
     }
 
     SUBCASE("Lookup through scope chain") {
-      [[maybe_unused]] auto err = symtab.declare("x", make_symbol("x", Symbol_Kind::Variable, i32));
+      [[maybe_unused]] auto err = symtab.declare(make_symbol("x", Symbol_Kind::Variable, i32));
 
       symtab.enter_scope(Scope_Kind::Block);
       auto sym = symtab.lookup("x");

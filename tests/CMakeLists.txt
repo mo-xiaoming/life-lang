@@ -69,6 +69,8 @@ target_sources(tests
         # Semantic analysis tests
         semantic/test_type.cpp
         semantic/test_symbol_table.cpp
+        semantic/test_name_resolver.cpp
+        semantic/test_module_loader.cpp
 
         # Integration tests - test complete parse_module workflows
         integration/test_array_type_in_functions.cpp
@@ -83,6 +85,7 @@ target_sources(tests
         integration/test_readme_example.cpp
         integration/test_string_interpolation.cpp
         integration/test_tuple_types_and_literals.cpp
+        integration/test_module_discovery.cpp
 )
 
 target_link_libraries(tests
