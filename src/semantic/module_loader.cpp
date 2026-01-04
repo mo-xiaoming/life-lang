@@ -5,7 +5,12 @@
 #include <algorithm>
 #include <cctype>
 #include <format>
+#include <fstream>
 #include <sstream>
+
+#include "diagnostics.hpp"
+#include "parser/ast.hpp"
+#include "parser/parser.hpp"
 
 namespace life_lang::semantic {
 
@@ -133,6 +138,49 @@ std::vector<Module_Descriptor> Module_Loader::discover_modules(std::filesystem::
   }
 
   return modules;
+}
+
+std::optional<ast::Module> Module_Loader::load_module(Module_Descriptor const& descriptor_) {
+  ast::Module merged_module;
+
+  // Parse each file in the module
+  for (auto const& file_path: descriptor_.files) {
+    // Read file contents
+    std::ifstream file(file_path);
+    if (!file) {
+      // File doesn't exist or can't be opened
+      return std::nullopt;
+    }
+
+    std::string const source(std::istreambuf_iterator<char>(file), {});
+
+    // Create diagnostics engine for this file
+    Diagnostic_Engine file_diagnostics(file_path.string(), source);
+
+    // Parse the file
+    parser::Parser parser(file_diagnostics);
+    auto const module_opt = parser.parse_module();
+
+    if (!module_opt || file_diagnostics.has_errors()) {
+      // Parsing failed
+      return std::nullopt;
+    }
+
+    // Merge imports and items into the merged module
+    auto const& file_module = *module_opt;
+    merged_module.imports.insert(
+        merged_module.imports.end(),
+        std::make_move_iterator(file_module.imports.begin()),
+        std::make_move_iterator(file_module.imports.end())
+    );
+    merged_module.items.insert(
+        merged_module.items.end(),
+        std::make_move_iterator(file_module.items.begin()),
+        std::make_move_iterator(file_module.items.end())
+    );
+  }
+
+  return merged_module;
 }
 
 }  // namespace life_lang::semantic

@@ -189,10 +189,10 @@ struct Module_Descriptor {
   - ~~Test folder modules with multiple files~~
   - ~~Test nested modules~~
   - ~~Test case conversion~~
-- [ ] **2.1.4** Implement `Module_Loader::load_module()` to parse all files in a module
-  - Parse each `.life` file in the module
-  - Merge all top-level items into single `ast::Module`
-  - Report errors for conflicting declarations within module
+- [x] ~~**2.1.4** Implement `Module_Loader::load_module()` to parse all files in a module~~
+  - ~~Parse each `.life` file in the module~~
+  - ~~Merge all top-level items into single `ast::Module`~~
+  - ~~Report errors for parse failures~~
 
 ### 2.2 Import Resolution
 
