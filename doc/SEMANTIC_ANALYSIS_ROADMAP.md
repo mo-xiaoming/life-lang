@@ -233,7 +233,12 @@ class Import_Resolver {
 
 **Tasks:**
 
-- [ ] **2.2.1** Create `Import_Resolver` class with Symbol_Table and Module_Registry access
+- [x] ~~**2.2.1** Create `Module_Registry` class for managing loaded modules~~
+  - ~~Register modules with their parsed AST~~
+  - ~~Look up modules by dot-separated path~~
+  - ~~Track dependencies between modules~~
+  - ~~Implement topological sort for compilation order~~
+  - ~~Detect circular dependencies~~
 - [ ] **2.2.2** Implement `resolve_imports()` to process all imports in a module
   - Iterate through all import statements in module AST
   - Process each import item sequentially
