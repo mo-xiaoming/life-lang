@@ -14,6 +14,7 @@ add_library(life-lang
   semantic/symbol_table.cpp
   semantic/name_resolver.cpp
   semantic/module_loader.cpp
+  semantic/module_registry.cpp
 )
 target_sources(life-lang
   PUBLIC FILE_SET HEADERS
@@ -30,6 +31,7 @@ target_sources(life-lang
     semantic/symbol_table.hpp
     semantic/name_resolver.hpp
     semantic/module_loader.hpp
+    semantic/module_registry.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/version.hpp
 )
 target_link_libraries(life-lang

@@ -71,6 +71,7 @@ target_sources(tests
         semantic/test_symbol_table.cpp
         semantic/test_name_resolver.cpp
         semantic/test_module_loader.cpp
+        semantic/test_module_registry.cpp
 
         # Integration tests - test complete parse_module workflows
         integration/test_array_type_in_functions.cpp
