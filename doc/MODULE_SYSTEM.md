@@ -1,6 +1,7 @@
 # Life-lang Module System Design
 
 **Implementation Status:**
+
 - ✅ Parser: `pub` keyword for top-level items, struct fields, and impl methods
 - ✅ AST: Module, Item, Import_Statement, Import_Item, field/method visibility
 - ❌ Semantic analysis: Not yet implemented (name resolution, visibility checking, etc.)
@@ -22,6 +23,41 @@ Life-lang uses a **folder-based module system** with explicit visibility control
 
 ## Core Concepts
 
+### 0. Project Structure Convention
+
+**Rule:** All source files must be under the `src/` directory
+
+```
+project_root/
+  src/                       ← All .life files go here
+    main.life                → Module "Main"
+    geometry/
+      point.life             → Module "Geometry"
+    std/
+      math/
+        trig.life            → Module "Std.Math"
+  build/                     ← Build artifacts
+  tests/                     ← Test files (optional)
+  doc/                       ← Documentation
+  README.md
+```
+
+**Module path derivation:**
+
+- Everything relative to `src/` directory
+- `src/geometry/` → `Geometry`
+- `src/std/math/` → `Std.Math`
+- `src/user_profile/settings/` → `User_Profile.Settings`
+
+**Rationale:**
+
+- Clear separation of source code from other project files
+- Industry standard (Rust, many others use `src/`)
+- Makes module discovery deterministic and unambiguous
+- No configuration needed - convention over configuration
+
+---
+
 ### 1. Module Definition
 
 **Rule:** A module is defined by the filesystem structure
@@ -39,6 +75,7 @@ repo/
 ```
 
 **Module types:**
+
 - **File-module**: Top-level `.life` file = single-file module
 - **Folder-module**: Folder containing `.life` files = multi-file module
   - All files in the same folder share the same module namespace
@@ -46,8 +83,34 @@ repo/
   - Nested folders create nested modules (independent from parent)
 
 **Module naming:**
+
 - Follows `Camel_Snake_Case` convention (same as type names)
 - Module path uses `.` separator: `Geometry.Shapes.Polygon`
+
+**Filesystem-to-module-name mapping:**
+
+- Filesystem paths use **lowercase with underscores** (portable, works on all systems)
+- Module names in code use **Camel_Snake_Case** (language convention)
+- Mapping is deterministic: `geometry/shapes/` → `Geometry.Shapes`
+- Conversion: each path component `lowercase_snake` → `Camel_Snake_Case`
+  - Split on `_`, capitalize first letter of each word, rejoin with `_`
+  - Example: `user_profile` → `User_Profile`, `std` → `Std`
+
+**Examples:**
+
+```
+Filesystem                    Module Path           Import Syntax
+──────────────────────────────────────────────────────────────────
+geometry/                     Geometry              import Geometry.{Point};
+std/collections/              Std.Collections       import Std.Collections.{Vec};
+user_profile/settings/        User_Profile.Settings import User_Profile.Settings.{Theme};
+```
+
+**Rationale:**
+
+- Lowercase filesystem paths avoid case-sensitivity issues (Windows/macOS are case-insensitive)
+- Deterministic mapping ensures one source of truth
+- Code uses language conventions while filesystem follows OS best practices
 
 ---
 
@@ -93,6 +156,7 @@ import Module.{Item as Alias};
 ```
 
 **Rules:**
+
 - Uses `.` as path separator
 - Dot before braces: `.{items}` indicates "from this module, import these items"
 - Imports are explicit (no wildcard imports in initial design)
@@ -104,6 +168,7 @@ import Module.{Item as Alias};
 **Name Conflict Resolution:**
 
 Without `as`:
+
 ```rust
 import Graphics.{Point};  // Graphics.Point
 import Geometry.{Point};  // ERROR: 'Point' already imported from Graphics
@@ -112,6 +177,7 @@ import Geometry.{Point};  // ERROR: 'Point' already imported from Graphics
 ```
 
 With `as` to resolve:
+
 ```rust
 import Graphics.{Point as Graphics_Point};
 import Geometry.{Point as Geometry_Point};
@@ -122,6 +188,7 @@ let p2 = Geometry_Point { x: 1.0, y: 1.0 };
 ```
 
 **Rationale**:
+
 - `as` provides explicit renaming for conflict resolution
 - Improves code clarity when importing similarly-named items
 
@@ -165,6 +232,7 @@ pub struct Polygon {
 **Key principle:** Each folder is an independent module, regardless of nesting.
 
 **No special parent-child privileges:**
+
 - Parent module cannot access child module internals without import
 - Child module cannot access parent module internals without import
 - Modules at same level (siblings) must import from each other
@@ -187,6 +255,7 @@ pub struct Polygon { vertices: Vec<Point> }
 ## Struct Fields and Methods
 
 **Implementation Status:**
+
 - ✅ Parser: `pub` on struct fields and impl methods
 - ✅ AST: `is_pub` flags on `Struct_Field` and `Func_Def`
 - ❌ Semantic validation: Visibility leak checking not yet implemented
@@ -215,17 +284,17 @@ impl Point {
     pub fn new(x: I32, y: I32): Point {
         return Point { x: x, y: y };
     }
-    
+
     fn internal_helper(self): I32 {
         return self.x;  // OK - internal method can access any field
     }
-    
+
     pub fn distance(self): F64 {
         return self.internal_helper();  // OK - can call internal methods from same module
     }
 }
 
-// app.life  
+// app.life
 import Geometry.{Point};
 let p = Point.new(1, 2);        // OK - new is pub
 let d = p.distance();            // OK - distance is pub
@@ -273,6 +342,7 @@ pub struct Point {
 ```
 
 **Error message:**
+
 ```
 error: cannot use non-public type in public field
   --> geometry/point.life:5:5
@@ -303,6 +373,7 @@ pub fn take_private(p: Private): () { // ERROR: param type not pub
 ```
 
 **Must be:**
+
 ```rust
 pub struct Private { x: I32 }
 
@@ -379,6 +450,7 @@ import Math.{add, multiply};  // Same as before
 ```
 
 **Guideline:** Create submodules when:
+
 - Logical separation needed (shapes vs algorithms)
 - Different visibility requirements
 - Independent compilation desired
@@ -388,12 +460,14 @@ import Math.{add, multiply};  // Same as before
 ## Implementation Phases
 
 ### Phase 1: Parser (Current)
+
 - ✅ No module system syntax needed yet
 - ✅ Parse individual files as standalone modules
 - ✅ No `pub` keyword in grammar
 - ✅ No `import` statements
 
 ### Phase 2: Semantic Analysis (Next)
+
 - Add `pub` keyword to grammar
 - Add `import` statement to grammar
 - Implement module discovery (scan filesystem)
@@ -403,6 +477,7 @@ import Math.{add, multiply};  // Same as before
 - Check visibility consistency (no leaks)
 
 ### Phase 3: Refinement (Later)
+
 - Add method-level `pub` if needed
 - Add field-level `pub` if needed
 - Optimize module compilation (incremental builds)
@@ -431,9 +506,9 @@ import Math.{add, multiply};  // Same as before
 
 ```rust
 // geometry/point.life (Geometry module)
-pub struct Point { 
-    x: I32, 
-    y: I32 
+pub struct Point {
+    x: I32,
+    y: I32
 }
 
 pub fn origin(): Point {
@@ -454,7 +529,7 @@ impl Circle {
     pub fn new(center: Point, radius: F64): Circle {
         return Circle { center: center, radius: radius };
     }
-    
+
     pub fn area(self): F64 {
         return 3.14159 * self.radius * self.radius;
     }
@@ -481,11 +556,11 @@ fn main(): I32 {
     let p = origin();
     let c = Circle.new(p, 5.0);
     let area = c.area();
-    
+
     let vertices = Vec.new();
     vertices.push(p);
     let poly = Polygon.new(vertices);
-    
+
     return 0;
 }
 ```
@@ -513,23 +588,23 @@ fn main(): I32 {
 
 ## Questions & Answers
 
-**Q: Can files in the same folder import from each other?**  
+**Q: Can files in the same folder import from each other?**
 A: No need - they share the same namespace. All items (pub or not) are visible to each other.
 
-**Q: What if I want to hide something even within a module?**  
+**Q: What if I want to hide something even within a module?**
 A: Put it in a nested module (subfolder) and don't make it `pub`.
 
-**Q: Can I have both `geometry.life` and `geometry/` folder?**  
+**Q: Can I have both `geometry.life` and `geometry/` folder?**
 A: Not in initial design - one or the other. (May revisit if facade pattern needed)
 
-**Q: How do I document what's public?**  
+**Q: How do I document what's public?**
 A: The `pub` keyword IS the documentation. Grep for `pub` to see API surface.
 
-**Q: What about circular dependencies?**  
+**Q: What about circular dependencies?**
 A: Modules can import from each other. Semantic analysis will detect cycles and error.
 
 ---
 
-**Version:** 1.0  
-**Last Updated:** December 17, 2025  
+**Version:** 1.0
+**Last Updated:** December 17, 2025
 **Status:** Design complete, implementation pending

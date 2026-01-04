@@ -156,6 +156,7 @@
   // Custom words to add to dictionary (project-specific terms)
   "cSpell.words": [
     "asan",
+    "bugprone",
     "clangd",
     "devbox",
     "doctest",
@@ -164,6 +165,7 @@
     "lifec",
     "NOLINTNEXTLINE",
     "scrutinee",
+    "sexp",
     "symtab",
     "ubsan",
     "vcpkg"

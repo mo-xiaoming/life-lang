@@ -86,7 +86,7 @@ struct Scope {
 
   // Declare a symbol in this scope
   // Returns error message on failure, std::nullopt on success
-  [[nodiscard]] std::optional<std::string> declare(std::string name_, Symbol symbol_);
+  [[nodiscard]] std::optional<std::string> declare(Symbol symbol_);
 
   // Lookup symbol in this scope only (no parent search)
   [[nodiscard]] std::optional<Symbol> lookup_local(std::string_view name_) const;
@@ -125,9 +125,9 @@ struct Symbol_Table {
   [[nodiscard]] Scope* current_scope();
   [[nodiscard]] Scope const* current_scope() const;
 
-  // Symbol operations on current scope
+  // Symbol operations on current scope (name extracted from symbol.name)
   // Returns error message on failure, std::nullopt on success
-  [[nodiscard]] std::optional<std::string> declare(std::string name_, Symbol symbol_);
+  [[nodiscard]] std::optional<std::string> declare(Symbol symbol_);
   [[nodiscard]] std::optional<Symbol> lookup(std::string_view name_) const;
   [[nodiscard]] std::optional<Symbol> lookup_local(std::string_view name_) const;
 
