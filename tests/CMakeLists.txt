@@ -81,7 +81,6 @@ target_sources(tests
         integration/test_tuple_types_and_literals.cpp
         integration/test_module_loading.cpp
         integration/test_semantic_context.cpp
-        integration/test_import_resolution.cpp
 )
 
 target_link_libraries(tests

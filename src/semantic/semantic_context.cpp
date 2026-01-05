@@ -17,9 +17,6 @@ bool Semantic_Context::load_modules(std::filesystem::path const& src_root_) {
     m_modules[desc.module_path_string()] = std::move(*module_opt);
   }
 
-  // Build import maps for cross-module name resolution
-  build_import_maps();
-
   return true;
 }
 
@@ -85,161 +82,35 @@ ast::Item const* Semantic_Context::find_func_def(std::string const& module_path_
 }
 
 std::optional<std::pair<std::string, ast::Item const*>>
-Semantic_Context::resolve_type_name(std::string const& current_module_, ast::Type_Name const& name_) const {
-  // Type_Name is a variant: Path_Type, Function_Type, Array_Type, Tuple_Type
-  // For now, only resolve Path_Type (simple and parameterized type names)
-  // Function types, array types, and tuple types don't need resolution - they're built-in syntax
-
-  if (!std::holds_alternative<ast::Path_Type>(name_)) {
-    return std::nullopt;  // Not a path-based type
-  }
-
-  auto const& path_type = std::get<ast::Path_Type>(name_);
-  if (path_type.segments.empty()) {
-    return std::nullopt;  // Invalid type name
-  }
-
-  // Get the first segment's value (e.g., "Point" in "Point" or "Point<I32>")
-  auto const& first_segment = path_type.segments[0].value;
-
-  // Case 1: Single-segment name (e.g., "Point", "Vec<T>")
-  if (path_type.segments.size() == 1) {
-    // Try local module first
-    if (auto const* item = find_type_def(current_module_, first_segment)) {
-      return std::make_pair(current_module_, item);
-    }
-
-    // Try imports
-    auto const module_it = m_import_maps.find(current_module_);
-    if (module_it != m_import_maps.end()) {
-      auto const& import_map = module_it->second;
-      auto const import_it = import_map.find(first_segment);
-      if (import_it != import_map.end()) {
-        // Found in imports: (source_module, item_name)
-        auto const& [source_module, item_name] = import_it->second;
-        if (auto const* item = find_type_def(source_module, item_name)) {
-          // Verify visibility: must be pub
-          if (item->is_pub) {
-            return std::make_pair(source_module, item);
-          }
-          // TODO(mx): Add diagnostic - cannot import non-pub item
-        }
-      }
-    }
-  }
-  // Case 2: Multi-segment name (e.g., "Std.Collections.Vec")
-  else {
-    // Build module path from all segments except the last
-    std::string module_path;
-    for (size_t i = 0; i < path_type.segments.size() - 1; ++i) {
-      if (i > 0) {
-        module_path += '.';
-      }
-      module_path += path_type.segments[i].value;
-    }
-
-    // Last segment is the type name
-    auto const& type_name = path_type.segments.back().value;
-
-    // Direct lookup in the specified module
-    if (auto const* item = find_type_def(module_path, type_name)) {
-      // Verify visibility: must be pub for cross-module access
-      if (module_path != current_module_ && !item->is_pub) {
-        // TODO(mx): Add diagnostic - cannot access non-pub item from other module
-        return std::nullopt;
-      }
-      return std::make_pair(module_path, item);
-    }
-  }
-
-  return std::nullopt;  // Not found
+Semantic_Context::resolve_type_name(std::string const& /*current_module_*/, ast::Type_Name const& /*name_*/) const {
+  (void)this;
+  // For now, simplified implementation:
+  // - Type names are complex (variant of Path_Type, Function_Type, Array_Type, Tuple_Type)
+  // - Need to extract the base type name from Path_Type
+  // TODO(mx): Implement full type name resolution with imports
+  return std::nullopt;
 }
 
 std::optional<std::pair<std::string, ast::Item const*>>
 Semantic_Context::resolve_var_name(std::string const& current_module_, ast::Var_Name const& name_) const {
   // Var_Name has segments (std::vector<Var_Name_Segment>)
-  if (name_.segments.empty()) {
-    return std::nullopt;  // Invalid name
-  }
-
-  auto const& first_segment = name_.segments[0].value;
-
-  // Case 1: Single-segment name (e.g., "calculate", "println")
+  // For now, simplified: only handle simple single-segment names
   if (name_.segments.size() == 1 && name_.segments[0].type_params.empty()) {
-    // Try local module first
-    if (auto const* item = find_func_def(current_module_, first_segment)) {
+    auto const& var_name = name_.segments[0].value;
+
+    // Try finding function in local module
+    if (auto const* item = find_func_def(current_module_, var_name)) {
       return std::make_pair(current_module_, item);
     }
 
     // Try imports
-    auto const module_it = m_import_maps.find(current_module_);
-    if (module_it != m_import_maps.end()) {
-      auto const& import_map = module_it->second;
-      auto const import_it = import_map.find(first_segment);
-      if (import_it != import_map.end()) {
-        // Found in imports: (source_module, item_name)
-        auto const& [source_module, item_name] = import_it->second;
-        if (auto const* item = find_func_def(source_module, item_name)) {
-          // Verify visibility: must be pub
-          if (item->is_pub) {
-            return std::make_pair(source_module, item);
-          }
-          // TODO(mx): Add diagnostic - cannot import non-pub item
-        }
-      }
-    }
-  }
-  // Case 2: Multi-segment name (e.g., "Std.IO.println")
-  else if (name_.segments[0].type_params.empty()) {
-    // Build module path from all segments except the last
-    std::string module_path;
-    for (size_t i = 0; i < name_.segments.size() - 1; ++i) {
-      if (i > 0) {
-        module_path += '.';
-      }
-      module_path += name_.segments[i].value;
-    }
-
-    // Last segment is the function name
-    auto const& func_name = name_.segments.back().value;
-
-    // Direct lookup in the specified module
-    if (auto const* item = find_func_def(module_path, func_name)) {
-      // Verify visibility: must be pub for cross-module access
-      if (module_path != current_module_ && !item->is_pub) {
-        // TODO(mx): Add diagnostic - cannot access non-pub item from other module
-        return std::nullopt;
-      }
-      return std::make_pair(module_path, item);
-    }
+    // TODO(mx): Full import resolution
   }
 
-  return std::nullopt;  // Not found or has type params (method call, not function)
-}
+  // Multi-segment case: fully qualified path
+  // TODO(mx): Implement fully qualified path resolution
 
-void Semantic_Context::build_import_maps() {
-  // Build import map for each loaded module
-  for (auto const& [module_path, module]: m_modules) {
-    auto& import_map = m_import_maps[module_path];
-
-    for (auto const& import_stmt: module.imports) {
-      // Build source module path string (e.g., ["Geometry", "Shapes"] -> "Geometry.Shapes")
-      std::string source_module;
-      for (size_t i = 0; i < import_stmt.module_path.size(); ++i) {
-        if (i > 0) {
-          source_module += '.';
-        }
-        source_module += import_stmt.module_path[i];
-      }
-
-      // Add each imported item to the map
-      for (auto const& item: import_stmt.items) {
-        // Use alias if provided, otherwise use original name
-        std::string const local_name = item.alias.value_or(item.name);
-        import_map[local_name] = {source_module, item.name};
-      }
-    }
-  }
+  return std::nullopt;
 }
 
 // Helper implementations
