@@ -15,7 +15,6 @@
     "alefragnani.Bookmarks", // Bookmark important lines
     // Git & GitHub
     "eamodio.gitlens",
-    "github.copilot",
     "github.copilot-chat",
     // Quality of Life - Visual Feedback
     "usernamehw.errorlens", // Inline error messages

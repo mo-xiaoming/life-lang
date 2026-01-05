@@ -1,5 +1,3 @@
-// Implementation of module discovery and loading
-
 #include "module_loader.hpp"
 
 #include <algorithm>
@@ -14,7 +12,7 @@
 
 namespace life_lang::semantic {
 
-std::string Module_Descriptor::path_string() const {
+std::string Module_Descriptor::module_path_string() const {
   if (path.empty()) {
     return "";
   }
@@ -32,7 +30,7 @@ std::string Module_Descriptor::to_string() const {
   return std::format(
       "Module(name='{}', path='{}', dir='{}', {} files)",
       name(),
-      path_string(),
+      module_path_string(),
       directory.string(),
       files.size()
   );
