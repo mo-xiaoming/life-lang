@@ -68,16 +68,12 @@ TEST_SUITE("Import Resolution") {
     REQUIRE(type_name_opt.has_value());
 
     // Resolve Point - should find it via import from Geometry
-    if (type_name_opt.has_value()) {
-      auto const result = ctx.resolve_type_name("Main", *type_name_opt);
-      REQUIRE(result.has_value());
-      if (result.has_value()) {
-        auto const& [module_path, item] = *result;
-        CHECK(module_path == "Geometry");
-        CHECK(item != nullptr);
-        CHECK(item->is_pub);
-      }
-    }
+    auto const result = ctx.resolve_type_name("Main", *type_name_opt);
+    REQUIRE(result.has_value());
+    auto const& [module_path, item] = *result;
+    CHECK(module_path == "Geometry");
+    CHECK(item != nullptr);
+    CHECK(item->is_pub);
   }
 
   TEST_CASE("Aliased import - type resolution") {
@@ -104,15 +100,11 @@ TEST_SUITE("Import Resolution") {
     auto const type_name_opt = parser.parse_type_name();
     REQUIRE(type_name_opt.has_value());
 
-    if (type_name_opt.has_value()) {
-      auto const result = ctx.resolve_type_name("Main", *type_name_opt);
-      REQUIRE(result.has_value());
-      if (result.has_value()) {
-        auto const& [module_path, item] = *result;
-        CHECK(module_path == "Geometry");
-        CHECK(item != nullptr);
-      }
-    }
+    auto const result = ctx.resolve_type_name("Main", *type_name_opt);
+    REQUIRE(result.has_value());
+    auto const& [module_path, item] = *result;
+    CHECK(module_path == "Geometry");
+    CHECK(item != nullptr);
   }
 
   TEST_CASE("Multi-level module path") {
@@ -139,14 +131,10 @@ TEST_SUITE("Import Resolution") {
     auto const type_name_opt = parser.parse_type_name();
     REQUIRE(type_name_opt.has_value());
 
-    if (type_name_opt.has_value()) {
-      auto const result = ctx.resolve_type_name("Main", *type_name_opt);
-      REQUIRE(result.has_value());
-      if (result.has_value()) {
-        auto const& [module_path, item] = *result;
-        CHECK(module_path == "Std.Collections");
-      }
-    }
+    auto const result = ctx.resolve_type_name("Main", *type_name_opt);
+    REQUIRE(result.has_value());
+    auto const& [module_path, item] = *result;
+    CHECK(module_path == "Std.Collections");
   }
 
   TEST_CASE("Fully qualified name - no import needed") {
@@ -170,14 +158,10 @@ TEST_SUITE("Import Resolution") {
     REQUIRE(type_name_opt.has_value());
 
     // Resolve should work without import
-    if (type_name_opt.has_value()) {
-      auto const result = ctx.resolve_type_name("Main", *type_name_opt);
-      REQUIRE(result.has_value());
-      if (result.has_value()) {
-        auto const& [module_path, item] = *result;
-        CHECK(module_path == "Geometry");
-      }
-    }
+    auto const result = ctx.resolve_type_name("Main", *type_name_opt);
+    REQUIRE(result.has_value());
+    auto const& [module_path, item] = *result;
+    CHECK(module_path == "Geometry");
   }
 
   TEST_CASE("Local definition takes precedence over import") {
@@ -205,14 +189,10 @@ TEST_SUITE("Import Resolution") {
     auto const type_name_opt = parser.parse_type_name();
     REQUIRE(type_name_opt.has_value());
 
-    if (type_name_opt.has_value()) {
-      auto const result = ctx.resolve_type_name("Main", *type_name_opt);
-      REQUIRE(result.has_value());
-      if (result.has_value()) {
-        auto const& [module_path, item] = *result;
-        CHECK(module_path == "Main");  // Local, not Geometry
-      }
-    }
+    auto const result = ctx.resolve_type_name("Main", *type_name_opt);
+    REQUIRE(result.has_value());
+    auto const& [module_path, item] = *result;
+    CHECK(module_path == "Main");  // Local, not Geometry
   }
 
   TEST_CASE("Function import and resolution") {
@@ -240,15 +220,11 @@ TEST_SUITE("Import Resolution") {
     REQUIRE(var_name_opt.has_value());
 
     // Resolve add - should find it via import
-    if (var_name_opt.has_value()) {
-      auto const result = ctx.resolve_var_name("Main", *var_name_opt);
-      REQUIRE(result.has_value());
-      if (result.has_value()) {
-        auto const& [module_path, item] = *result;
-        CHECK(module_path == "Math");
-        CHECK(item->is_pub);
-      }
-    }
+    auto const result = ctx.resolve_var_name("Main", *var_name_opt);
+    REQUIRE(result.has_value());
+    auto const& [module_path, item] = *result;
+    CHECK(module_path == "Math");
+    CHECK(item->is_pub);
   }
 
   TEST_CASE("Non-pub type cannot be imported") {
@@ -276,10 +252,8 @@ TEST_SUITE("Import Resolution") {
     REQUIRE(type_name_opt.has_value());
 
     // Should NOT resolve because Internal is not pub
-    if (type_name_opt.has_value()) {
-      auto const result = ctx.resolve_type_name("Main", *type_name_opt);
-      CHECK(!result.has_value());
-    }
+    auto const result = ctx.resolve_type_name("Main", *type_name_opt);
+    CHECK(!result.has_value());
   }
 
   TEST_CASE("Non-existent type - import fails silently") {
@@ -307,10 +281,8 @@ TEST_SUITE("Import Resolution") {
     REQUIRE(type_name_opt.has_value());
 
     // Should not resolve
-    if (type_name_opt.has_value()) {
-      auto const result = ctx.resolve_type_name("Main", *type_name_opt);
-      CHECK(!result.has_value());
-    }
+    auto const result = ctx.resolve_type_name("Main", *type_name_opt);
+    CHECK(!result.has_value());
   }
 
   TEST_CASE("Multiple imports from same module") {
@@ -343,13 +315,9 @@ TEST_SUITE("Import Resolution") {
       auto const type_name_opt = parser.parse_type_name();
       REQUIRE(type_name_opt.has_value());
 
-      if (type_name_opt.has_value()) {
-        auto const result = ctx.resolve_type_name("Main", *type_name_opt);
-        REQUIRE(result.has_value());
-        if (result.has_value()) {
-          CHECK(result->first == "Geometry");
-        }
-      }
+      auto const result = ctx.resolve_type_name("Main", *type_name_opt);
+      REQUIRE(result.has_value());
+      CHECK(result->first == "Geometry");
     }
   }
 }

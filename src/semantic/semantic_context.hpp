@@ -56,6 +56,15 @@ private:
   // Module path (dot-separated like "Std.Collections") -> parsed AST
   std::map<std::string, ast::Module> m_modules;
 
+  // Import resolution: local_name -> (source_module, item_name)
+  // Example: For "import Geometry.{ Point, Circle as C }" in module "Main"
+  //   m_import_maps["Main"]["Point"] = ("Geometry", "Point")
+  //   m_import_maps["Main"]["C"] = ("Geometry", "Circle")
+  std::map<std::string, std::map<std::string, std::pair<std::string, std::string>>> m_import_maps;
+
+  // Build import map for all loaded modules
+  void build_import_maps();
+
   // Helper: Check if a name matches an item
   [[nodiscard]] static bool item_matches_name(ast::Item const& item_, std::string_view name_);
 
