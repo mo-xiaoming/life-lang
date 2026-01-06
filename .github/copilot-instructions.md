@@ -14,10 +14,7 @@ Prescriptive guide for working on this C++20 compiler.
 - `release`: Production builds with optimizations
 
 ### Running clang-tidy
-To check for clang-tidy errors, run:
-```bash
-run-clang-tidy -p .
-```
+To check for clang-tidy errors, run `run-tidy` from the repo root
 This uses the `compile_commands.json` file copied to the repo root during CMake configuration.
 
 ### Development Philosophy: Lightweight Solutions First
