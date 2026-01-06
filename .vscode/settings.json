@@ -146,6 +146,8 @@
   ],
   // Show icons in gutter for errors/warnings
   "errorLens.gutterIconsEnabled": true,
+  // Message template for inline errors
+  "errorLens.messageTemplate": "[$source] ($count): $message",
   // ============================================================
   // Spell Checker
   // ============================================================

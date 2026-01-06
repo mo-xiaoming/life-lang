@@ -66,14 +66,7 @@ target_sources(tests
         parser/test_where_clause.cpp
         parser/test_while_expr.cpp
 
-        # Semantic analysis tests
-        semantic/test_type.cpp
-        semantic/test_symbol_table.cpp
-        semantic/test_name_resolver.cpp
-        semantic/test_module_loader.cpp
-        semantic/test_module_registry.cpp
-
-        # Integration tests - test complete parse_module workflows
+        # Integration tests - test complete workflows
         integration/test_array_type_in_functions.cpp
         integration/test_binary_literals.cpp
         integration/test_bitwise_ops.cpp
@@ -86,8 +79,9 @@ target_sources(tests
         integration/test_readme_example.cpp
         integration/test_string_interpolation.cpp
         integration/test_tuple_types_and_literals.cpp
-        integration/test_module_discovery.cpp
         integration/test_module_loading.cpp
+        integration/test_semantic_context.cpp
+        integration/test_import_resolution.cpp
 )
 
 target_link_libraries(tests

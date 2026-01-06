@@ -14,10 +14,7 @@ Prescriptive guide for working on this C++20 compiler.
 - `release`: Production builds with optimizations
 
 ### Running clang-tidy
-To check for clang-tidy errors, run:
-```bash
-run-clang-tidy -p .
-```
+To check for clang-tidy errors, run `run-tidy` from the repo root
 This uses the `compile_commands.json` file copied to the repo root during CMake configuration.
 
 ### Development Philosophy: Lightweight Solutions First
@@ -45,9 +42,12 @@ This uses the `compile_commands.json` file copied to the repo root during CMake 
 This project values **fast iteration** - every second saved in compile/analyze time compounds across development.
 
 ### Core Components
-- **src/parser.cpp/hpp**: Hand-written recursive descent parser
-- **src/ast.hpp**: AST node definitions with JSON serialization
-- **src/diagnostics.cpp**: Error reporting infrastructure (clang-style diagnostics)
+- **src/parser/parser.cpp/hpp**: Hand-written recursive descent parser
+- **src/parser/ast.hpp**: AST node definitions (single source of truth)
+- **src/parser/sexp.cpp/hpp**: S-expression output for debugging
+- **src/semantic/semantic_context.cpp/hpp**: Public API for semantic analysis (name resolution)
+- **src/semantic/module_loader.cpp/hpp**: Internal - filesystem module discovery (not in public API)
+- **src/diagnostics.cpp/hpp**: Error reporting infrastructure (clang-style diagnostics)
 - **tests/**: Test infrastructure using doctest (lightweight test framework)
 - **doc/GRAMMAR.md**: Formal EBNF grammar specification (authoritative source of truth)
 
@@ -367,6 +367,21 @@ a_json = {
 
 ---
 
+## Semantic Analysis Design
+
+**See `doc/SEMANTIC_ARCHITECTURE.md` for complete design documentation.**
+
+**Public API**: `Semantic_Context` - minimal interface for semantic analysis
+- `load_modules()` - Load all modules from src/ directory
+- `find_type_def()` / `find_func_def()` - Direct AST queries
+- `resolve_type_name()` / `resolve_var_name()` - Name resolution (TODO: imports)
+
+**Internal**: `Module_Loader` - Filesystem operations (not in public API, tested directly)
+
+Key principle: Work directly with AST, add complexity only when needed.
+
+---
+
 ## Common Pitfalls
 
 | Issue | Symptom | Fix |
@@ -378,17 +393,16 @@ a_json = {
 
 ## Next Phase: Semantic Analysis
 
-Parser is complete. Next steps:
-1. **Module system**: Implement folder-based modules with `pub` visibility (see `doc/MODULE_SYSTEM.md`)
-2. **Symbol table**: Track declarations (functions, types, variables) across modules
-3. **Name resolution**: Resolve identifiers to declarations, handle imports
-4. **Type checking**: Verify type correctness, check visibility consistency
-5. **Trait resolution**: Check trait bounds, impl blocks
-6. **Memory model**: Design ref counting semantics for heap-allocated types (future)
+Parser is complete. Semantic analysis infrastructure in progress:
+1. ✅ **Module loading**: Filesystem discovery and parsing complete
+2. 🚧 **Name resolution**: Basic infrastructure in place, needs import resolution
+3. 📋 **Type checking**: Verify type correctness (not started)
+4. 📋 **Visibility checking**: pub/private enforcement (not started)
+5. 📋 **Trait resolution**: Check trait bounds, impl blocks (not started)
 
 Key considerations:
+- Work directly with AST - avoid duplication
 - Preserve position information for error reporting
-- Implement visibility leak checking (pub fields require pub types)
 - Build module dependency graph for compilation order
-- Maintain value semantics throughout
+- Implement visibility leak checking (pub fields require pub types)
 - Reference counting over borrow checking: simpler, user-friendly, good performance
