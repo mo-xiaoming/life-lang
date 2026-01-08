@@ -164,6 +164,7 @@
     "doctest",
     "EBNF",
     "hicpp",
+    "impls",
     "lifec",
     "NOLINTNEXTLINE",
     "scrutinee",

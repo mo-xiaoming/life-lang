@@ -67,7 +67,9 @@ TEST_CASE("parse_struct_def - pub fields") {
 
   for (auto const& tc: test_cases) {
     SUBCASE(std::string(tc.name).c_str()) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const result = parser.parse_struct_def();

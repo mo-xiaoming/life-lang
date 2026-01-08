@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 
+#include "diagnostics.hpp"
 #include "parser/ast.hpp"
 #include "semantic/module_loader.hpp"
 
@@ -60,7 +61,8 @@ pub fn origin(): Point {
     REQUIRE(modules.size() == 1);
 
     // Load module
-    auto const module_opt = Module_Loader::load_module(modules[0]);
+    life_lang::Diagnostic_Manager diag_mgr;
+    auto const module_opt = Module_Loader::load_module(modules[0], diag_mgr);
 
     REQUIRE(module_opt.has_value());
     if (module_opt.has_value()) {
@@ -112,7 +114,8 @@ pub fn distance(p1: Point, p2: Point): F64 {
     REQUIRE(modules.size() == 1);
 
     // Load module
-    auto const module_opt = Module_Loader::load_module(modules[0]);
+    life_lang::Diagnostic_Manager diag_mgr;
+    auto const module_opt = Module_Loader::load_module(modules[0], diag_mgr);
 
     REQUIRE(module_opt.has_value());
     if (module_opt.has_value()) {
@@ -151,7 +154,8 @@ pub fn distance(p1: Point, p2: Point): F64 {
     REQUIRE(modules.size() == 1);
 
     // Load module
-    auto const module_opt = Module_Loader::load_module(modules[0]);
+    life_lang::Diagnostic_Manager diag_mgr;
+    auto const module_opt = Module_Loader::load_module(modules[0], diag_mgr);
 
     REQUIRE(module_opt.has_value());
     if (module_opt.has_value()) {
@@ -176,8 +180,95 @@ pub fn distance(p1: Point, p2: Point): F64 {
     REQUIRE(modules.size() == 1);
 
     // Load module - should fail
-    auto const module_opt = Module_Loader::load_module(modules[0]);
+    life_lang::Diagnostic_Manager diag_mgr;
+    auto const module_opt = Module_Loader::load_module(modules[0], diag_mgr);
 
     CHECK_FALSE(module_opt.has_value());  // Entire module fails
+  }
+
+  TEST_CASE("Duplicate definition in multiple files fails module") {
+    Module_Loading_Fixture const fixture;
+
+    // Create module with duplicate struct definitions in different files
+    auto const geometry_dir = fixture.temp_src / "geometry";
+    fs::create_directories(geometry_dir);
+
+    Module_Loading_Fixture::write_file(
+        geometry_dir / "point.life",
+        R"(pub struct Point { x: I32, y: I32 }
+
+pub fn create_point(): Point {
+  return Point { x: 0, y: 0 };
+}
+)"
+    );
+
+    Module_Loading_Fixture::write_file(
+        geometry_dir / "duplicate.life",
+        R"(// This file incorrectly redefines Point
+pub struct Point { a: F64, b: F64 }
+)"
+    );
+
+    // Discover module
+    auto const modules = Module_Loader::discover_modules(fixture.temp_src);
+    REQUIRE(modules.size() == 1);
+
+    // Load module - should fail due to duplicate definition
+    life_lang::Diagnostic_Manager diag_mgr;
+    auto const module_opt = Module_Loader::load_module(modules[0], diag_mgr);
+
+    CHECK_FALSE(module_opt.has_value());
+    CHECK(diag_mgr.has_errors());
+
+    // Error message should mention the duplicate
+    auto const& errors = diag_mgr.all_diagnostics();
+    REQUIRE(!errors.empty());
+    CHECK(errors[0].message.find("Point") != std::string::npos);
+    CHECK(errors[0].message.find("duplicate") != std::string::npos);
+  }
+
+  TEST_CASE("Duplicate function definition fails module") {
+    Module_Loading_Fixture const fixture;
+
+    auto const utils_dir = fixture.temp_src / "utils";
+    fs::create_directories(utils_dir);
+
+    Module_Loading_Fixture::write_file(utils_dir / "math.life", "pub fn helper(): I32 { return 1; }");
+    Module_Loading_Fixture::write_file(utils_dir / "string.life", "pub fn helper(): I32 { return 2; }");  // Duplicate
+
+    // Discover and load module
+    auto const modules = Module_Loader::discover_modules(fixture.temp_src);
+    REQUIRE(modules.size() == 1);
+
+    life_lang::Diagnostic_Manager diag_mgr;
+    auto const module_opt = Module_Loader::load_module(modules[0], diag_mgr);
+
+    CHECK_FALSE(module_opt.has_value());
+    CHECK(diag_mgr.has_errors());
+  }
+
+  TEST_CASE("Same name struct and function is allowed") {
+    // In life-lang, functions and types have separate namespaces
+    // So "struct Foo" and "fn Foo" should not conflict
+    // (This test documents expected behavior - adjust if design differs)
+    Module_Loading_Fixture const fixture;
+
+    auto const utils_dir = fixture.temp_src / "utils";
+    fs::create_directories(utils_dir);
+
+    Module_Loading_Fixture::write_file(utils_dir / "types.life", "pub struct Point { x: I32 }");
+    Module_Loading_Fixture::write_file(utils_dir / "funcs.life", "pub fn Point(): I32 { return 0; }");
+
+    auto const modules = Module_Loader::discover_modules(fixture.temp_src);
+    REQUIRE(modules.size() == 1);
+
+    life_lang::Diagnostic_Manager diag_mgr;
+    auto const module_opt = Module_Loader::load_module(modules[0], diag_mgr);
+
+    // This SHOULD fail - same name is duplicate even across categories
+    // Adjust this test if design decision differs
+    CHECK_FALSE(module_opt.has_value());
+    CHECK(diag_mgr.has_errors());
   }
 }

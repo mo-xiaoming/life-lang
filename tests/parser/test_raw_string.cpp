@@ -80,7 +80,9 @@ TEST_CASE("Raw string - valid") {
 
   for (auto const& tc: test_cases) {
     SUBCASE(std::string(tc.name).c_str()) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -93,7 +95,9 @@ TEST_CASE("Raw string - valid") {
 }
 
 TEST_CASE("Raw string - unterminated error") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"(r"unterminated)"};
+  life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"(r"unterminated)"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -101,7 +105,9 @@ TEST_CASE("Raw string - unterminated error") {
 }
 
 TEST_CASE("Raw string - unterminated with delimiter") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"(r#"unterminated)"};
+  life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"(r#"unterminated)"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -109,7 +115,9 @@ TEST_CASE("Raw string - unterminated with delimiter") {
 }
 
 TEST_CASE("Raw string - wrong delimiter count") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"(r##"wrong delimiter"#)"};
+  life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"(r##"wrong delimiter"#)"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();

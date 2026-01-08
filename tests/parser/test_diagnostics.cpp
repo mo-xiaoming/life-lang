@@ -4,6 +4,8 @@
 #include "diagnostics.hpp"
 
 using life_lang::Diagnostic_Engine;
+using life_lang::File_Id;
+using life_lang::Source_File_Registry;
 using life_lang::Source_Range;
 
 // ============================================================================
@@ -16,7 +18,9 @@ TEST_CASE("Diagnostic Source Line Retrieval") {
       "line 2\n"
       "line 3\n";
 
-  Diagnostic_Engine const diag("test.life", source);
+  Source_File_Registry registry;
+  File_Id const file_id = registry.register_file("test.life", std::string{source});
+    Diagnostic_Engine const diag{registry, file_id};
 
   CHECK(diag.get_line(1) == "line 1");
   CHECK(diag.get_line(2) == "line 2");
@@ -30,7 +34,9 @@ TEST_CASE("Diagnostic Source Line Retrieval") {
 TEST_CASE("Diagnostic Range Highlighting") {
   SUBCASE("Single-line error with specific range") {
     std::string const source = "fn main() { bad_syntax }";
-    Diagnostic_Engine diag("test.life", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("test.life", std::string{source});
+    Diagnostic_Engine diag{registry, file_id};
 
     // Simulate error on "bad_syntax" (columns 13-23)
     Source_Range const range{.start = {.line = 1, .column = 13}, .end = {.line = 1, .column = 23}};
@@ -51,7 +57,9 @@ TEST_CASE("Diagnostic Range Highlighting") {
 
   SUBCASE("Single-character error") {
     std::string const source = "x + y";
-    Diagnostic_Engine diag("simple.life", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("simple.life", std::string{source});
+    Diagnostic_Engine diag{registry, file_id};
 
     // Error on single character '+'
     Source_Range const range{.start = {.line = 1, .column = 3}, .end = {.line = 1, .column = 4}};
@@ -77,7 +85,9 @@ TEST_CASE("Diagnostic Range Highlighting") {
         "    return x;\n"
         "}";
 
-    Diagnostic_Engine diag("multiline_range.life", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("multiline_range.life", std::string{source});
+    Diagnostic_Engine diag{registry, file_id};
 
     // Error spanning lines 2-3
     Source_Range const range{.start = {.line = 2, .column = 13}, .end = {.line = 3, .column = 23}};
@@ -108,7 +118,9 @@ TEST_CASE("Diagnostic Range Highlighting") {
         "line 4 content\n"
         "line 5 content\n";
 
-    Diagnostic_Engine diag("long_error.life", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("long_error.life", std::string{source});
+    Diagnostic_Engine diag{registry, file_id};
 
     // Error spanning lines 2-4 (line 4 is 14 chars, so end at column 15 to include all)
     Source_Range const range{.start = {.line = 2, .column = 1}, .end = {.line = 4, .column = 15}};
@@ -132,7 +144,9 @@ TEST_CASE("Diagnostic Range Highlighting") {
 
   SUBCASE("Error at line start") {
     std::string const source = "invalid_token\nfn main(): I32 { return 0; }";
-    Diagnostic_Engine diag("start.life", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("start.life", std::string{source});
+    Diagnostic_Engine diag{registry, file_id};
 
     // Error at very start of line
     Source_Range const range{.start = {.line = 1, .column = 1}, .end = {.line = 1, .column = 14}};
@@ -162,7 +176,9 @@ TEST_CASE("Multiple Diagnostics") {
       "error2\n"
       "error3";
 
-  Diagnostic_Engine diag("multiple.life", source);
+  Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("multiple.life", std::string{source});
+    Diagnostic_Engine diag{registry, file_id};
 
   // Add multiple errors and a warning
   diag.add_error(Source_Range{.start = {.line = 1, .column = 1}, .end = {.line = 1, .column = 7}}, "First error");
@@ -199,7 +215,9 @@ TEST_CASE("Multiple Diagnostics") {
 TEST_CASE("Diagnostic State Management") {
   SUBCASE("Empty diagnostic engine has no errors") {
     std::string const source = "some source code";
-    Diagnostic_Engine const diag("test.life", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("test.life", std::string{source});
+    Diagnostic_Engine const diag{registry, file_id};
 
     CHECK_FALSE(diag.has_errors());
     CHECK(diag.diagnostics().empty());
@@ -207,7 +225,9 @@ TEST_CASE("Diagnostic State Management") {
 
   SUBCASE("Adding error sets has_errors") {
     std::string const source = "some source code";
-    Diagnostic_Engine diag("test.life", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("test.life", std::string{source});
+    Diagnostic_Engine diag{registry, file_id};
 
     diag.add_error(Source_Range{.start = {.line = 1, .column = 1}, .end = {.line = 1, .column = 5}}, "Test error");
 
@@ -217,7 +237,9 @@ TEST_CASE("Diagnostic State Management") {
 
   SUBCASE("Adding warning does not set has_errors") {
     std::string const source = "some source code";
-    Diagnostic_Engine diag("test.life", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("test.life", std::string{source});
+    Diagnostic_Engine diag{registry, file_id};
 
     diag.add_warning(Source_Range{.start = {.line = 1, .column = 1}, .end = {.line = 1, .column = 5}}, "Test warning");
 
@@ -227,15 +249,19 @@ TEST_CASE("Diagnostic State Management") {
 
   SUBCASE("Filename stored correctly") {
     std::string const source = "source";
-    Diagnostic_Engine const diag("custom.life", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("custom.life", std::string{source});
+    Diagnostic_Engine const diag{registry, file_id};
 
-    CHECK(diag.filename() == "custom.life");
+    CHECK(registry.get_path(file_id) == "custom.life");
   }
 
   SUBCASE("Anonymous filename") {
     std::string const source = "source";
-    Diagnostic_Engine const diag("<input>", source);
+    Source_File_Registry registry;
+    File_Id const file_id = registry.register_file("<input>", std::string{source});
+    Diagnostic_Engine const diag{registry, file_id};
 
-    CHECK(diag.filename() == "<input>");
+    CHECK(registry.get_path(file_id) == "<input>");
   }
 }

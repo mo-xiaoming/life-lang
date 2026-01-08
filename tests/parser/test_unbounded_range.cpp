@@ -39,7 +39,9 @@ TEST_CASE("Unbounded range expressions") {
 
   for (auto const& test: k_test_cases) {
     SUBCASE(test.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", test.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{test.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -54,7 +56,9 @@ TEST_CASE("Unbounded range expressions") {
 TEST_CASE("Unbounded range - unbounded end inclusive (a..=) - not valid syntax") {
   // Note: a..= doesn't make sense semantically, but parser may accept it
   // Semantic analysis should reject it
-  life_lang::Diagnostic_Engine diagnostics{"<test>", "10..="};
+  life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"10..="});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -77,7 +81,9 @@ TEST_CASE("Unbounded range in context") {
 
   for (auto const& test: k_test_cases) {
     SUBCASE(test.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", test.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{test.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -92,7 +98,9 @@ TEST_CASE("Unbounded range in context") {
 TEST_CASE("Unbounded range in statements") {
   SUBCASE("in let statement") {
     constexpr auto* k_input = "let range = ..100;";
-    life_lang::Diagnostic_Engine diagnostics{"<test>", k_input};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{k_input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();

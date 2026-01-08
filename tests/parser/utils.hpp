@@ -1036,19 +1036,21 @@ template <typename T>
 struct Parse_Helper;
 
 // Macro to define parse helpers for each type
-#define DEFINE_PARSE_HELPER(Type, method)                                       \
-  template <>                                                                   \
-  struct Parse_Helper<life_lang::ast::Type> {                                   \
-    static std::optional<life_lang::ast::Type> parse(std::string_view input_) { \
-      life_lang::Diagnostic_Engine diagnostics{"test.life", input_};            \
-      life_lang::parser::Parser parser{diagnostics};                            \
-      auto result = parser.method();                                            \
-      if (!result)                                                              \
-        return std::nullopt;                                                    \
-      if (!parser.all_input_consumed())                                         \
-        return std::nullopt;                                                    \
-      return result;                                                            \
-    }                                                                           \
+#define DEFINE_PARSE_HELPER(Type, method)                                                    \
+  template <>                                                                                \
+  struct Parse_Helper<life_lang::ast::Type> {                                                \
+    static std::optional<life_lang::ast::Type> parse(std::string_view input_) {              \
+      life_lang::Source_File_Registry registry;                                              \
+      life_lang::File_Id const file_id = registry.register_file("test.life", std::string{input_}); \
+      life_lang::Diagnostic_Engine diagnostics{registry, file_id};                           \
+      life_lang::parser::Parser parser{diagnostics};                                         \
+      auto result = parser.method();                                                         \
+      if (!result)                                                                           \
+        return std::nullopt;                                                                 \
+      if (!parser.all_input_consumed())                                                      \
+        return std::nullopt;                                                                 \
+      return result;                                                                         \
+    }                                                                                        \
   };
 
 // Define helpers for expression and statement types
@@ -1080,12 +1082,14 @@ DEFINE_PARSE_HELPER(Statement, parse_statement)
 
 template <>
 struct Parse_Helper<life_lang::ast::Module> {
-  static life_lang::Expected<life_lang::ast::Module, life_lang::Diagnostic_Engine> parse(std::string_view input_) {
-    life_lang::Diagnostic_Engine diagnostics{"test.life", input_};
+  static life_lang::Expected<life_lang::ast::Module, std::string> parse(std::string_view input_) {
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("test.life", std::string{input_});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto result = parser.parse_module();
     if (!result) {
-      return life_lang::Unexpected(diagnostics);
+      return life_lang::Unexpected(std::string{"parse failed"});
     }
     return *result;
   }
@@ -1113,19 +1117,21 @@ std::optional<T> extract_from_expr(life_lang::ast::Expr const& expr_) {
 }
 
 // Update parse helpers for types that need extraction from Expr
-#define DEFINE_PARSE_HELPER_WITH_EXTRACTION(Type)                               \
-  template <>                                                                   \
-  struct Parse_Helper<life_lang::ast::Type> {                                   \
-    static std::optional<life_lang::ast::Type> parse(std::string_view input_) { \
-      life_lang::Diagnostic_Engine diagnostics{"test.life", input_};            \
-      life_lang::parser::Parser parser{diagnostics};                            \
-      auto expr = parser.parse_expr();                                          \
-      if (!expr)                                                                \
-        return std::nullopt;                                                    \
-      if (!parser.all_input_consumed())                                         \
-        return std::nullopt;                                                    \
-      return extract_from_expr<life_lang::ast::Type>(*expr);                    \
-    }                                                                           \
+#define DEFINE_PARSE_HELPER_WITH_EXTRACTION(Type)                                                    \
+  template <>                                                                                        \
+  struct Parse_Helper<life_lang::ast::Type> {                                                        \
+    static std::optional<life_lang::ast::Type> parse(std::string_view input_) {                      \
+      life_lang::Source_File_Registry registry;                                                      \
+      life_lang::File_Id const file_id = registry.register_file("test.life", std::string{input_});   \
+      life_lang::Diagnostic_Engine diagnostics{registry, file_id};                                   \
+      life_lang::parser::Parser parser{diagnostics};                                                 \
+      auto expr = parser.parse_expr();                                                               \
+      if (!expr)                                                                                     \
+        return std::nullopt;                                                                         \
+      if (!parser.all_input_consumed())                                                              \
+        return std::nullopt;                                                                         \
+      return extract_from_expr<life_lang::ast::Type>(*expr);                                         \
+    }                                                                                                \
   };
 
 // Types that are parsed as expressions but need extraction

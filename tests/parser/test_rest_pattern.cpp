@@ -61,7 +61,9 @@ TEST_CASE("Rest patterns") {
 
   for (auto const& tc: test_cases) {
     SUBCASE(std::string(tc.name).c_str()) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const pattern = parser.parse_pattern();
@@ -74,7 +76,9 @@ TEST_CASE("Rest patterns") {
 }
 
 TEST_CASE("Rest pattern - error: .. not at end") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", "Config { .., debug }"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"Config { .., debug }"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const pattern = parser.parse_pattern();
@@ -84,7 +88,9 @@ TEST_CASE("Rest pattern - error: .. not at end") {
 }
 
 TEST_CASE("Rest pattern - error: comma after ..") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", "User { name, .., }"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"User { name, .., }"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const pattern = parser.parse_pattern();
@@ -98,7 +104,9 @@ TEST_CASE("Rest pattern - in match expression") {
       Circle { radius, .. } => "circle",
     }
   )";
-  life_lang::Diagnostic_Engine diagnostics{"<test>", k_input};
+  life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{k_input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
   REQUIRE(expr.has_value());
@@ -116,7 +124,9 @@ TEST_CASE("Rest pattern - in match expression") {
 }
 
 TEST_CASE("Rest pattern - nested in tuple pattern") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", "(Point { x, .. }, Circle { .. })"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"(Point { x, .. }, Circle { .. })"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const pattern = parser.parse_pattern();
@@ -131,7 +141,9 @@ TEST_CASE("Rest pattern - nested in tuple pattern") {
 }
 
 TEST_CASE("Rest pattern - with nested patterns") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", "Request { method, body: Some(data), .. }"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"Request { method, body: Some(data), .. }"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const pattern = parser.parse_pattern();

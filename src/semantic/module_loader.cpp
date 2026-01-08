@@ -4,6 +4,7 @@
 #include <cctype>
 #include <format>
 #include <fstream>
+#include <map>
 #include <sstream>
 
 #include "diagnostics.hpp"
@@ -138,8 +139,35 @@ std::vector<Module_Descriptor> Module_Loader::discover_modules(std::filesystem::
   return modules;
 }
 
-std::optional<ast::Module> Module_Loader::load_module(Module_Descriptor const& descriptor_) {
+namespace {
+// Helper to extract the name from an Item (function, struct, enum, trait, type alias)
+std::optional<std::string> get_item_name(ast::Item const& item_) {
+  return std::visit(
+      [](auto const& stmt_) -> std::optional<std::string> {
+        using T = std::decay_t<decltype(stmt_)>;
+        if constexpr (std::same_as<T, std::shared_ptr<ast::Func_Def>>) {
+          return stmt_->declaration.name;
+        } else if constexpr (std::same_as<T, std::shared_ptr<ast::Struct_Def>> ||
+                             std::same_as<T, std::shared_ptr<ast::Enum_Def>> ||
+                             std::same_as<T, std::shared_ptr<ast::Trait_Def>> ||
+                             std::same_as<T, std::shared_ptr<ast::Type_Alias>>) {
+          return stmt_->name;
+        } else {
+          return std::nullopt;  // Impl blocks don't have a name
+        }
+      },
+      item_.item
+  );
+}
+}  // namespace
+
+std::optional<ast::Module>
+Module_Loader::load_module(Module_Descriptor const& descriptor_, Diagnostic_Manager& diagnostics_) {
   ast::Module merged_module;
+
+  // Track defined names: name -> (file_path, span) for error reporting
+  std::map<std::string, std::pair<std::filesystem::path, Source_Range>> defined_names;
+  bool has_duplicate = false;
 
   // Parse each file in the module
   for (auto const& file_path: descriptor_.files) {
@@ -150,10 +178,14 @@ std::optional<ast::Module> Module_Loader::load_module(Module_Descriptor const& d
       return std::nullopt;
     }
 
-    std::string const source(std::istreambuf_iterator<char>(file), {});
+    std::string source(std::istreambuf_iterator<char>(file), {});
+    std::string const path_str = file_path.string();
+
+    // Register file with the shared registry and get its File_Id
+    File_Id const file_id = diagnostics_.register_file(path_str, std::move(source));
 
     // Create diagnostics engine for this file
-    Diagnostic_Engine file_diagnostics(file_path.string(), source);
+    Diagnostic_Engine file_diagnostics(diagnostics_.registry(), file_id);
 
     // Parse the file
     parser::Parser parser(file_diagnostics);
@@ -164,8 +196,30 @@ std::optional<ast::Module> Module_Loader::load_module(Module_Descriptor const& d
       return std::nullopt;
     }
 
-    // Merge imports and items into the merged module
+    // Check for duplicate definitions before merging
     auto const& file_module = *module_opt;
+    for (auto const& item: file_module.items) {
+      auto const name_opt = get_item_name(item);
+      if (!name_opt.has_value()) {
+        continue;  // Item has no name (e.g., impl block)
+      }
+
+      auto const& name = *name_opt;
+      auto const existing_it = defined_names.find(name);
+      if (existing_it != defined_names.end()) {
+        // Duplicate definition found
+        auto const& [original_file, original_span] = existing_it->second;
+        diagnostics_.add_error(
+            item.span,
+            std::format("duplicate definition of '{}' - first defined in {}", name, original_file.filename().string())
+        );
+        has_duplicate = true;
+      } else {
+        defined_names[name] = {file_path, item.span};
+      }
+    }
+
+    // Merge imports and items into the merged module
     merged_module.imports.insert(
         merged_module.imports.end(),
         std::make_move_iterator(file_module.imports.begin()),
@@ -176,6 +230,10 @@ std::optional<ast::Module> Module_Loader::load_module(Module_Descriptor const& d
         std::make_move_iterator(file_module.items.begin()),
         std::make_move_iterator(file_module.items.end())
     );
+  }
+
+  if (has_duplicate) {
+    return std::nullopt;
   }
 
   return merged_module;

@@ -26,7 +26,9 @@ TEST_CASE("Octal literals in expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -40,7 +42,9 @@ TEST_CASE("Octal literals in expressions") {
 
 TEST_CASE("Octal literals with underscores") {
   SUBCASE("octal with underscores") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "0o7_7_7"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"0o7_7_7"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
@@ -51,7 +55,9 @@ TEST_CASE("Octal literals with underscores") {
   }
 
   SUBCASE("let with octal underscores") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "let perms = 0o7_5_5;"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"let perms = 0o7_5_5;"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
@@ -64,7 +70,9 @@ TEST_CASE("Octal literals with underscores") {
 
 TEST_CASE("Octal literals with type suffixes") {
   SUBCASE("octal with U16 suffix") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "0o644U16"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"0o644U16"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
@@ -75,7 +83,9 @@ TEST_CASE("Octal literals with type suffixes") {
   }
 
   SUBCASE("octal with I32 suffix") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "0o755I32"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"0o755I32"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
@@ -88,7 +98,9 @@ TEST_CASE("Octal literals with type suffixes") {
 
 TEST_CASE("Octal literals in let statements") {
   SUBCASE("let with octal value") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "let mode = 0o755;"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"let mode = 0o755;"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
@@ -99,7 +111,9 @@ TEST_CASE("Octal literals in let statements") {
   }
 
   SUBCASE("multiple let statements with octal (Unix permissions)") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "let rwx = 0o755; let rw = 0o644;"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"let rwx = 0o755; let rw = 0o644;"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const stmt1 = parser.parse_statement();
@@ -116,7 +130,9 @@ TEST_CASE("Octal literals in let statements") {
   }
 
   SUBCASE("let with octal and type annotation") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "let perms: U16 = 0o644;"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"let perms: U16 = 0o644;"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
@@ -130,7 +146,9 @@ TEST_CASE("Octal literals in let statements") {
 
 TEST_CASE("Octal literals in arrays") {
   SUBCASE("array of octal values (Unix permissions)") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "[0o755, 0o644, 0o444]"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"[0o755, 0o644, 0o444]"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
@@ -143,7 +161,9 @@ TEST_CASE("Octal literals in arrays") {
   }
 
   SUBCASE("octal permissions in let array") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "let modes = [0o777, 0o666, 0o555];"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"let modes = [0o777, 0o666, 0o555];"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
@@ -158,7 +178,9 @@ TEST_CASE("Octal literals in arrays") {
 
 TEST_CASE("Octal uppercase O prefix") {
   SUBCASE("uppercase O in octal literal") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "0O777"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"0O777"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
@@ -173,7 +195,9 @@ TEST_CASE("Octal uppercase O prefix") {
 
 TEST_CASE("Mixed number bases") {
   SUBCASE("decimal, hex, octal, and binary in one expression") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "100 + 0xFF + 0o77 + 0b11"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"100 + 0xFF + 0o77 + 0b11"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
@@ -191,10 +215,11 @@ TEST_CASE("Mixed number bases") {
   }
 
   SUBCASE("let statements with all number bases") {
-    life_lang::Diagnostic_Engine diagnostics{
-        "<test>",
-        "let dec = 100; let hex = 0xFF; let oct = 0o77; let bin = 0b11;"
-    };
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file(
+        "<test>", "let dec = 100; let hex = 0xFF; let oct = 0o77; let bin = 0b11;"
+    );
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const stmt1 = parser.parse_statement();

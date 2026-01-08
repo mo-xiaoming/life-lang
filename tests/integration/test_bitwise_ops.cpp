@@ -36,7 +36,9 @@ TEST_CASE("Bitwise operators in let statements") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const stmt = parser.parse_statement();
       REQUIRE(stmt.has_value());
@@ -65,7 +67,9 @@ TEST_CASE("Bitwise AND in expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -92,7 +96,9 @@ TEST_CASE("Bitwise OR in expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -119,7 +125,9 @@ TEST_CASE("Bitwise XOR in expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -146,7 +154,9 @@ TEST_CASE("Shift left operations") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -179,7 +189,9 @@ TEST_CASE("Shift right operations") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -222,7 +234,9 @@ TEST_CASE("Complex bitwise expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -240,7 +254,9 @@ TEST_CASE("Bitwise operators in match expressions") {
       1 => read,
       2 => write,
     })";
-    life_lang::Diagnostic_Engine diagnostics{"<test>", k_source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{k_source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
@@ -271,7 +287,9 @@ TEST_CASE("Bitwise operators with binary literals") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());

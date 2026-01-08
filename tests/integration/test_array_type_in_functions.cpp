@@ -14,7 +14,9 @@ fn matrix_func(mat: [[I32; 4]; 3]): Bool {
 }
 )";
 
-  life_lang::Diagnostic_Engine diagnostics{"test.life", input};
+  life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("test.life", std::string{input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
   life_lang::parser::Parser parser{diagnostics};
   auto const result = parser.parse_module();
 
