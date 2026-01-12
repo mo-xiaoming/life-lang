@@ -10,7 +10,9 @@ using namespace life_lang::ast;
 using namespace test_sexp;
 
 TEST_CASE("String interpolation - simple variable") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Hello, {name}!")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("Hello, {name}!")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -22,7 +24,9 @@ TEST_CASE("String interpolation - simple variable") {
 }
 
 TEST_CASE("String interpolation - multiple variables") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"xxx("Point: ({x}, {y})")xxx"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"xxx("Point: ({x}, {y})")xxx"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -35,7 +39,9 @@ TEST_CASE("String interpolation - multiple variables") {
 }
 
 TEST_CASE("String interpolation - expression") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Result: {x + y}")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("Result: {x + y}")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -47,7 +53,9 @@ TEST_CASE("String interpolation - expression") {
 }
 
 TEST_CASE("String interpolation - field access") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Name: {user.name}")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("Name: {user.name}")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -59,7 +67,9 @@ TEST_CASE("String interpolation - field access") {
 }
 
 TEST_CASE("String interpolation - function call") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Value: {get_value()}")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("Value: {get_value()}")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -71,7 +81,9 @@ TEST_CASE("String interpolation - function call") {
 }
 
 TEST_CASE("String interpolation - method chain") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Upper: {name.to_upper()}")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("Upper: {name.to_upper()}")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -84,7 +96,9 @@ TEST_CASE("String interpolation - method chain") {
 }
 
 TEST_CASE("Empty braces - not interpolation") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Format: {}")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("Format: {}")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -96,7 +110,9 @@ TEST_CASE("Empty braces - not interpolation") {
 }
 
 TEST_CASE("Escaped braces - literal") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Literal: \{value\}")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("Literal: \{value\}")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -108,7 +124,9 @@ TEST_CASE("Escaped braces - literal") {
 }
 
 TEST_CASE("Mixed escaped and interpolated") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("Literal \{x\}, interpolated {y}")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("Literal \{x\}, interpolated {y}")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -126,7 +144,9 @@ fn greet(name: String): String {
 }
 )";
 
-  life_lang::Diagnostic_Engine diagnostics{"<test>", k_input};
+  life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{k_input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const module = parser.parse_module();

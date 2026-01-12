@@ -28,7 +28,9 @@ TEST_CASE("Binary literals in expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -53,7 +55,9 @@ TEST_CASE("Binary literals with underscores") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -65,7 +69,9 @@ TEST_CASE("Binary literals with underscores") {
   }
 
   SUBCASE("let with binary underscores") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "let flags = 0b1111_0000;"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"let flags = 0b1111_0000;"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const stmt = parser.parse_statement();
@@ -90,7 +96,9 @@ TEST_CASE("Binary literals with type suffixes") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -104,7 +112,9 @@ TEST_CASE("Binary literals with type suffixes") {
 
 TEST_CASE("Binary literals in let statements") {
   SUBCASE("multiple let statements with binary") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "let mask = 0b1111_0000; let bits = 0b1010_0101;"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"let mask = 0b1111_0000; let bits = 0b1010_0101;"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const stmt1 = parser.parse_statement();
@@ -139,7 +149,9 @@ TEST_CASE("Binary literals in arrays") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -157,7 +169,9 @@ TEST_CASE("Binary literals in match expressions") {
       0b0000 => true,
       0b1111 => false,
     })";
-    life_lang::Diagnostic_Engine diagnostics{"<test>", k_source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{k_source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
@@ -190,7 +204,9 @@ TEST_CASE("Binary literals - bit masks") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const stmt = parser.parse_statement();

@@ -6,7 +6,7 @@
 #include <vector>
 
 namespace life_lang {
-struct Diagnostic_Engine;
+class Diagnostic_Manager;
 namespace ast {
 struct Module;
 }
@@ -40,8 +40,11 @@ public:
 
   // Load and parse all files in a module
   // Parses each .life file and merges all top-level items into a single Module AST
+  // diagnostics_: Diagnostic manager for error reporting (also provides the file registry)
   // Returns the merged module on success, or std::nullopt if any file fails to parse
-  [[nodiscard]] static std::optional<ast::Module> load_module(Module_Descriptor const& descriptor_);
+  // Reports duplicate definition errors if the same name is defined in multiple files
+  [[nodiscard]] static std::optional<ast::Module>
+  load_module(Module_Descriptor const& descriptor_, Diagnostic_Manager& diagnostics_);
 
 private:
   // Convert lowercase_snake_case directory name to Camel_Snake_Case module name

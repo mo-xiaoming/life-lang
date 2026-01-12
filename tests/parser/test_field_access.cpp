@@ -97,10 +97,8 @@ TEST_CASE("Parse Field Access") {
       CHECK(test.should_succeed == bool(got));
 
       if (!test.should_succeed && !got) {
-        // Only access diagnostics if they exist (new parser may not always generate them)
-        if (!got.error().diagnostics().empty()) {
-          INFO("Error (expected): " << got.error().diagnostics().front().message);
-        }
+        // The error is now a simple string
+        INFO("Error (expected): " << got.error());
       }
     }
   }

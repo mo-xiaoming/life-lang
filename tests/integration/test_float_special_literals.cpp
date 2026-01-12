@@ -25,7 +25,9 @@ TEST_CASE("Float special literals - individual expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -39,7 +41,9 @@ TEST_CASE("Float special literals - individual expressions") {
 
 TEST_CASE("Float special literals in function bodies") {
   SUBCASE("function returning nan") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "fn get_nan(): F32 { return nanF32; }"};
+    life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"fn get_nan(): F32 { return nanF32; }"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const func = parser.parse_func_def();
@@ -56,7 +60,9 @@ TEST_CASE("Float special literals in function bodies") {
   }
 
   SUBCASE("function returning inf") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "fn get_infinity(): F64 { return infF64; }"};
+    life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"fn get_infinity(): F64 { return infF64; }"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const func = parser.parse_func_def();

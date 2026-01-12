@@ -78,7 +78,9 @@ fn main(args: Array<String>): I32 {
 }
 )life_code";
 
-  life_lang::Diagnostic_Engine diagnostics{"readme_example.life", k_readme_example};
+  life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("readme_example.life", std::string{k_readme_example});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
   life_lang::parser::Parser parser{diagnostics};
   auto const result = parser.parse_module();
 

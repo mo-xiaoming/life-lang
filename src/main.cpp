@@ -25,9 +25,11 @@ int main(int argc, char* argv[]) {
       return 0;
     }
     if (arg == "-") {
-      std::string const input((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
+      std::string input((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
 
-      life_lang::Diagnostic_Engine diagnostics{"<stdin>", input};
+      life_lang::Source_File_Registry registry;
+      life_lang::File_Id const file_id = registry.register_file("<stdin>", std::move(input));
+      life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const result = parser.parse_module();
       if (result) {

@@ -74,7 +74,9 @@ TEST_CASE("Parse Module - Complete Input Validation") {
 
   for (auto const& test: tests) {
     SUBCASE(test.name.c_str()) {
-      life_lang::Diagnostic_Engine diagnostics{"test.life", test.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("test.life", std::string{test.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const result = parser.parse_module();
 
@@ -159,7 +161,9 @@ TEST_CASE("Parse Module - Struct Literals and Field Access") {
 
   for (auto const& test: tests) {
     SUBCASE(test.name.c_str()) {
-      life_lang::Diagnostic_Engine diagnostics{"test.life", test.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("test.life", std::string{test.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const result = parser.parse_module();
 
@@ -179,7 +183,9 @@ TEST_CASE("Parse Module - Struct Literals and Field Access") {
 TEST_CASE("Parse Module - Diagnostic Format Matches Clang Style") {
   SUBCASE("Single-line parse error with source context") {
     std::string const invalid_input = "fn bad syntax here";
-    life_lang::Diagnostic_Engine diagnostics{"test.life", invalid_input};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("test.life", std::string{invalid_input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
 
@@ -201,7 +207,9 @@ TEST_CASE("Parse Module - Diagnostic Format Matches Clang Style") {
         "}\n"
         "unexpected garbage";
 
-    life_lang::Diagnostic_Engine diagnostics{"multiline.life", source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("multiline.life", std::string{source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
@@ -229,7 +237,9 @@ TEST_CASE("Parse Module - Diagnostic Format Matches Clang Style") {
         "fn main(): I32 { return 0; }\n"
         "fn bad(";
 
-    life_lang::Diagnostic_Engine diagnostics{"error_line2.life", source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("error_line2.life", std::string{source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
@@ -251,7 +261,9 @@ TEST_CASE("Parse Module - Diagnostic Format Matches Clang Style") {
 TEST_CASE("Parse Module - Cross-Platform Line Endings") {
   SUBCASE("Unix line endings (LF)") {
     std::string const source = "fn main(): I32 {\n    return 0;\n}\n";
-    life_lang::Diagnostic_Engine diagnostics{"unix.life", source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("unix.life", std::string{source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE(result.has_value());
@@ -259,7 +271,9 @@ TEST_CASE("Parse Module - Cross-Platform Line Endings") {
 
   SUBCASE("Windows line endings (CRLF)") {
     std::string const source = "fn main(): I32 {\r\n    return 0;\r\n}\r\n";
-    life_lang::Diagnostic_Engine diagnostics{"windows.life", source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("windows.life", std::string{source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE(result.has_value());
@@ -267,7 +281,9 @@ TEST_CASE("Parse Module - Cross-Platform Line Endings") {
 
   SUBCASE("Old Mac line endings (CR)") {
     std::string const source = "fn main(): I32 {\r    return 0;\r}\r";
-    life_lang::Diagnostic_Engine diagnostics{"oldmac.life", source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("oldmac.life", std::string{source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE(result.has_value());
@@ -275,7 +291,9 @@ TEST_CASE("Parse Module - Cross-Platform Line Endings") {
 
   SUBCASE("Mixed line endings") {
     std::string const source = "fn main(): I32 {\r\n    return 0;\n}\r";
-    life_lang::Diagnostic_Engine diagnostics{"mixed.life", source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("mixed.life", std::string{source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE(result.has_value());
@@ -283,7 +301,9 @@ TEST_CASE("Parse Module - Cross-Platform Line Endings") {
 
   SUBCASE("Error reporting with CRLF") {
     std::string const source = "fn main(): I32 {\r\n    return 0;\r\n}\r\ngarbag";
-    life_lang::Diagnostic_Engine diagnostics{"error_crlf.life", source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("error_crlf.life", std::string{source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());
@@ -297,7 +317,9 @@ TEST_CASE("Parse Module - Cross-Platform Line Endings") {
 
   SUBCASE("Error reporting with CR") {
     std::string const source = "fn main(): I32 {\r    return 0;\r}\rinvalid";
-    life_lang::Diagnostic_Engine diagnostics{"error_cr.life", source};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("error_cr.life", std::string{source});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());
@@ -316,7 +338,9 @@ TEST_CASE("Parse Module - Cross-Platform Line Endings") {
 
 TEST_CASE("Parse Module - Anonymous Module Names") {
   SUBCASE("Default <input> name") {
-    life_lang::Diagnostic_Engine diagnostics{"<input>", "invalid 123"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<input>", std::string{"invalid 123"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());
@@ -327,7 +351,9 @@ TEST_CASE("Parse Module - Anonymous Module Names") {
   }
 
   SUBCASE("Custom anonymous name <stdin>") {
-    life_lang::Diagnostic_Engine diagnostics{"<stdin>", "fn bad("};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<stdin>", std::string{"fn bad("});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());
@@ -338,7 +364,9 @@ TEST_CASE("Parse Module - Anonymous Module Names") {
   }
 
   SUBCASE("No filename defaults to <input>") {
-    life_lang::Diagnostic_Engine diagnostics{"<input>", "garbage"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<input>", std::string{"garbage"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const result = parser.parse_module();
     REQUIRE_FALSE(result.has_value());

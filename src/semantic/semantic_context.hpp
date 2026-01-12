@@ -3,17 +3,33 @@
 #include "../parser/ast.hpp"
 
 #include <filesystem>
-#include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+namespace life_lang {
+class Diagnostic_Manager;
+}  // namespace life_lang
+
 namespace life_lang::semantic {
 
-// Semantic analysis context - manages all loaded modules and provides name resolution
+// Semantic analysis context - manages loaded modules and provides name resolution
+// Uses pimpl idiom to hide implementation details.
 class Semantic_Context {
 public:
+  // Takes a reference to Diagnostic_Manager for error reporting
+  explicit Semantic_Context(Diagnostic_Manager& diagnostics_);
+
+  // Non-copyable, movable
+  Semantic_Context(Semantic_Context const&) = delete;
+  Semantic_Context& operator=(Semantic_Context const&) = delete;
+  Semantic_Context(Semantic_Context&&) noexcept;
+  Semantic_Context& operator=(Semantic_Context&&) noexcept;
+  ~Semantic_Context();
+
+  // Load all modules from src/ directory
   // src_root_: Filesystem path to source directory
   // Returns false if any module fails to parse
   bool load_modules(std::filesystem::path const& src_root_);
@@ -34,6 +50,13 @@ public:
   // Only searches module-level items, not methods in impl blocks
   [[nodiscard]] ast::Item const* find_func_def(std::string const& module_path_, std::string_view func_name_) const;
 
+  // Find a method definition within impl blocks for a specific type
+  // type_name_: Simple type name (e.g., "Point") - not fully qualified
+  // method_name_: Method name to find (e.g., "distance")
+  // Returns nullptr if not found
+  [[nodiscard]] ast::Func_Def const*
+  find_method_def(std::string const& module_path_, std::string_view type_name_, std::string_view method_name_) const;
+
   // Resolve a type name within a module's context
   // current_module_: Dot-separated module path (e.g., "Geometry")
   // name_: Type name from AST to resolve
@@ -53,23 +76,8 @@ public:
   resolve_var_name(std::string const& current_module_, ast::Var_Name const& name_) const;
 
 private:
-  // Module path (dot-separated like "Std.Collections") -> parsed AST
-  std::map<std::string, ast::Module> m_modules;
-
-  // Import resolution: local_name -> (source_module, item_name)
-  // Example: For "import Geometry.{ Point, Circle as C }" in module "Main"
-  //   m_import_maps["Main"]["Point"] = ("Geometry", "Point")
-  //   m_import_maps["Main"]["C"] = ("Geometry", "Circle")
-  std::map<std::string, std::map<std::string, std::pair<std::string, std::string>>> m_import_maps;
-
-  // Build import map for all loaded modules
-  void build_import_maps();
-
-  // Helper: Check if a name matches an item
-  [[nodiscard]] static bool item_matches_name(ast::Item const& item_, std::string_view name_);
-
-  // Helper: Get the name of an item (function name, struct name, etc.)
-  [[nodiscard]] static std::optional<std::string> get_item_name(ast::Item const& item_);
+  struct Impl;
+  std::unique_ptr<Impl> m_impl;
 };
 
 }  // namespace life_lang::semantic

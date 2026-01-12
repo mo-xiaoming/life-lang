@@ -134,7 +134,9 @@ TEST_CASE("String interpolation") {
 
   for (auto const& tc: test_cases) {
     SUBCASE(std::string(tc.name).c_str()) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
@@ -147,7 +149,9 @@ TEST_CASE("String interpolation") {
 }
 
 TEST_CASE("String interpolation - tuple access") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("first: {pair.0}")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("first: {pair.0}")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();
@@ -159,7 +163,9 @@ TEST_CASE("String interpolation - tuple access") {
 }
 
 TEST_CASE("String interpolation - complex expression") {
-  life_lang::Diagnostic_Engine diagnostics{"<test>", R"("value: {data.items[index].name.to_upper()}")"};
+  life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{R"("value: {data.items[index].name.to_upper()}")"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
 
   life_lang::parser::Parser parser{diagnostics};
   auto const expr = parser.parse_expr();

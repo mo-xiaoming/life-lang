@@ -27,7 +27,9 @@ TEST_CASE("Boolean literals in expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -38,7 +40,9 @@ TEST_CASE("Boolean literals in expressions") {
   }
 
   SUBCASE("complex boolean expression") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "!false && true || false"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"!false && true || false"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
@@ -77,7 +81,9 @@ TEST_CASE("Boolean literals in let statements") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const stmt = parser.parse_statement();
       REQUIRE(stmt.has_value());
@@ -106,7 +112,9 @@ TEST_CASE("Boolean literals in function calls") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -138,7 +146,9 @@ TEST_CASE("Boolean literals in if expressions") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -157,7 +167,9 @@ TEST_CASE("Boolean literals in match expressions") {
         false => 0,
       }
     )";
-    life_lang::Diagnostic_Engine diagnostics{"<test>", input};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
@@ -176,7 +188,9 @@ TEST_CASE("Boolean literals in match expressions") {
 
 TEST_CASE("Boolean literals in arrays") {
   SUBCASE("array of booleans") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "[true, false, true]"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"[true, false, true]"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
@@ -191,7 +205,9 @@ TEST_CASE("Boolean literals in arrays") {
 
 TEST_CASE("Boolean literals in tuples") {
   SUBCASE("tuple with booleans") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "(true, false)"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"(true, false)"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
@@ -201,7 +217,9 @@ TEST_CASE("Boolean literals in tuples") {
   }
 
   SUBCASE("tuple with mixed types including booleans") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "(42, true, \"hello\", false)"};
+    life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"(42, true, \"hello\", false)"});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
@@ -216,7 +234,9 @@ TEST_CASE("Boolean literals in tuples") {
 
 TEST_CASE("Boolean literals in struct literals") {
   SUBCASE("struct with boolean field") {
-    life_lang::Diagnostic_Engine diagnostics{"<test>", "Config { enabled: true, debug: false }"};
+    life_lang::Source_File_Registry registry;
+  life_lang::File_Id const file_id = registry.register_file("<test>", std::string{"Config { enabled: true, debug: false }"});
+  life_lang::Diagnostic_Engine diagnostics{registry, file_id};
     life_lang::parser::Parser parser{diagnostics};
     auto const expr = parser.parse_expr();
     REQUIRE(expr.has_value());
@@ -247,7 +267,9 @@ TEST_CASE("Boolean literals vs identifiers") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const expr = parser.parse_expr();
       REQUIRE(expr.has_value());
@@ -272,7 +294,9 @@ TEST_CASE("Boolean literals in return statements") {
 
   for (auto const& tc: k_test_cases) {
     SUBCASE(tc.name) {
-      life_lang::Diagnostic_Engine diagnostics{"<test>", tc.input};
+      life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{tc.input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
       life_lang::parser::Parser parser{diagnostics};
       auto const stmt = parser.parse_statement();
       REQUIRE(stmt.has_value());
@@ -294,7 +318,9 @@ TEST_CASE("Complete function with boolean literals") {
     }
   )";
 
-  life_lang::Diagnostic_Engine diagnostics{"<test>", input};
+  life_lang::Source_File_Registry registry;
+    life_lang::File_Id const file_id = registry.register_file("<test>", std::string{input});
+    life_lang::Diagnostic_Engine diagnostics{registry, file_id};
   life_lang::parser::Parser parser{diagnostics};
   auto const func = parser.parse_func_def();
   REQUIRE(func.has_value());

@@ -242,7 +242,7 @@ Source_Position Parser::Impl::current_position() const {
 }
 
 Source_Range Parser::Impl::make_range(Source_Position start_) const {
-  return Source_Range{.start = start_, .end = current_position()};
+  return diagnostics->make_range(start_, current_position());
 }
 
 void Parser::Impl::error(std::string message_, Source_Range range_) const {
@@ -251,7 +251,7 @@ void Parser::Impl::error(std::string message_, Source_Range range_) const {
 
 void Parser::Impl::error(std::string message_) const {
   auto const p = current_position();
-  error(std::move(message_), Source_Range{.start = p, .end = p});
+  error(std::move(message_), diagnostics->make_range(p, p));
 }
 
 bool Parser::Impl::expect(char ch_) {
@@ -568,6 +568,8 @@ bool Parser::all_input_consumed() const {
 std::optional<ast::Module> Parser::parse_module() {
   m_impl->skip_whitespace_and_comments();
 
+  auto const module_start = m_impl->current_position();
+
   std::vector<ast::Import_Statement> imports;
   std::vector<ast::Item> items;
 
@@ -589,7 +591,7 @@ std::optional<ast::Module> Parser::parse_module() {
       if (m_impl->diagnostics->has_errors()) {
         return std::nullopt;
       }
-      m_impl->error("Failed to parse import statement", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Failed to parse import statement");
       return std::nullopt;
     }
 
@@ -639,7 +641,7 @@ std::optional<ast::Module> Parser::parse_module() {
       return std::nullopt;
     }
 
-    items.push_back(ast::make_item(is_pub, std::move(*stmt)));
+    items.push_back(ast::Item{.span = m_impl->make_range(start_pos), .is_pub = is_pub, .item = std::move(*stmt)});
     m_impl->skip_whitespace_and_comments();
   }
 
@@ -647,7 +649,11 @@ std::optional<ast::Module> Parser::parse_module() {
     return std::nullopt;
   }
 
-  return ast::make_module(std::move(imports), std::move(items));
+  return ast::Module{
+      .span = m_impl->make_range(module_start),
+      .imports = std::move(imports),
+      .items = std::move(items)
+  };
 }
 
 std::optional<ast::Import_Statement> Parser::parse_import_statement() {
@@ -701,7 +707,7 @@ std::optional<ast::Import_Statement> Parser::parse_import_statement() {
     }
 
     // No dot found - error, we need either another segment or .{items}
-    m_impl->error("Expected '.' in import statement", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '.' in import statement");
     return std::nullopt;
   }
 
@@ -709,7 +715,7 @@ std::optional<ast::Import_Statement> Parser::parse_import_statement() {
 
   // Expect '{'
   if (m_impl->peek() != '{') {
-    m_impl->error("Expected '{' after module path in import statement", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '{' after module path in import statement");
     return std::nullopt;
   }
   m_impl->advance();  // consume '{'
@@ -724,9 +730,11 @@ std::optional<ast::Import_Statement> Parser::parse_import_statement() {
       break;  // Empty list or end of list
     }
 
+    auto const item_start = m_impl->current_position();
+
     // Parse identifier (can be type name or function name)
     if (!is_identifier_start(m_impl->peek())) {
-      m_impl->error("Expected identifier in import list", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected identifier in import list");
       return std::nullopt;
     }
 
@@ -745,7 +753,7 @@ std::optional<ast::Import_Statement> Parser::parse_import_statement() {
 
       // Parse alias identifier
       if (!is_identifier_start(m_impl->peek())) {
-        m_impl->error("Expected identifier after 'as'", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected identifier after 'as'");
         return std::nullopt;
       }
 
@@ -759,7 +767,11 @@ std::optional<ast::Import_Statement> Parser::parse_import_statement() {
       m_impl->skip_whitespace_and_comments();
     }
 
-    items.push_back(ast::make_import_item(std::move(item_name), std::move(alias)));
+    ast::Import_Item import_item;
+    import_item.span = m_impl->make_range(item_start);
+    import_item.name = std::move(item_name);
+    import_item.alias = std::move(alias);
+    items.push_back(std::move(import_item));
 
     m_impl->skip_whitespace_and_comments();
 
@@ -774,13 +786,13 @@ std::optional<ast::Import_Statement> Parser::parse_import_statement() {
       break;
     }
 
-    m_impl->error("Expected ',' or '}' in import list", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected ',' or '}' in import list");
     return std::nullopt;
   }
 
   // Expect '}'
   if (m_impl->peek() != '}') {
-    m_impl->error("Expected '}' to close import list", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '}' to close import list");
     return std::nullopt;
   }
   m_impl->advance();  // consume '}'
@@ -789,12 +801,16 @@ std::optional<ast::Import_Statement> Parser::parse_import_statement() {
 
   // Expect ';'
   if (m_impl->peek() != ';') {
-    m_impl->error("Expected ';' after import statement", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected ';' after import statement");
     return std::nullopt;
   }
   m_impl->advance();  // consume ';'
 
-  return ast::make_import_statement(std::move(module_path), std::move(items));
+  ast::Import_Statement result;
+  result.span = m_impl->make_range(start_pos);
+  result.module_path = std::move(module_path);
+  result.items = std::move(items);
+  return result;
 }
 
 std::optional<ast::Integer> Parser::parse_integer() {
@@ -907,6 +923,7 @@ std::optional<ast::Integer> Parser::parse_integer() {
 
   // Create AST node
   ast::Integer result;
+  result.span = m_impl->make_range(start_pos);
   result.value = std::move(value);
   if (suffix) {
     result.suffix = *suffix;
@@ -940,6 +957,7 @@ std::optional<ast::Float> Parser::parse_float() {
     }
 
     ast::Float result;
+    result.span = m_impl->make_range(start_pos);
     result.value = std::move(value);
     if (suffix) {
       result.suffix = *suffix;
@@ -964,6 +982,7 @@ std::optional<ast::Float> Parser::parse_float() {
     }
 
     ast::Float result;
+    result.span = m_impl->make_range(start_pos);
     result.value = std::move(value);
     if (suffix) {
       result.suffix = *suffix;
@@ -1056,6 +1075,7 @@ std::optional<ast::Float> Parser::parse_float() {
 
   // Create AST node
   ast::Float result;
+  result.span = m_impl->make_range(start_pos);
   result.value = std::move(value);
   if (suffix) {
     result.suffix = *suffix;
@@ -1100,6 +1120,7 @@ std::optional<ast::String> Parser::parse_string() {
 
   // Create AST node (stores with quotes)
   ast::String result;
+  result.span = m_impl->make_range(start_pos);
   result.value = std::move(value);
 
   return result;
@@ -1143,14 +1164,14 @@ std::optional<ast::String_Interpolation> Parser::parse_string_interpolation() {
       // Parse expression inside {}
       auto expr = parse_expr();
       if (!expr) {
-        m_impl->error("Expected expression in string interpolation", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected expression in string interpolation");
         return std::nullopt;
       }
 
       m_impl->skip_whitespace_and_comments();
 
       if (m_impl->peek() != '}') {
-        m_impl->error("Expected '}' to close interpolated expression", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected '}' to close interpolated expression");
         return std::nullopt;
       }
 
@@ -1177,6 +1198,7 @@ std::optional<ast::String_Interpolation> Parser::parse_string_interpolation() {
 
   // Create AST node
   ast::String_Interpolation result;
+  result.span = m_impl->make_range(start_pos);
   result.parts = std::move(parts);
 
   return result;
@@ -1200,7 +1222,7 @@ std::optional<ast::String> Parser::parse_raw_string() {
   }
 
   if (m_impl->peek() != '"') {
-    m_impl->error("Expected '\"' after raw string prefix", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '\"' after raw string prefix");
     return std::nullopt;
   }
 
@@ -1233,6 +1255,7 @@ std::optional<ast::String> Parser::parse_raw_string() {
         }
 
         ast::String result;
+        result.span = m_impl->make_range(start_pos);
         result.value = std::move(value);
         return result;
       }
@@ -1353,6 +1376,7 @@ std::optional<ast::Char> Parser::parse_char() {
 
   // Create AST node (stores with quotes)
   ast::Char result;
+  result.span = m_impl->make_range(start_pos);
   result.value = std::move(value);
 
   return result;
@@ -1371,7 +1395,7 @@ std::optional<ast::Bool_Literal> Parser::parse_bool_literal() {
       return std::nullopt;
     }
     m_impl->advance(4);  // Consume 'true'
-    return ast::Bool_Literal{true};
+    return ast::Bool_Literal{.span = m_impl->make_range(start_pos), .value = true};
   }
 
   // Try to match "false"
@@ -1382,7 +1406,7 @@ std::optional<ast::Bool_Literal> Parser::parse_bool_literal() {
       return std::nullopt;
     }
     m_impl->advance(5);  // Consume 'false'
-    return ast::Bool_Literal{false};
+    return ast::Bool_Literal{.span = m_impl->make_range(start_pos), .value = false};
   }
 
   m_impl->error("Expected boolean literal 'true' or 'false'", m_impl->make_range(start_pos));
@@ -1401,7 +1425,7 @@ std::optional<ast::Unit_Literal> Parser::parse_unit_literal() {
 
   m_impl->advance(2);  // consume '()'
 
-  return ast::Unit_Literal{};
+  return ast::Unit_Literal{.span = m_impl->make_range(start_pos)};
 }
 
 std::optional<ast::Struct_Literal> Parser::parse_struct_literal() {
@@ -1440,7 +1464,7 @@ std::optional<ast::Struct_Literal> Parser::parse_struct_literal() {
 
       // Parse field name
       if (!is_identifier_start(m_impl->peek())) {
-        m_impl->error("Expected field name", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected field name");
         return std::nullopt;
       }
 
@@ -1462,7 +1486,7 @@ std::optional<ast::Struct_Literal> Parser::parse_struct_literal() {
       // Parse field value expression
       auto value = parse_expr();
       if (!value) {
-        m_impl->error("Expected expression for field value", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected expression for field value");
         return std::nullopt;
       }
 
@@ -1497,6 +1521,7 @@ std::optional<ast::Struct_Literal> Parser::parse_struct_literal() {
   }
 
   ast::Struct_Literal result;
+  result.span = m_impl->make_range(start_pos);
   result.type_name = std::move(type_name);
   result.fields = std::move(fields);
 
@@ -1505,6 +1530,8 @@ std::optional<ast::Struct_Literal> Parser::parse_struct_literal() {
 
 std::optional<ast::Array_Literal> Parser::parse_array_literal() {
   m_impl->skip_whitespace_and_comments();
+
+  auto const start_pos = m_impl->current_position();
 
   // Expect '['
   if (!m_impl->expect('[')) {
@@ -1524,7 +1551,7 @@ std::optional<ast::Array_Literal> Parser::parse_array_literal() {
       // Parse element expression
       auto element = parse_expr();
       if (!element) {
-        m_impl->error("Expected expression in array literal", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected expression in array literal");
         return std::nullopt;
       }
 
@@ -1556,6 +1583,7 @@ std::optional<ast::Array_Literal> Parser::parse_array_literal() {
   }
 
   ast::Array_Literal result;
+  result.span = m_impl->make_range(start_pos);
   result.elements = std::move(elements);
 
   return result;
@@ -1599,6 +1627,7 @@ std::optional<ast::Var_Name> Parser::parse_variable_name() {
   // Field access (obj.field) is handled by parse_postfix_expr()
 
   ast::Var_Name var_name;
+  var_name.span = m_impl->make_range(start_pos);
   var_name.segments = std::move(segments);
   return var_name;
 }
@@ -1712,6 +1741,7 @@ std::optional<ast::Var_Name> Parser::parse_variable_name() {
   }
 
   ast::Var_Name result;
+  result.span = m_impl->make_range(start_pos);
   result.segments = std::move(segments);
   return result;
 }
@@ -1773,7 +1803,7 @@ std::optional<ast::Type_Name> Parser::parse_type_name() {
 
         auto elem_type = parse_type_name();
         if (!elem_type) {
-          m_impl->error("Expected type in tuple type", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected type in tuple type");
           return std::nullopt;
         }
         element_types.push_back(std::move(*elem_type));
@@ -1784,14 +1814,16 @@ std::optional<ast::Type_Name> Parser::parse_type_name() {
         return std::nullopt;
       }
 
-      return ast::Type_Name{ast::make_tuple_type(std::move(element_types))};
+      return ast::Type_Name{
+          ast::Tuple_Type{.span = m_impl->make_range(start_pos), .element_types = std::move(element_types)}
+      };
     }
     if (m_impl->peek() == ')') {
       // Parenthesized type: (T) - just return T
       m_impl->advance();  // consume ')'
       return first_type;
     }
-    m_impl->error("Expected ',' or ')' after type in parentheses", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected ',' or ')' after type in parentheses");
     return std::nullopt;
   }
 
@@ -1819,9 +1851,11 @@ std::optional<ast::Path_Type> Parser::parse_path_type() {
     m_impl->advance(2);  // consume '()'
 
     ast::Type_Name_Segment segment;
+    segment.span = m_impl->make_range(start_pos);
     segment.value = "()";
 
     ast::Path_Type result;
+    result.span = m_impl->make_range(start_pos);
     result.segments.push_back(std::move(segment));
     return result;
   }
@@ -1901,6 +1935,7 @@ std::optional<ast::Path_Type> Parser::parse_path_type() {
   }
 
   ast::Path_Type result;
+  result.span = m_impl->make_range(start_pos);
   result.segments = std::move(segments);
   return result;
 }
@@ -1963,6 +1998,7 @@ std::optional<ast::Function_Type> Parser::parse_function_type() {
   }
 
   ast::Function_Type result;
+  result.span = m_impl->make_range(start_pos);
 
   for (auto& param: param_types) {
     result.param_types.push_back(std::make_shared<ast::Type_Name>(std::move(param)));
@@ -2020,6 +2056,7 @@ std::optional<ast::Array_Type> Parser::parse_array_type() {
   }
 
   ast::Array_Type result;
+  result.span = m_impl->make_range(start_pos);
   result.element_type = std::make_shared<ast::Type_Name>(std::move(*element_type));
   result.size = std::move(size);
 
@@ -2041,6 +2078,7 @@ std::optional<std::vector<ast::Trait_Bound>> Parser::parse_trait_bounds() {
 
   while (true) {
     m_impl->skip_whitespace_and_comments();
+    auto const bound_start = m_impl->current_position();
     auto trait_name = parse_type_name();
     if (!trait_name) {
       m_impl->error("Expected trait name", m_impl->make_range(start_pos));
@@ -2048,6 +2086,7 @@ std::optional<std::vector<ast::Trait_Bound>> Parser::parse_trait_bounds() {
     }
 
     ast::Trait_Bound bound;
+    bound.span = m_impl->make_range(bound_start);
     bound.trait_name = std::move(*trait_name);
     bounds.push_back(std::move(bound));
 
@@ -2081,6 +2120,7 @@ std::optional<ast::Type_Param> Parser::parse_type_param() {
   }
 
   ast::Type_Param result;
+  result.span = m_impl->make_range(start_pos);
   result.name = std::move(*name);
   result.bounds = std::move(*bounds);
 
@@ -2100,6 +2140,8 @@ std::optional<ast::Where_Clause> Parser::parse_where_clause() {
   while (true) {
     m_impl->skip_whitespace_and_comments();
 
+    auto const pred_start = m_impl->current_position();
+
     // Parse type being constrained
     auto type_name = parse_type_name();
     if (!type_name) {
@@ -2114,6 +2156,7 @@ std::optional<ast::Where_Clause> Parser::parse_where_clause() {
     }
 
     ast::Where_Predicate predicate;
+    predicate.span = m_impl->make_range(pred_start);
     predicate.type_name = std::move(*type_name);
     predicate.bounds = std::move(*bounds);
     predicates.push_back(std::move(predicate));
@@ -2128,6 +2171,7 @@ std::optional<ast::Where_Clause> Parser::parse_where_clause() {
   }
 
   ast::Where_Clause result;
+  result.span = m_impl->make_range(start_pos);
   result.predicates = std::move(predicates);
 
   return result;
@@ -2327,7 +2371,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
           auto elem = parse_expr();
           if (!elem) {
-            m_impl->error("Expected expression in tuple literal", m_impl->make_range(m_impl->current_position()));
+            m_impl->error("Expected expression in tuple literal");
             return std::nullopt;
           }
           elements.push_back(std::move(*elem));
@@ -2338,7 +2382,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
           return std::nullopt;
         }
 
-        return ast::Expr{ast::make_tuple_literal(std::move(elements))};
+        return ast::Expr{ast::Tuple_Literal{.span = m_impl->make_range(start_pos), .elements = std::move(elements)}};
       }
       if (m_impl->peek() == ')') {
         // Parenthesized expression: (expr)
@@ -2495,6 +2539,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     ast::Range_Expr range;
+    range.span = m_impl->make_range(start_pos);
     range.start = std::nullopt;  // Unbounded start
     range.end = end_expr ? std::make_optional(std::make_shared<ast::Expr>(std::move(*end_expr))) : std::nullopt;
     range.inclusive = inclusive;
@@ -2511,6 +2556,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     ast::Unary_Expr unary;
+    unary.span = m_impl->make_range(start_pos);
     unary.op = *unary_op;
     unary.operand = std::make_shared<ast::Expr>(std::move(*operand));
     return ast::Expr{std::make_shared<ast::Unary_Expr>(std::move(unary))};
@@ -2521,6 +2567,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 }
 
 [[nodiscard]] std::optional<ast::Expr> Parser::parse_binary_expr(int min_precedence_) {
+  auto const start_pos = m_impl->current_position();
   // Precedence climbing algorithm
   auto lhs = parse_unary_expr();
   if (!lhs) {
@@ -2552,7 +2599,11 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       }
 
       // Build cast expression
-      lhs = ast::Expr{std::make_shared<ast::Cast_Expr>(ast::make_cast_expr(std::move(*lhs), std::move(*target_type)))};
+      ast::Cast_Expr cast_expr;
+      cast_expr.span = m_impl->make_range(start_pos);
+      cast_expr.expr = std::make_shared<ast::Expr>(std::move(*lhs));
+      cast_expr.target_type = std::move(*target_type);
+      lhs = ast::Expr{std::make_shared<ast::Cast_Expr>(std::move(cast_expr))};
       continue;
     }
 
@@ -2584,6 +2635,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
       // Build range expression
       ast::Range_Expr range;
+      range.span = m_impl->make_range(start_pos);
       range.start = std::make_optional(std::make_shared<ast::Expr>(std::move(*lhs)));
       range.end = rhs ? std::make_optional(std::make_shared<ast::Expr>(std::move(*rhs))) : std::nullopt;
       range.inclusive = inclusive;
@@ -2612,6 +2664,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
     // Build binary expression
     ast::Binary_Expr binary;
+    binary.span = m_impl->make_range(start_pos);
     binary.lhs = std::make_shared<ast::Expr>(std::move(*lhs));
     binary.op = *op;
     binary.rhs = std::make_shared<ast::Expr>(std::move(*rhs));
@@ -2623,6 +2676,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 }
 
 [[nodiscard]] std::optional<ast::Expr> Parser::parse_postfix_expr() {
+  auto const postfix_start = m_impl->current_position();
   auto expr = parse_primary_expr();
   if (!expr) {
     return std::nullopt;
@@ -2650,6 +2704,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       }
 
       ast::Field_Access_Expr field_access;
+      field_access.span = m_impl->make_range(postfix_start);
       field_access.object = std::make_shared<ast::Expr>(std::move(*expr));
       field_access.field_name = std::move(field_name);
 
@@ -2693,6 +2748,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       // Handle function call - can be on Var_Name or Field_Access for method calls
       if (auto* var_name = std::get_if<ast::Var_Name>(&*expr)) {
         ast::Func_Call_Expr func_call;
+        func_call.span = m_impl->make_range(postfix_start);
         func_call.name = std::move(*var_name);
         func_call.params = std::move(params);
 
@@ -2713,6 +2769,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
         method_name.segments.push_back(std::move(segment));
 
         ast::Func_Call_Expr func_call;
+        func_call.span = m_impl->make_range(postfix_start);
         func_call.name = std::move(method_name);
         func_call.params = std::move(params);
 
@@ -2723,12 +2780,13 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
         continue;
       }
 
-      m_impl->error("Function call target must be a variable name or field access");
+      m_impl->error("Function call target must be a variable name or field access", m_impl->make_range(postfix_start));
       return std::nullopt;
     }
 
     // Index expression: expr[index]
     if (m_impl->peek() == '[') {
+      auto const index_start = m_impl->current_position();
       m_impl->advance();  // consume '['
       m_impl->skip_whitespace_and_comments();
 
@@ -2744,6 +2802,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       }
 
       ast::Index_Expr index_expr;
+      index_expr.span = m_impl->make_range(index_start);
       index_expr.object = std::make_shared<ast::Expr>(std::move(*expr));
       index_expr.index = std::make_shared<ast::Expr>(std::move(*index));
 
@@ -2799,6 +2858,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
     // Check for 'else if'
     if (m_impl->match_keyword("if")) {
+      auto const else_if_start = m_impl->current_position();
       m_impl->skip_whitespace_and_comments();
       auto else_if_condition = parse_expr();
       if (!else_if_condition) {
@@ -2814,6 +2874,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       }
 
       ast::Else_If_Clause else_if;
+      else_if.span = m_impl->make_range(else_if_start);
       else_if.condition = std::make_shared<ast::Expr>(std::move(*else_if_condition));
       else_if.then_block = std::make_shared<ast::Block>(std::move(*else_if_block));
       else_ifs.push_back(std::move(else_if));
@@ -2833,6 +2894,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::If_Expr result;
+  result.span = m_impl->make_range(start_pos);
   result.condition = std::make_shared<ast::Expr>(std::move(*condition));
   result.then_block = std::make_shared<ast::Block>(std::move(*then_block));
   result.else_ifs = std::move(else_ifs);
@@ -2889,6 +2951,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::Block result;
+  result.span = m_impl->make_range(start_pos);
   result.statements = std::move(statements);
   if (trailing_expr) {
     result.trailing_expr = std::move(*trailing_expr);
@@ -2924,6 +2987,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::While_Expr result;
+  result.span = m_impl->make_range(start_pos);
   result.condition = std::make_shared<ast::Expr>(std::move(*condition));
   result.body = std::make_shared<ast::Block>(std::move(*body));
 
@@ -2982,6 +3046,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::For_Expr result;
+  result.span = m_impl->make_range(start_pos);
   result.pattern = std::move(*pattern);
   result.iterator = std::make_shared<ast::Expr>(std::move(*iterator));
   result.body = std::make_shared<ast::Block>(std::move(*body));
@@ -3022,6 +3087,8 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       break;
     }
 
+    auto const arm_start = m_impl->current_position();
+
     // Parse pattern using full pattern parser
     auto pattern = parse_pattern();
     if (!pattern) {
@@ -3060,6 +3127,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     ast::Match_Arm arm;
+    arm.span = m_impl->make_range(arm_start);
     arm.pattern = std::move(*pattern);
     arm.guard = std::move(guard);
     arm.result = std::make_shared<ast::Expr>(std::move(*result));
@@ -3083,6 +3151,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::Match_Expr result;
+  result.span = m_impl->make_range(start_pos);
   result.scrutinee = std::make_shared<ast::Expr>(std::move(*scrutinee));
   result.arms = std::move(arms);
 
@@ -3233,6 +3302,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::Return_Statement result;
+  result.span = m_impl->make_range(start_pos);
   result.expr = std::move(*expr);
 
   return result;
@@ -3264,6 +3334,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::Break_Statement result;
+  result.span = m_impl->make_range(start_pos);
   result.value = std::move(value);
 
   return result;
@@ -3284,7 +3355,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     return std::nullopt;
   }
 
-  return ast::Continue_Statement{};
+  return ast::Continue_Statement{.span = m_impl->make_range(start_pos)};
 }
 
 [[nodiscard]] std::optional<ast::Func_Param> Parser::parse_func_param() {
@@ -3319,6 +3390,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::Func_Param result;
+  result.span = m_impl->make_range(start_pos);
   result.is_mut = is_mut;
   result.name = std::move(name_result->segments[0].value);
   result.type = std::move(type);
@@ -3339,7 +3411,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   m_impl->skip_whitespace_and_comments();
   auto name_result = parse_variable_name();
   if (!name_result) {
-    m_impl->error("Expected function name after 'fn'", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected function name after 'fn'");
     return std::nullopt;
   }
 
@@ -3373,14 +3445,14 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect('>')) {
-      m_impl->error("Expected '>' to close type parameter list", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected '>' to close type parameter list");
       return std::nullopt;
     }
     m_impl->skip_whitespace_and_comments();
   }
 
   if (!m_impl->expect('(')) {
-    m_impl->error("Expected '(' to start parameter list", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '(' to start parameter list");
     return std::nullopt;
   }
 
@@ -3391,7 +3463,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     while (true) {
       auto param = parse_func_param();
       if (!param) {
-        m_impl->error("Expected function parameter", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected function parameter");
         return std::nullopt;
       }
       func_params.push_back(std::move(*param));
@@ -3407,21 +3479,21 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect(')')) {
-    m_impl->error("Expected ')' to close parameter list", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected ')' to close parameter list");
     return std::nullopt;
   }
 
   m_impl->skip_whitespace_and_comments();
 
   if (!m_impl->expect(':')) {
-    m_impl->error("Expected ':' before return type", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected ':' before return type");
     return std::nullopt;
   }
 
   m_impl->skip_whitespace_and_comments();
   auto return_type = parse_type_name();
   if (!return_type) {
-    m_impl->error("Expected return type after ':'", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected return type after ':'");
     return std::nullopt;
   }
 
@@ -3431,13 +3503,14 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   if (m_impl->match_keyword("where")) {
     auto clause = parse_where_clause();
     if (!clause) {
-      m_impl->error("Expected where clause after 'where'", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected where clause after 'where'");
       return std::nullopt;
     }
     where_clause = std::move(*clause);
   }
 
   ast::Func_Decl result;
+  result.span = m_impl->make_range(start_pos);
   result.name = std::move(name_result->segments[0].value);
   result.type_params = std::move(type_params);
   result.func_params = std::move(func_params);
@@ -3450,6 +3523,8 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 [[nodiscard]] std::optional<ast::Func_Def> Parser::parse_func_def() {
   m_impl->skip_whitespace_and_comments();
 
+  auto const start_pos = m_impl->current_position();
+
   auto decl = parse_func_decl();
   if (!decl) {
     return std::nullopt;
@@ -3458,11 +3533,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   m_impl->skip_whitespace_and_comments();
   auto body = parse_block();
   if (!body) {
-    m_impl->error("Expected function body block", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected function body block");
     return std::nullopt;
   }
 
   ast::Func_Def result;
+  result.span = m_impl->make_range(start_pos);
   result.declaration = std::move(*decl);
   result.body = std::move(*body);
 
@@ -3494,11 +3570,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   m_impl->skip_whitespace_and_comments();
   auto type = parse_type_name();
   if (!type) {
-    m_impl->error("Expected type after ':' in field declaration", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected type after ':' in field declaration");
     return std::nullopt;
   }
 
   ast::Struct_Field result;
+  result.span = m_impl->make_range(start_pos);
   result.is_pub = is_pub;
   result.name = std::move(name->segments[0].value);
   result.type = std::move(*type);
@@ -3520,7 +3597,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   // Parse struct name (just the identifier, not a full type name with type args)
   if (!is_identifier_start(m_impl->peek())) {
-    m_impl->error("Expected struct name after 'struct'", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected struct name after 'struct'");
     return std::nullopt;
   }
 
@@ -3541,7 +3618,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       while (true) {
         auto param = parse_type_param();
         if (!param) {
-          m_impl->error("Expected type parameter in struct definition", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected type parameter in struct definition");
           return std::nullopt;
         }
         type_params.push_back(std::move(*param));
@@ -3557,7 +3634,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect('>')) {
-      m_impl->error("Expected '>' to close type parameter list", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected '>' to close type parameter list");
       return std::nullopt;
     }
     m_impl->skip_whitespace_and_comments();
@@ -3567,7 +3644,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   if (m_impl->match_keyword("where")) {
     auto clause = parse_where_clause();
     if (!clause) {
-      m_impl->error("Expected where clause after 'where'", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected where clause after 'where'");
       return std::nullopt;
     }
     where_clause = std::move(*clause);
@@ -3575,7 +3652,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect('{')) {
-    m_impl->error("Expected '{' to start struct body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '{' to start struct body");
     return std::nullopt;
   }
 
@@ -3585,7 +3662,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   while (m_impl->peek() != '}' && m_impl->pos < m_impl->diagnostics->source().size()) {
     auto field = parse_struct_field();
     if (!field) {
-      m_impl->error("Expected struct field", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected struct field");
       return std::nullopt;
     }
     fields.push_back(std::move(*field));
@@ -3595,17 +3672,18 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       m_impl->advance();
       m_impl->skip_whitespace_and_comments();
     } else if (m_impl->peek() != '}') {
-      m_impl->error("Expected ',' or '}' after struct field", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected ',' or '}' after struct field");
       return std::nullopt;
     }
   }
 
   if (!m_impl->expect('}')) {
-    m_impl->error("Expected '}' to close struct body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '}' to close struct body");
     return std::nullopt;
   }
 
   ast::Struct_Def result;
+  result.span = m_impl->make_range(start_pos);
   result.name = std::move(struct_name);
   result.type_params = std::move(type_params);
   result.fields = std::move(fields);
@@ -3648,7 +3726,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       while (true) {
         auto field_type = parse_type_name();
         if (!field_type) {
-          m_impl->error("Expected type in tuple variant", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected type in tuple variant");
           return std::nullopt;
         }
         tuple_fields.push_back(std::move(*field_type));
@@ -3668,11 +3746,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect(')')) {
-      m_impl->error("Expected ')' to close tuple variant", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected ')' to close tuple variant");
       return std::nullopt;
     }
 
     ast::Tuple_Variant tuple_var;
+    tuple_var.span = m_impl->make_range(start_pos);
     tuple_var.name = std::move(variant_name);
     tuple_var.tuple_fields = std::move(tuple_fields);
 
@@ -3686,7 +3765,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     while (m_impl->peek() != '}' && m_impl->pos < m_impl->diagnostics->source().size()) {
       auto field = parse_struct_field();
       if (!field) {
-        m_impl->error("Expected struct field in variant", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected struct field in variant");
         return std::nullopt;
       }
       struct_fields.push_back(std::move(*field));
@@ -3696,23 +3775,25 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
         m_impl->advance();
         m_impl->skip_whitespace_and_comments();
       } else if (m_impl->peek() != '}') {
-        m_impl->error("Expected ',' or '}' after struct field", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected ',' or '}' after struct field");
         return std::nullopt;
       }
     }
 
     if (!m_impl->expect('}')) {
-      m_impl->error("Expected '}' to close struct variant", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected '}' to close struct variant");
       return std::nullopt;
     }
 
     ast::Struct_Variant struct_var;
+    struct_var.span = m_impl->make_range(start_pos);
     struct_var.name = std::move(variant_name);
     struct_var.struct_fields = std::move(struct_fields);
 
     return ast::Enum_Variant{std::move(struct_var)};
   }
   ast::Unit_Variant unit_var;
+  unit_var.span = m_impl->make_range(start_pos);
   unit_var.name = std::move(variant_name);
   return ast::Enum_Variant{std::move(unit_var)};
 }
@@ -3731,7 +3812,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   // Parse enum name (just the identifier, not a full type name with type args)
   if (!is_identifier_start(m_impl->peek())) {
-    m_impl->error("Expected enum name after 'enum'", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected enum name after 'enum'");
     return std::nullopt;
   }
 
@@ -3752,7 +3833,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       while (true) {
         auto param = parse_type_param();
         if (!param) {
-          m_impl->error("Expected type parameter in enum definition", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected type parameter in enum definition");
           return std::nullopt;
         }
         type_params.push_back(std::move(*param));
@@ -3768,7 +3849,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect('>')) {
-      m_impl->error("Expected '>' to close type parameter list", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected '>' to close type parameter list");
       return std::nullopt;
     }
     m_impl->skip_whitespace_and_comments();
@@ -3778,7 +3859,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   if (m_impl->match_keyword("where")) {
     auto clause = parse_where_clause();
     if (!clause) {
-      m_impl->error("Expected where clause after 'where'", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected where clause after 'where'");
       return std::nullopt;
     }
     where_clause = std::move(*clause);
@@ -3786,7 +3867,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect('{')) {
-    m_impl->error("Expected '{' to start enum body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '{' to start enum body");
     return std::nullopt;
   }
 
@@ -3796,7 +3877,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   while (m_impl->peek() != '}' && m_impl->pos < m_impl->diagnostics->source().size()) {
     auto variant = parse_enum_variant();
     if (!variant) {
-      m_impl->error("Expected enum variant", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected enum variant");
       return std::nullopt;
     }
     variants.push_back(std::move(*variant));
@@ -3806,17 +3887,18 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       m_impl->advance();
       m_impl->skip_whitespace_and_comments();
     } else if (m_impl->peek() != '}') {
-      m_impl->error("Expected ',' or '}' after enum variant", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected ',' or '}' after enum variant");
       return std::nullopt;
     }
   }
 
   if (!m_impl->expect('}')) {
-    m_impl->error("Expected '}' to close enum body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '}' to close enum body");
     return std::nullopt;
   }
 
   ast::Enum_Def result;
+  result.span = m_impl->make_range(start_pos);
   result.name = std::move(enum_name);
   result.type_params = std::move(type_params);
   result.variants = std::move(variants);
@@ -3838,7 +3920,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   m_impl->skip_whitespace_and_comments();
   auto name = parse_type_name();
   if (!name) {
-    m_impl->error("Expected associated type name after 'type'", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected associated type name after 'type'");
     return std::nullopt;
   }
 
@@ -3863,7 +3945,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     while (true) {
       auto bound_type = parse_type_name();
       if (!bound_type) {
-        m_impl->error("Expected trait bound after ':'", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected trait bound after ':'");
         return std::nullopt;
       }
 
@@ -3888,11 +3970,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   m_impl->skip_whitespace_and_comments();
   if (!m_impl->expect(';')) {
-    m_impl->error("Expected ';' after associated type declaration", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected ';' after associated type declaration");
     return std::nullopt;
   }
 
   ast::Assoc_Type_Decl result;
+  result.span = m_impl->make_range(start_pos);
   result.name = path.segments[0].value;
   result.bounds = std::move(bounds);
 
@@ -3913,7 +3996,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   // Parse trait name (just the identifier, not type parameters)
   if (!is_identifier_start(m_impl->peek())) {
-    m_impl->error("Expected trait name after 'trait'", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected trait name after 'trait'");
     return std::nullopt;
   }
 
@@ -3934,7 +4017,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       while (true) {
         auto param = parse_type_param();
         if (!param) {
-          m_impl->error("Expected type parameter in trait definition", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected type parameter in trait definition");
           return std::nullopt;
         }
         type_params.push_back(std::move(*param));
@@ -3950,7 +4033,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect('>')) {
-      m_impl->error("Expected '>' to close type parameter list", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected '>' to close type parameter list");
       return std::nullopt;
     }
     m_impl->skip_whitespace_and_comments();
@@ -3960,7 +4043,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   if (m_impl->match_keyword("where")) {
     auto clause = parse_where_clause();
     if (!clause) {
-      m_impl->error("Expected where clause after 'where'", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected where clause after 'where'");
       return std::nullopt;
     }
     where_clause = std::move(*clause);
@@ -3968,7 +4051,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect('{')) {
-    m_impl->error("Expected '{' to start trait body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '{' to start trait body");
     return std::nullopt;
   }
 
@@ -3983,20 +4066,20 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     if (m_impl->lookahead("type")) {
       auto assoc_type = parse_assoc_type_decl();
       if (!assoc_type) {
-        m_impl->error("Expected associated type declaration", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected associated type declaration");
         return std::nullopt;
       }
       assoc_types.push_back(std::move(*assoc_type));
     } else if (m_impl->lookahead("fn")) {
       auto method = parse_func_decl();
       if (!method) {
-        m_impl->error("Expected method declaration", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected method declaration");
         return std::nullopt;
       }
 
       m_impl->skip_whitespace_and_comments();
       if (!m_impl->expect(';')) {
-        m_impl->error("Expected ';' after method declaration in trait", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected ';' after method declaration in trait");
         return std::nullopt;
       }
 
@@ -4010,11 +4093,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect('}')) {
-    m_impl->error("Expected '}' to close trait body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '}' to close trait body");
     return std::nullopt;
   }
 
   ast::Trait_Def result;
+  result.span = m_impl->make_range(start_pos);
   result.name = std::move(trait_name);
   result.type_params = std::move(type_params);
   result.assoc_types = std::move(assoc_types);
@@ -4038,7 +4122,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   // Parse type alias name (just the identifier)
   if (!is_identifier_start(m_impl->peek())) {
-    m_impl->error("Expected type alias name after 'type'", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected type alias name after 'type'");
     return std::nullopt;
   }
 
@@ -4059,7 +4143,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       while (true) {
         auto param = parse_type_param();
         if (!param) {
-          m_impl->error("Expected type parameter in type alias", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected type parameter in type alias");
           return std::nullopt;
         }
         type_params.push_back(std::move(*param));
@@ -4075,31 +4159,32 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect('>')) {
-      m_impl->error("Expected '>' to close type parameter list", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected '>' to close type parameter list");
       return std::nullopt;
     }
     m_impl->skip_whitespace_and_comments();
   }
 
   if (!m_impl->expect('=')) {
-    m_impl->error("Expected '=' in type alias definition", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '=' in type alias definition");
     return std::nullopt;
   }
 
   m_impl->skip_whitespace_and_comments();
   auto aliased_type = parse_type_name();
   if (!aliased_type) {
-    m_impl->error("Expected type after '=' in type alias", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected type after '=' in type alias");
     return std::nullopt;
   }
 
   m_impl->skip_whitespace_and_comments();
   if (!m_impl->expect(';')) {
-    m_impl->error("Expected ';' after type alias definition", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected ';' after type alias definition");
     return std::nullopt;
   }
 
   ast::Type_Alias result;
+  result.span = m_impl->make_range(start_pos);
   result.name = std::move(alias_name);
   result.type_params = std::move(type_params);
   result.aliased_type = std::move(*aliased_type);
@@ -4128,7 +4213,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       while (true) {
         auto param = parse_type_param();
         if (!param) {
-          m_impl->error("Expected type parameter in impl block", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected type parameter in impl block");
           return std::nullopt;
         }
         type_params.push_back(std::move(*param));
@@ -4144,7 +4229,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect('>')) {
-      m_impl->error("Expected '>' to close type parameter list", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected '>' to close type parameter list");
       return std::nullopt;
     }
     m_impl->skip_whitespace_and_comments();
@@ -4152,7 +4237,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   auto type_name = parse_type_name();
   if (!type_name) {
-    m_impl->error("Expected type name in impl block", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected type name in impl block");
     return std::nullopt;
   }
 
@@ -4162,7 +4247,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   if (m_impl->match_keyword("where")) {
     auto clause = parse_where_clause();
     if (!clause) {
-      m_impl->error("Expected where clause after 'where'", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected where clause after 'where'");
       return std::nullopt;
     }
     where_clause = std::move(*clause);
@@ -4170,7 +4255,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect('{')) {
-    m_impl->error("Expected '{' to start impl block body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '{' to start impl block body");
     return std::nullopt;
   }
 
@@ -4186,7 +4271,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
     auto method = parse_func_def();
     if (!method) {
-      m_impl->error("Expected method definition in impl block", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected method definition in impl block");
       return std::nullopt;
     }
     method->is_pub = is_pub;
@@ -4195,11 +4280,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect('}')) {
-    m_impl->error("Expected '}' to close impl block body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '}' to close impl block body");
     return std::nullopt;
   }
 
   ast::Impl_Block result;
+  result.span = m_impl->make_range(start_pos);
   result.type_name = std::move(*type_name);
   result.type_params = std::move(type_params);
   result.methods = std::move(methods);
@@ -4221,7 +4307,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   m_impl->skip_whitespace_and_comments();
   auto name = parse_type_name();
   if (!name) {
-    m_impl->error("Expected associated type name after 'type'", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected associated type name after 'type'");
     return std::nullopt;
   }
 
@@ -4238,7 +4324,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   m_impl->skip_whitespace_and_comments();
   if (!m_impl->expect('=')) {
-    m_impl->error("Expected '=' in associated type implementation", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '=' in associated type implementation");
     return std::nullopt;
   }
 
@@ -4254,11 +4340,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   m_impl->skip_whitespace_and_comments();
   if (!m_impl->expect(';')) {
-    m_impl->error("Expected ';' after associated type implementation", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected ';' after associated type implementation");
     return std::nullopt;
   }
 
   ast::Assoc_Type_Impl result;
+  result.span = m_impl->make_range(start_pos);
   result.name = path.segments[0].value;
   result.type_value = std::move(*type_value);
 
@@ -4286,7 +4373,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       while (true) {
         auto param = parse_type_param();
         if (!param) {
-          m_impl->error("Expected type parameter in trait impl", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected type parameter in trait impl");
           return std::nullopt;
         }
         type_params.push_back(std::move(*param));
@@ -4302,7 +4389,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect('>')) {
-      m_impl->error("Expected '>' to close type parameter list", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected '>' to close type parameter list");
       return std::nullopt;
     }
     m_impl->skip_whitespace_and_comments();
@@ -4310,7 +4397,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   auto trait_name = parse_type_name();
   if (!trait_name) {
-    m_impl->error("Expected trait name in trait impl", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected trait name in trait impl");
     return std::nullopt;
   }
 
@@ -4325,7 +4412,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   m_impl->skip_whitespace_and_comments();
   auto type_name = parse_type_name();
   if (!type_name) {
-    m_impl->error("Expected type name after 'for' in trait impl", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected type name after 'for' in trait impl");
     return std::nullopt;
   }
 
@@ -4335,7 +4422,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   if (m_impl->match_keyword("where")) {
     auto clause = parse_where_clause();
     if (!clause) {
-      m_impl->error("Expected where clause after 'where'", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected where clause after 'where'");
       return std::nullopt;
     }
     where_clause = std::move(*clause);
@@ -4343,7 +4430,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect('{')) {
-    m_impl->error("Expected '{' to start trait impl body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '{' to start trait impl body");
     return std::nullopt;
   }
 
@@ -4358,14 +4445,14 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     if (m_impl->lookahead("type")) {
       auto assoc_type = parse_assoc_type_impl();
       if (!assoc_type) {
-        m_impl->error("Expected associated type implementation", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected associated type implementation");
         return std::nullopt;
       }
       assoc_type_impls.push_back(std::move(*assoc_type));
     } else if (m_impl->lookahead("fn")) {
       auto method = parse_func_def();
       if (!method) {
-        m_impl->error("Expected method definition", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected method definition");
         return std::nullopt;
       }
       methods.push_back(std::move(*method));
@@ -4378,11 +4465,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect('}')) {
-    m_impl->error("Expected '}' to close trait impl body", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '}' to close trait impl body");
     return std::nullopt;
   }
 
   ast::Trait_Impl result;
+  result.span = m_impl->make_range(start_pos);
   result.trait_name = std::move(*trait_name);
   result.type_name = std::move(*type_name);
   result.type_params = std::move(type_params);
@@ -4400,7 +4488,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   if (m_impl->peek() == '_') {
     m_impl->advance();
-    return ast::Pattern{ast::Wildcard_Pattern{}};
+    return ast::Pattern{ast::Wildcard_Pattern{.span = m_impl->make_range(start_pos)}};
   }
 
   if (m_impl->peek() == '(') {
@@ -4412,7 +4500,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       while (true) {
         auto element = parse_pattern();
         if (!element) {
-          m_impl->error("Expected pattern in tuple", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected pattern in tuple");
           return std::nullopt;
         }
         elements.push_back(std::make_shared<ast::Pattern>(std::move(*element)));
@@ -4428,11 +4516,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect(')')) {
-      m_impl->error("Expected ')' to close tuple pattern", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected ')' to close tuple pattern");
       return std::nullopt;
     }
 
     ast::Tuple_Pattern tuple_pat;
+    tuple_pat.span = m_impl->make_range(start_pos);
     tuple_pat.elements = std::move(elements);
     return ast::Pattern{std::move(tuple_pat)};
   }
@@ -4443,11 +4532,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       (m_impl->lookahead("false") && !is_identifier_continue(m_impl->peek(5)))) {
     auto expr = parse_primary_expr();
     if (!expr) {
-      m_impl->error("Expected literal in pattern", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected literal in pattern");
       return std::nullopt;
     }
 
     ast::Literal_Pattern lit_pat;
+    lit_pat.span = m_impl->make_range(start_pos);
     lit_pat.value = std::make_shared<ast::Expr>(std::move(*expr));
     return ast::Pattern{std::move(lit_pat)};
   }
@@ -4468,7 +4558,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       while (true) {
         auto pattern = parse_pattern();
         if (!pattern) {
-          m_impl->error("Expected pattern in enum variant", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected pattern in enum variant");
           return std::nullopt;
         }
         patterns.push_back(std::make_shared<ast::Pattern>(std::move(*pattern)));
@@ -4484,11 +4574,12 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     }
 
     if (!m_impl->expect(')')) {
-      m_impl->error("Expected ')' to close enum pattern", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected ')' to close enum pattern");
       return std::nullopt;
     }
 
     ast::Enum_Pattern enum_pat;
+    enum_pat.span = m_impl->make_range(start_pos);
     enum_pat.type_name = std::move(*name);
     enum_pat.patterns = std::move(patterns);
     return ast::Pattern{std::move(enum_pat)};
@@ -4507,10 +4598,11 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
       has_rest = true;
       m_impl->skip_whitespace_and_comments();
       if (!m_impl->expect('}')) {
-        m_impl->error("Expected '}' after '..' in struct pattern", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected '}' after '..' in struct pattern");
         return std::nullopt;
       }
       ast::Struct_Pattern struct_pat;
+      struct_pat.span = m_impl->make_range(start_pos);
       struct_pat.type_name = std::move(*name);
       struct_pat.fields = std::move(fields);
       struct_pat.has_rest = has_rest;
@@ -4538,7 +4630,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
       // Parse field name
       if (!is_identifier_start(m_impl->peek())) {
-        m_impl->error("Expected field name in struct pattern", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected field name in struct pattern");
         return std::nullopt;
       }
 
@@ -4564,7 +4656,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
         m_impl->skip_whitespace_and_comments();
         auto pattern = parse_pattern();
         if (!pattern) {
-          m_impl->error("Expected pattern after ':' in field pattern", m_impl->make_range(m_impl->current_position()));
+          m_impl->error("Expected pattern after ':' in field pattern");
           return std::nullopt;
         }
         field_pattern = std::move(*pattern);
@@ -4593,17 +4685,18 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
           break;
         }
       } else if (m_impl->peek() != '}' && (m_impl->peek() != '.' || m_impl->peek(1) != '.')) {
-        m_impl->error("Expected ',' or '}' after field pattern", m_impl->make_range(m_impl->current_position()));
+        m_impl->error("Expected ',' or '}' after field pattern");
         return std::nullopt;
       }
     }
 
     if (!m_impl->expect('}')) {
-      m_impl->error("Expected '}' to close struct pattern", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected '}' to close struct pattern");
       return std::nullopt;
     }
 
     ast::Struct_Pattern struct_pat;
+    struct_pat.span = m_impl->make_range(start_pos);
     struct_pat.type_name = std::move(*name);
     struct_pat.fields = std::move(fields);
     struct_pat.has_rest = has_rest;
@@ -4622,11 +4715,13 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::Simple_Pattern simple_pat;
+  simple_pat.span = m_impl->make_range(start_pos);
   simple_pat.name = path.segments[0].value;
   return ast::Pattern{std::move(simple_pat)};
 }
 
 [[nodiscard]] std::optional<ast::Pattern> Parser::parse_pattern() {
+  auto const start_pos = m_impl->current_position();
   // Parse first pattern
   auto first = parse_single_pattern();
   if (!first) {
@@ -4649,7 +4744,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
     auto alternative = parse_single_pattern();
     if (!alternative) {
-      m_impl->error("Expected pattern after '|'", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected pattern after '|'");
       return std::nullopt;
     }
 
@@ -4658,6 +4753,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   ast::Or_Pattern or_pat;
+  or_pat.span = m_impl->make_range(start_pos);
   or_pat.alternatives = std::move(alternatives);
   return ast::Pattern{std::move(or_pat)};
 }
@@ -4682,7 +4778,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   auto pattern = parse_pattern();
   if (!pattern) {
-    m_impl->error("Expected pattern after 'let'", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected pattern after 'let'");
     return std::nullopt;
   }
 
@@ -4694,7 +4790,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
     m_impl->skip_whitespace_and_comments();
     auto type_result = parse_type_name();
     if (!type_result) {
-      m_impl->error("Expected type after ':' in let statement", m_impl->make_range(m_impl->current_position()));
+      m_impl->error("Expected type after ':' in let statement");
       return std::nullopt;
     }
     type = std::move(*type_result);
@@ -4702,24 +4798,25 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
   }
 
   if (!m_impl->expect('=')) {
-    m_impl->error("Expected '=' in let statement", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected '=' in let statement");
     return std::nullopt;
   }
 
   m_impl->skip_whitespace_and_comments();
   auto value = parse_expr();
   if (!value) {
-    m_impl->error("Expected expression after '=' in let statement", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected expression after '=' in let statement");
     return std::nullopt;
   }
 
   m_impl->skip_whitespace_and_comments();
   if (!m_impl->expect(';')) {
-    m_impl->error("Expected ';' after let statement", m_impl->make_range(m_impl->current_position()));
+    m_impl->error("Expected ';' after let statement");
     return std::nullopt;
   }
 
   ast::Let_Statement result;
+  result.span = m_impl->make_range(start_pos);
   result.is_mut = is_mut;
   result.pattern = std::move(*pattern);
   result.type = std::move(type);
@@ -4765,6 +4862,7 @@ std::optional<ast::Expr> Parser::parse_primary_expr() {
 
   // Build assignment statement
   ast::Assignment_Statement assignment;
+  assignment.span = m_impl->make_range(start_pos);
   assignment.target = std::make_shared<ast::Expr>(std::move(*lhs));
   assignment.value = std::make_shared<ast::Expr>(std::move(*rhs));
 
